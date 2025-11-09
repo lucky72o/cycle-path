@@ -65,7 +65,7 @@ export default function NavBar({ navigationItems }: { navigationItems: Navigatio
                     'ml-2 text-xs': isScrolled,
                   })}
                 >
-                  Your SaaS
+                  Cycle Monitor
                 </span>
               </WaspRouterLink>
 
@@ -152,7 +152,7 @@ function NavBarMobileMenu({
           <SheetHeader>
             <SheetTitle className='flex items-center'>
               <WaspRouterLink to={routes.LandingPageRoute.to}>
-                <span className='sr-only'>Your SaaS</span>
+                <span className='sr-only'>Cycle Monitor</span>
                 <NavLogo isScrolled={false} />
               </WaspRouterLink>
             </SheetTitle>
@@ -218,6 +218,6 @@ const NavLogo = ({ isScrolled }: { isScrolled: boolean }) => (
       'size-7': isScrolled,
     })}
     src={logo}
-    alt='Your SaaS App'
+    alt='Cycle Monitor'
   />
 );

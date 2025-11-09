@@ -10,12 +10,12 @@ export default defineConfig({
   trailingSlash: 'always',
   integrations: [
     starlight({
-      title: 'Your SaaS',
+      title: 'Cycle Monitor',
       customCss: ['./src/styles/tailwind.css'],
-      description: 'Documentation for your SaaS.',
+      description: 'Documentation for Cycle Monitor.',
       logo: {
         src: '/src/assets/logo.webp',
-        alt: 'Your SaaS',
+        alt: 'Cycle Monitor',
       },
       head: [
         // Add your script tags here. Below is an example for Google analytics, etc.
@@ -77,9 +77,9 @@ export default defineConfig({
           authors: {
             Dev: {
               name: 'Dev',
-              title: 'Dev @ Your SaaS',
+              title: 'Dev @ Cycle Monitor',
               picture: '/CRAIG_ROCK.png', // Images in the `public` directory are supported.
-              url: 'https://your-site.com',
+              url: 'https://cyclemonitor.com',
             },
           },
         }),

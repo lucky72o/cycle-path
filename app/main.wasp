@@ -68,7 +68,7 @@ app CycleMonitor {
       // }
     },
     onAuthFailedRedirectTo: "/login",
-    onAuthSucceededRedirectTo: "/demo-app",
+    onAuthSucceededRedirectTo: "/cycles",
   },
 
   db: {
@@ -302,5 +302,92 @@ route AdminMessagesRoute { path: "/admin/messages", to: AdminMessagesPage }
 page AdminMessagesPage {
   authRequired: true,
   component: import AdminMessages from "@src/admin/dashboards/messages/MessagesPage"
+}
+//#endregion
+
+//#region Cycle Tracking
+route CyclesRoute { path: "/cycles", to: CyclesPage }
+page CyclesPage {
+  authRequired: true,
+  component: import CyclesPage from "@src/cycle-tracking/CyclesPage"
+}
+
+route AddCycleDayRoute { path: "/cycles/:cycleId/add-day", to: AddCycleDayPage }
+page AddCycleDayPage {
+  authRequired: true,
+  component: import AddCycleDayPage from "@src/cycle-tracking/AddCycleDayPage"
+}
+
+route CycleDaysRoute { path: "/cycles/:cycleId/days", to: CycleDaysPage }
+page CycleDaysPage {
+  authRequired: true,
+  component: import CycleDaysPage from "@src/cycle-tracking/CycleDaysPage"
+}
+
+route CycleChartRoute { path: "/cycles/:cycleId/chart", to: CycleChartPage }
+page CycleChartPage {
+  authRequired: true,
+  component: import CycleChartPage from "@src/cycle-tracking/CycleChartPage"
+}
+
+route SettingsRoute { path: "/settings", to: SettingsPage }
+page SettingsPage {
+  authRequired: true,
+  component: import SettingsPage from "@src/cycle-tracking/SettingsPage"
+}
+
+query getUserCycles {
+  fn: import { getUserCycles } from "@src/cycle-tracking/operations",
+  entities: [Cycle, CycleDay]
+}
+
+query getCycleById {
+  fn: import { getCycleById } from "@src/cycle-tracking/operations",
+  entities: [Cycle, CycleDay]
+}
+
+query getCycleDays {
+  fn: import { getCycleDays } from "@src/cycle-tracking/operations",
+  entities: [Cycle, CycleDay]
+}
+
+query getUserSettings {
+  fn: import { getUserSettings } from "@src/cycle-tracking/operations",
+  entities: [User, UserSettings]
+}
+
+action createCycle {
+  fn: import { createCycle } from "@src/cycle-tracking/operations",
+  entities: [User, Cycle]
+}
+
+action createOrUpdateCycleDay {
+  fn: import { createOrUpdateCycleDay } from "@src/cycle-tracking/operations",
+  entities: [Cycle, CycleDay]
+}
+
+action updateUserTemperaturePreference {
+  fn: import { updateUserTemperaturePreference } from "@src/cycle-tracking/operations",
+  entities: [User, UserSettings]
+}
+
+action endCycle {
+  fn: import { endCycle } from "@src/cycle-tracking/operations",
+  entities: [Cycle]
+}
+
+action deleteCycle {
+  fn: import { deleteCycle } from "@src/cycle-tracking/operations",
+  entities: [Cycle, CycleDay]
+}
+
+action updateCycle {
+  fn: import { updateCycle } from "@src/cycle-tracking/operations",
+  entities: [Cycle]
+}
+
+action deleteCycleDay {
+  fn: import { deleteCycleDay } from "@src/cycle-tracking/operations",
+  entities: [CycleDay]
 }
 //#endregion

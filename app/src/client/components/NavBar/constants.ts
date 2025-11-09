@@ -14,6 +14,7 @@ export const marketingNavigationItems: NavigationItem[] = [
 ] as const;
 
 export const demoNavigationitems: NavigationItem[] = [
+  { name: 'My Cycles', to: routes.CyclesRoute.to },
   // { name: 'AI Scheduler', to: routes.DemoAppRoute.to },
   // { name: 'File Upload', to: routes.FileUploadRoute.to },
   // { name: 'Pricing', to: routes.PricingPageRoute.to },
