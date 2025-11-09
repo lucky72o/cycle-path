@@ -60,6 +60,19 @@ export default function CycleChartPage() {
     
     const tempUnit = settings.temperatureUnit === 'CELSIUS' ? '°C' : '°F';
     
+    // Set Y-axis range and intervals based on temperature unit
+    const yAxisConfig = settings.temperatureUnit === 'CELSIUS' ? {
+      min: 35.4,
+      max: 38.6,
+      tickAmount: 16, // Creates 16 intervals of 0.2 degrees (35.4 to 38.6)
+      decimalsInFloat: 1
+    } : {
+      min: 95.72,
+      max: 101.48,
+      tickAmount: 16, // Creates 16 intervals of ~0.36 degrees (95.72 to 101.48)
+      decimalsInFloat: 2
+    };
+    
     return {
       chart: {
         type: 'line',
@@ -94,8 +107,17 @@ export default function CycleChartPage() {
         title: {
           text: `Temperature (${tempUnit})`
         },
+        min: yAxisConfig.min,
+        max: yAxisConfig.max,
+        tickAmount: yAxisConfig.tickAmount,
+        decimalsInFloat: yAxisConfig.decimalsInFloat,
         labels: {
-          formatter: (value: number) => value.toFixed(2)
+          formatter: (value: number) => {
+            // Format based on unit (Celsius: 1 decimal, Fahrenheit: 2 decimals)
+            return settings.temperatureUnit === 'CELSIUS' 
+              ? value.toFixed(1) 
+              : value.toFixed(2);
+          }
         }
       },
       tooltip: {
