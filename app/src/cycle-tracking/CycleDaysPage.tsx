@@ -67,7 +67,11 @@ export default function CycleDaysPage() {
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>All Cycle Days</CardTitle>
+          <div className="flex justify-end items-center">
+            <Link to={`/cycles/${cycle.id}/add-day`}>
+              <Button>Add Cycle Day</Button>
+            </Link>
+          </div>
         </CardHeader>
         <CardContent>
           {cycle.days.length > 0 ? (
