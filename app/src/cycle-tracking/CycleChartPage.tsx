@@ -56,20 +56,20 @@ export default function CycleChartPage() {
   }, [daysWithBBT, settings]);
 
   const chartOptions: ApexOptions = useMemo(() => {
-    if (!settings) return {};
+    if (!settings || !cycle) return {};
     
     const tempUnit = settings.temperatureUnit === 'CELSIUS' ? '°C' : '°F';
     
     // Set Y-axis range and intervals based on temperature unit
     const yAxisConfig = settings.temperatureUnit === 'CELSIUS' ? {
-      min: 35.4,
-      max: 38.6,
-      tickAmount: 16, // Creates 16 intervals of 0.2 degrees (35.4 to 38.6)
+      min: 36.4,
+      max: 37.6,
+      tickAmount: 12, // Creates 12 intervals of 0.1 degrees (36.4 to 37.6)
       decimalsInFloat: 1
     } : {
-      min: 95.72,
-      max: 101.48,
-      tickAmount: 16, // Creates 16 intervals of ~0.36 degrees (95.72 to 101.48)
+      min: 97.52,
+      max: 99.68,
+      tickAmount: 12, // Creates 12 intervals of 0.18 degrees (97.52 to 99.68)
       decimalsInFloat: 2
     };
     
@@ -78,10 +78,29 @@ export default function CycleChartPage() {
         type: 'line',
         height: 400,
         toolbar: {
-          show: true
+          show: true,
+          tools: {
+            customIcons: [
+              {
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>',
+                index: -1, // Places it before the menu button
+                title: 'Add a day',
+                class: 'custom-icon-add-day',
+                click: function() {
+                  navigate(`/cycles/${cycle.id}/add-day`);
+                }
+              }
+            ]
+          }
         },
         zoom: {
           enabled: true
+        }
+      },
+      grid: {
+        padding: {
+          left: 20, // Add space between temperature readings and the left edge
+          right: 10
         }
       },
       stroke: {
@@ -96,11 +115,26 @@ export default function CycleChartPage() {
       },
       xaxis: {
         title: {
-          text: 'Cycle Day'
+          text: 'Cycle Day',
+          offsetY: -10,
+          style: {
+            fontSize: '14px',
+            fontWeight: 600
+          }
         },
         categories: chartData?.categories || [],
+        position: 'top',
         labels: {
-          formatter: (value: string) => `Day ${value}`
+          formatter: (value: string) => value, // Show just the number
+          offsetY: -5
+        },
+        axisBorder: {
+          show: true,
+          offsetY: -1
+        },
+        axisTicks: {
+          show: true,
+          offsetY: -1
         }
       },
       yaxis: {
@@ -165,7 +199,7 @@ export default function CycleChartPage() {
           .filter(Boolean) as any[] || []
       }
     };
-  }, [settings, chartData, daysWithBBT, cycle]);
+  }, [settings, chartData, daysWithBBT, cycle, navigate]);
 
   const prevCycle = useMemo(() => {
     if (!cycle || !allCycles) return null;
