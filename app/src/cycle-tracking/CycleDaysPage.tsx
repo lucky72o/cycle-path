@@ -118,7 +118,7 @@ export default function CycleDaysPage() {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex gap-2">
-                          <Link to={`/cycles/${cycle.id}/add-day`}>
+                          <Link to={`/cycles/${cycle.id}/add-day?dayId=${day.id}`}>
                             <Button size="sm" variant="ghost">Edit</Button>
                           </Link>
                           <Button 

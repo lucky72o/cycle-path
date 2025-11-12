@@ -1,18 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from 'wasp/client/operations';
 import { getCycleById, getUserSettings } from 'wasp/client/operations';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
-import { formatDateForInput, convertToFahrenheitForStorage } from './utils';
+import { formatDateForInput, convertToFahrenheitForStorage, fahrenheitToCelsius } from './utils';
 import SideNav from './SideNav';
 
 export default function AddCycleDayPage() {
   const { cycleId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const dayId = searchParams.get('dayId');
   
   const { data: cycle, isLoading: cycleLoading } = useQuery(getCycleById, { cycleId: cycleId || '' }, { enabled: !!cycleId });
   const { data: settings, isLoading: settingsLoading } = useQuery(getUserSettings);
@@ -23,6 +25,30 @@ export default function AddCycleDayPage() {
   const [hadIntercourse, setHadIntercourse] = useState(false);
   const [excludeFromInterpretation, setExcludeFromInterpretation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Find the existing day if we're editing
+  const existingDay = dayId && cycle 
+    ? cycle.days.find((d: any) => d.id === dayId)
+    : null;
+
+  // Pre-populate form when editing an existing day
+  useEffect(() => {
+    if (existingDay && settings) {
+      setDate(formatDateForInput(new Date(existingDay.date)));
+      
+      // Convert temperature to user's preferred unit for display
+      if (existingDay.bbt) {
+        const tempForDisplay = settings.temperatureUnit === 'CELSIUS'
+          ? fahrenheitToCelsius(existingDay.bbt).toFixed(2)
+          : existingDay.bbt.toFixed(2);
+        setBbt(tempForDisplay);
+      }
+      
+      setBbtTime(existingDay.bbtTime || '');
+      setHadIntercourse(existingDay.hadIntercourse || false);
+      setExcludeFromInterpretation(existingDay.excludeFromInterpretation || false);
+    }
+  }, [existingDay, settings]);
 
   // Calculate suggested next day number
   const suggestedDayNumber = cycle && cycle.days.length > 0
@@ -52,14 +78,16 @@ export default function AddCycleDayPage() {
         excludeFromInterpretation
       });
 
-      // Reset form
-      setBbt('');
-      setBbtTime('');
-      setHadIntercourse(false);
-      setExcludeFromInterpretation(false);
+      // Reset form (only if adding, not editing)
+      if (!existingDay) {
+        setBbt('');
+        setBbtTime('');
+        setHadIntercourse(false);
+        setExcludeFromInterpretation(false);
+      }
       
-      // Redirect to chart page
-      navigate(`/cycles/${cycleId}/chart`);
+      // Redirect to days page
+      navigate(`/cycles/${cycleId}/days`);
     } catch (err: any) {
       console.error('Failed to save cycle day:', err);
       alert(err.message || 'Failed to save cycle day');
@@ -102,9 +130,12 @@ export default function AddCycleDayPage() {
       <SideNav />
       <div className="flex-1 p-8 max-w-4xl">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Cycle #{cycle.cycleNumber}: Add Daily Entry</h1>
+        <h1 className="text-3xl font-bold mb-2">
+          Cycle #{cycle.cycleNumber}: {existingDay ? 'Edit' : 'Add'} Daily Entry
+        </h1>
         <p className="text-muted-foreground">
           Started: {new Date(cycle.startDate).toLocaleDateString()}
+          {existingDay && ` • Editing Day ${existingDay.dayNumber}`}
         </p>
       </div>
 
@@ -185,9 +216,9 @@ export default function AddCycleDayPage() {
 
             <div className="flex gap-4">
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Saving...' : 'Save Entry'}
+                {isSubmitting ? 'Saving...' : existingDay ? 'Update Entry' : 'Save Entry'}
               </Button>
-              <Link to={`/cycles/${cycle.id}/chart`}>
+              <Link to={`/cycles/${cycle.id}/days`}>
                 <Button type="button" variant="outline">Cancel</Button>
               </Link>
             </div>

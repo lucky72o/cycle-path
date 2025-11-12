@@ -124,9 +124,13 @@ export default function CycleChartPage() {
         },
         categories: chartData?.categories || [],
         position: 'top',
+        tickAmount: chartData?.categories.length || undefined, // Show all cycle days with uniform spacing
         labels: {
           formatter: (value: string) => value, // Show just the number
-          offsetY: -5
+          offsetY: -5,
+          rotate: 0,
+          trim: false,
+          hideOverlappingLabels: false // Ensure all labels show
         },
         axisBorder: {
           show: true,
