@@ -55,21 +55,44 @@ export default function CycleChartPage() {
     };
   }, [daysWithBBT, settings]);
 
+  // Calculate dynamic Y-axis range based on actual data
+  const yAxisRange = useMemo(() => {
+    if (!chartData || !settings) return null;
+
+    const temperatures = chartData.series[0].data;
+    
+    if (temperatures.length === 0) return null;
+
+    const actualMin = Math.min(...temperatures);
+    const actualMax = Math.max(...temperatures);
+
+    // Default ranges
+    const defaultRange = settings.temperatureUnit === 'CELSIUS' 
+      ? { min: 36.0, max: 37.5 }
+      : { min: 96.8, max: 99.5 }; // Equivalent Fahrenheit range
+
+    // Use the wider range to ensure all data points are visible
+    const min = Math.min(defaultRange.min, actualMin);
+    const max = Math.max(defaultRange.max, actualMax);
+
+    return { min, max };
+  }, [chartData, settings]);
+
   const chartOptions: ApexOptions = useMemo(() => {
-    if (!settings || !cycle) return {};
+    if (!settings || !cycle || !yAxisRange) return {};
     
     const tempUnit = settings.temperatureUnit === 'CELSIUS' ? '°C' : '°F';
     
     // Set Y-axis range and intervals based on temperature unit
     const yAxisConfig = settings.temperatureUnit === 'CELSIUS' ? {
-      min: 36.4,
-      max: 37.6,
-      tickAmount: 12, // Creates 12 intervals of 0.1 degrees (36.4 to 37.6)
+      min: yAxisRange.min,
+      max: yAxisRange.max,
+      tickAmount: 12, // Creates intervals for smooth display
       decimalsInFloat: 1
     } : {
-      min: 97.52,
-      max: 99.68,
-      tickAmount: 12, // Creates 12 intervals of 0.18 degrees (97.52 to 99.68)
+      min: yAxisRange.min,
+      max: yAxisRange.max,
+      tickAmount: 12, // Creates intervals for smooth display
       decimalsInFloat: 2
     };
     
@@ -203,7 +226,7 @@ export default function CycleChartPage() {
           .filter(Boolean) as any[] || []
       }
     };
-  }, [settings, chartData, daysWithBBT, cycle, navigate]);
+  }, [settings, chartData, daysWithBBT, cycle, navigate, yAxisRange]);
 
   const prevCycle = useMemo(() => {
     if (!cycle || !allCycles) return null;
