@@ -200,7 +200,7 @@ export default function CycleChartPage() {
         },
         min: chartData?.minDay || 1,
         max: chartData?.maxDay || 1,
-        tickAmount: Math.min(chartData?.maxDay || 1, 30), // Limit to 30 ticks max for readability
+        tickAmount: (chartData?.maxDay || 1) - 1, // Show all days (tickAmount is intervals, not total ticks)
         position: 'top',
         labels: {
           formatter: (value: string) => Math.round(Number(value)).toString(), // Show whole numbers only
