@@ -1,0 +1,9 @@
+# Claude Code
+.claude/settings.local.json
+.claude/cache/
+.claude/*.log
+.idea
+.DS_Store
+
+.env
+
