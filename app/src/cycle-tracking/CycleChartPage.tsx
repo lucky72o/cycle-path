@@ -128,15 +128,19 @@ export default function CycleChartPage() {
     const tempUnit = settings.temperatureUnit === 'CELSIUS' ? '°C' : '°F';
     
     // Set Y-axis range and intervals based on temperature unit
+    // Calculate tickAmount dynamically to show 0.1 degree increments
+    const tempRange = yAxisRange.max - yAxisRange.min;
+    const tickAmount = Math.round(tempRange / 0.1);
+    
     const yAxisConfig = settings.temperatureUnit === 'CELSIUS' ? {
       min: yAxisRange.min,
       max: yAxisRange.max,
-      tickAmount: 12, // Creates intervals for smooth display
+      tickAmount: tickAmount,
       decimalsInFloat: 1
     } : {
       min: yAxisRange.min,
       max: yAxisRange.max,
-      tickAmount: 12, // Creates intervals for smooth display
+      tickAmount: tickAmount,
       decimalsInFloat: 2
     };
     
