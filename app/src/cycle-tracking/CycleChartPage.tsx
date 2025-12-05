@@ -27,51 +27,95 @@ export default function CycleChartPage() {
     }
   }, [cycleId, allCycles, navigate]);
 
-  const daysWithBBT = useMemo(() => {
+  // Separate included and excluded BBT days
+  const allDaysWithBBT = useMemo(() => {
     if (!cycle) return [];
-    return cycle.days.filter((day: any) => day.bbt !== null && !day.excludeFromInterpretation);
+    return cycle.days.filter((day: any) => day.bbt !== null);
   }, [cycle]);
 
+  const includedBBTDays = useMemo(() => {
+    return allDaysWithBBT.filter((day: any) => !day.excludeFromInterpretation);
+  }, [allDaysWithBBT]);
+
+  const excludedBBTDays = useMemo(() => {
+    return allDaysWithBBT.filter((day: any) => day.excludeFromInterpretation);
+  }, [allDaysWithBBT]);
+
   const chartData = useMemo(() => {
-    if (!daysWithBBT.length || !settings) return null;
+    if (!allDaysWithBBT.length || !settings) return null;
 
     const tempUnit = settings.temperatureUnit;
     
-    const temperatures = daysWithBBT.map((day: any) => {
-      if (tempUnit === 'CELSIUS') {
-        return fahrenheitToCelsius(day.bbt!).toFixed(2);
-      }
-      return day.bbt!.toFixed(2);
+    // Create a map for quick lookup
+    const includedDaysMap = new Map(
+      includedBBTDays.map((day: any) => [day.dayNumber, day])
+    );
+    const excludedDaysMap = new Map(
+      excludedBBTDays.map((day: any) => [day.dayNumber, day])
+    );
+    
+    // Build series data with {x, y} format for numeric x-axis
+    const includedData = includedBBTDays.map((day: any) => {
+      const temp = tempUnit === 'CELSIUS' 
+        ? fahrenheitToCelsius(day.bbt!)
+        : day.bbt!;
+      return {
+        x: day.dayNumber,
+        y: Number(temp.toFixed(2))
+      };
+    });
+    
+    const excludedData = excludedBBTDays.map((day: any) => {
+      const temp = tempUnit === 'CELSIUS' 
+        ? fahrenheitToCelsius(day.bbt!)
+        : day.bbt!;
+      return {
+        x: day.dayNumber,
+        y: Number(temp.toFixed(2))
+      };
     });
 
-    const dayNumbers = daysWithBBT.map((day: any) => day.dayNumber);
+    // Get min and max day numbers for x-axis range
+    const allDayNumbers = allDaysWithBBT.map((day: any) => day.dayNumber);
+    const minDay = Math.min(...allDayNumbers);
+    const maxDay = Math.max(...allDayNumbers);
 
     return {
-      series: [{
-        name: 'BBT',
-        data: temperatures.map(Number)
-      }],
-      categories: dayNumbers
+      series: [
+        {
+          name: 'BBT',
+          data: includedData
+        },
+        {
+          name: 'BBT (Excluded)',
+          data: excludedData
+        }
+      ],
+      minDay,
+      maxDay
     };
-  }, [daysWithBBT, settings]);
+  }, [allDaysWithBBT, includedBBTDays, excludedBBTDays, settings]);
 
-  // Calculate dynamic Y-axis range based on actual data
+  // Calculate dynamic Y-axis range based on actual data (including excluded points)
   const yAxisRange = useMemo(() => {
     if (!chartData || !settings) return null;
 
-    const temperatures = chartData.series[0].data;
+    // Collect all temperature values from both series (extract y values from {x, y} objects)
+    const allTemperatures = chartData.series.flatMap(series => 
+      series.data.map((point: any) => point.y)
+    );
     
-    if (temperatures.length === 0) return null;
+    if (allTemperatures.length === 0) return null;
 
-    const actualMin = Math.min(...temperatures);
-    const actualMax = Math.max(...temperatures);
+    const actualMin = Math.min(...allTemperatures);
+    const actualMax = Math.max(...allTemperatures);
 
     // Default ranges
     const defaultRange = settings.temperatureUnit === 'CELSIUS' 
       ? { min: 36.0, max: 37.5 }
       : { min: 96.8, max: 99.5 }; // Equivalent Fahrenheit range
 
-    // Use the wider range to ensure all data points are visible
+    // Use the wider range to ensure all data points are visible (including excluded ones)
     const min = Math.min(defaultRange.min, actualMin);
     const max = Math.max(defaultRange.max, actualMax);
 
@@ -126,17 +170,22 @@ export default function CycleChartPage() {
           right: 10
         }
       },
+      colors: ['#3b82f6', '#9CA3AF'], // Blue for included, grey for excluded
       stroke: {
         curve: 'straight',
-        width: 2
+        width: [2, 0] // Line for included series, no line for excluded series
       },
       markers: {
-        size: 5,
+        size: [5, 5], // Same size for both
+        fillOpacity: [1, 1],
+        strokeWidth: [2, 2],
+        strokeColors: ['#fff', '#fff'],
         hover: {
           size: 7
         }
       },
       xaxis: {
+        type: 'numeric', // Use numeric axis to handle gaps properly
         title: {
           text: 'Cycle Day',
           offsetY: -10,
@@ -145,15 +194,14 @@ export default function CycleChartPage() {
             fontWeight: 600
           }
         },
-        categories: chartData?.categories || [],
+        min: chartData?.minDay || 1,
+        max: chartData?.maxDay || 1,
+        tickAmount: Math.min(chartData?.maxDay || 1, 30), // Limit to 30 ticks max for readability
         position: 'top',
-        tickAmount: chartData?.categories.length || undefined, // Show all cycle days with uniform spacing
         labels: {
-          formatter: (value: string) => value, // Show just the number
+          formatter: (value: string) => Math.round(Number(value)).toString(), // Show whole numbers only
           offsetY: -5,
-          rotate: 0,
-          trim: false,
-          hideOverlappingLabels: false // Ensure all labels show
+          rotate: 0
         },
         axisBorder: {
           show: true,
@@ -183,7 +231,12 @@ export default function CycleChartPage() {
       },
       tooltip: {
         custom: function({ series, seriesIndex, dataPointIndex, w }) {
-          const day = daysWithBBT[dataPointIndex];
+          // Determine if this is an included or excluded point based on seriesIndex
+          const isExcluded = seriesIndex === 1;
+          const daysList = isExcluded ? excludedBBTDays : includedBBTDays;
+          
+          // Get the day data from the list using the dataPointIndex
+          const day = daysList[dataPointIndex];
           if (!day) return '';
           
           const temp = settings.temperatureUnit === 'CELSIUS' 
@@ -193,7 +246,7 @@ export default function CycleChartPage() {
           
           return `
             <div class="p-3 bg-white border rounded shadow-lg">
-              <div class="font-bold mb-1">Day ${day.dayNumber}</div>
+              <div class="font-bold mb-1">Day ${day.dayNumber}${isExcluded ? ' <span class="text-gray-500">(excluded)</span>' : ''}</div>
               <div class="text-sm">${formatDate(new Date(day.date))}</div>
               <div class="text-sm">${day.dayOfWeek}</div>
               <div class="font-semibold mt-2">${temp}${tempUnit}</div>
@@ -204,17 +257,17 @@ export default function CycleChartPage() {
         }
       },
       annotations: {
+        xaxis: [],
+        yaxis: [],
         points: cycle?.days
-          .filter((day: any) => day.hadIntercourse && day.bbt !== null && !day.excludeFromInterpretation)
+          .filter((day: any) => day.hadIntercourse && day.bbt !== null)
           .map((day: any) => {
-            const index = daysWithBBT.findIndex((d: any) => d.id === day.id);
-            if (index === -1) return null;
-            
+            const temp = settings.temperatureUnit === 'CELSIUS' 
+              ? fahrenheitToCelsius(day.bbt!)
+              : day.bbt!;
             return {
-              x: daysWithBBT[index].dayNumber,
-              y: settings.temperatureUnit === 'CELSIUS' 
-                ? fahrenheitToCelsius(day.bbt!)
-                : day.bbt!,
+              x: day.dayNumber, // This is now a numeric value matching our x-axis
+              y: temp,
               marker: {
                 size: 8,
                 fillColor: '#ec4899',
@@ -226,7 +279,7 @@ export default function CycleChartPage() {
           .filter(Boolean) as any[] || []
       }
     };
-  }, [settings, chartData, daysWithBBT, cycle, navigate, yAxisRange]);
+  }, [settings, chartData, includedBBTDays, excludedBBTDays, cycle, navigate, yAxisRange]);
 
   const prevCycle = useMemo(() => {
     if (!cycle || !allCycles) return null;
