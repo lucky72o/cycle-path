@@ -186,7 +186,31 @@ export default function CycleChartPage() {
         strokeColors: ['#fff', '#fff'],
         hover: {
           size: 7
-        }
+        },
+        discrete: [
+          // Mark intercourse days in the included BBT series with pink markers
+          ...(cycle?.days
+            .filter((day: any) => day.hadIntercourse && day.bbt !== null && !day.excludeFromInterpretation)
+            .map((day: any) => ({
+              seriesIndex: 0, // First series (included BBT)
+              dataPointIndex: includedBBTDays.findIndex((d: any) => d.id === day.id),
+              fillColor: '#ec4899',
+              strokeColor: '#fff',
+              size: 5
+            }))
+            .filter((marker: any) => marker.dataPointIndex !== -1) || []),
+          // Mark intercourse days in the excluded BBT series with pink markers
+          ...(cycle?.days
+            .filter((day: any) => day.hadIntercourse && day.bbt !== null && day.excludeFromInterpretation)
+            .map((day: any) => ({
+              seriesIndex: 1, // Second series (excluded BBT)
+              dataPointIndex: excludedBBTDays.findIndex((d: any) => d.id === day.id),
+              fillColor: '#ec4899',
+              strokeColor: '#fff',
+              size: 5
+            }))
+            .filter((marker: any) => marker.dataPointIndex !== -1) || [])
+        ]
       },
       xaxis: {
         type: 'numeric', // Use numeric axis to handle gaps properly
@@ -271,28 +295,6 @@ export default function CycleChartPage() {
           width: 1,
           dashArray: 4
         }
-      },
-      annotations: {
-        xaxis: [],
-        yaxis: [],
-        points: cycle?.days
-          .filter((day: any) => day.hadIntercourse && day.bbt !== null)
-          .map((day: any) => {
-            const temp = settings.temperatureUnit === 'CELSIUS' 
-              ? fahrenheitToCelsius(day.bbt!)
-              : day.bbt!;
-            return {
-              x: day.dayNumber, // This is now a numeric value matching our x-axis
-              y: temp,
-              marker: {
-                size: 8,
-                fillColor: '#ec4899',
-                strokeColor: '#be185d',
-                strokeWidth: 2
-              }
-            };
-          })
-          .filter(Boolean) as any[] || []
       }
     };
   }, [settings, chartData, includedBBTDays, excludedBBTDays, cycle, navigate, yAxisRange]);
