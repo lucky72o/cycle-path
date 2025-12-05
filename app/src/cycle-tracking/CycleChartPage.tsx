@@ -234,6 +234,9 @@ export default function CycleChartPage() {
         }
       },
       tooltip: {
+        enabled: true,
+        intersect: true,
+        shared: false,
         custom: function({ series, seriesIndex, dataPointIndex, w }) {
           // Determine if this is an included or excluded point based on seriesIndex
           const isExcluded = seriesIndex === 1;
@@ -258,6 +261,15 @@ export default function CycleChartPage() {
               ${day.hadIntercourse ? '<div class="text-sm text-pink-600">Intercourse</div>' : ''}
             </div>
           `;
+        }
+      },
+      crosshairs: {
+        show: true,
+        position: 'back',
+        stroke: {
+          color: '#b6b6b6',
+          width: 1,
+          dashArray: 4
         }
       },
       annotations: {
