@@ -1,11 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useEffect, useState } from 'react';
 import { useQuery } from 'wasp/client/operations';
 import { getCycleById, getUserSettings, getUserCycles } from 'wasp/client/operations';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { formatTemperature, fahrenheitToCelsius, formatDate, formatDateLong } from './utils';
+import { formatTemperature, fahrenheitToCelsius, formatDate, formatDateLong, getDayOfWeekAbbreviation } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 
@@ -16,6 +16,12 @@ export default function CycleChartPage() {
   const { data: allCycles } = useQuery(getUserCycles);
   const { data: cycle, isLoading: cycleLoading } = useQuery(getCycleById, { cycleId: cycleId || '' }, { enabled: !!cycleId });
   const { data: settings, isLoading: settingsLoading } = useQuery(getUserSettings);
+
+  // Refs and state for custom x-axis rows
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const [hoveredDayNumber, setHoveredDayNumber] = useState<number | null>(null);
+  const [labelSpacing, setLabelSpacing] = useState<number>(0);
+  const [labelPositions, setLabelPositions] = useState<number[]>([]);
 
   // If no cycleId provided, redirect to active cycle
   useMemo(() => {
@@ -40,6 +46,20 @@ export default function CycleChartPage() {
   const excludedBBTDays = useMemo(() => {
     return allDaysWithBBT.filter((day: any) => day.excludeFromInterpretation);
   }, [allDaysWithBBT]);
+
+  // Create a map of day numbers to week day abbreviations
+  const weekDaysMap = useMemo(() => {
+    if (!cycle) return new Map<number, string>();
+    
+    const map = new Map<number, string>();
+    cycle.days.forEach((day: any) => {
+      if (day.bbt !== null) {
+        const abbreviation = getDayOfWeekAbbreviation(day.dayOfWeek);
+        map.set(day.dayNumber, abbreviation);
+      }
+    });
+    return map;
+  }, [cycle]);
 
   const chartData = useMemo(() => {
     if (!allDaysWithBBT.length || !settings) return null;
@@ -149,28 +169,33 @@ export default function CycleChartPage() {
         type: 'line',
         height: 400,
         toolbar: {
-          show: true,
-          tools: {
-            customIcons: [
-              {
-                icon: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>',
-                index: -1, // Places it before the menu button
-                title: 'Add a day',
-                class: 'custom-icon-add-day',
-                click: function() {
-                  navigate(`/cycles/${cycle.id}/add-day`);
-                }
-              }
-            ]
-          }
+          show: false // Hide toolbar, we've moved controls to the header
         },
         zoom: {
           enabled: true
+        },
+        events: {
+          dataPointMouseEnter: function(_event: any, _chartContext: any, config: any) {
+            // Get the day number from the x value of the data point
+            const seriesIndex = config.seriesIndex;
+            const dataPointIndex = config.dataPointIndex;
+            
+            if (seriesIndex >= 0 && dataPointIndex >= 0) {
+              const daysList = seriesIndex === 0 ? includedBBTDays : excludedBBTDays;
+              const day = daysList[dataPointIndex];
+              if (day) {
+                setHoveredDayNumber(day.dayNumber);
+              }
+            }
+          },
+          dataPointMouseLeave: function() {
+            setHoveredDayNumber(null);
+          }
         }
       },
       grid: {
         padding: {
-          left: 20, // Add space between temperature readings and the left edge
+          left: 100, // Increased to accommodate the "Cycle Day" label
           right: 10
         }
       },
@@ -215,12 +240,7 @@ export default function CycleChartPage() {
       xaxis: {
         type: 'numeric', // Use numeric axis to handle gaps properly
         title: {
-          text: 'Cycle Day',
-          offsetY: -10,
-          style: {
-            fontSize: '14px',
-            fontWeight: 600
-          }
+          text: undefined // Remove centered title, we'll use custom labels
         },
         min: chartData?.minDay || 1,
         max: chartData?.maxDay || 1,
@@ -311,6 +331,57 @@ export default function CycleChartPage() {
     return currentIndex > 0 ? allCycles[currentIndex - 1] : null;
   }, [cycle, allCycles]);
 
+  // Handle chart container resize and calculate cell widths
+  useEffect(() => {
+    const updateChartDimensions = () => {
+      if (chartContainerRef.current) {
+        // Get the x-axis labels group
+        const xAxisLabels = chartContainerRef.current.querySelector('.apexcharts-xaxis-texts-g');
+        if (xAxisLabels) {
+          const labels = xAxisLabels.querySelectorAll('text');
+          if (labels.length >= 2) {
+            // Get the container's position for relative calculations
+            const containerRect = chartContainerRef.current.getBoundingClientRect();
+            
+            // Get all label positions by measuring their actual rendered position
+            const positions: number[] = [];
+            labels.forEach((label) => {
+              const labelRect = label.getBoundingClientRect();
+              // Calculate center of label relative to container
+              const labelCenter = labelRect.left + labelRect.width / 2 - containerRect.left;
+              positions.push(labelCenter);
+            });
+            
+            // Calculate the spacing between labels
+            const spacing = positions.length >= 2 ? positions[1] - positions[0] : 0;
+            
+            setLabelSpacing(spacing);
+            setLabelPositions(positions);
+          }
+        }
+      }
+    };
+
+    // Initial width calculation with delay to ensure chart is rendered
+    const timer = setTimeout(updateChartDimensions, 300);
+
+    // Setup resize observer
+    const resizeObserver = new ResizeObserver(() => {
+      setTimeout(updateChartDimensions, 100);
+    });
+    if (chartContainerRef.current) {
+      resizeObserver.observe(chartContainerRef.current);
+    }
+
+    return () => {
+      clearTimeout(timer);
+      resizeObserver.disconnect();
+    };
+  }, [chartData]);
+
+  // Calculate cell width for custom x-axis rows
+  const cellWidth = labelSpacing; // Use the label spacing directly as cell width
+
   if (cycleLoading || settingsLoading) {
     return (
       <div className="flex">
@@ -351,17 +422,112 @@ export default function CycleChartPage() {
       </div>
 
       <Card className="mb-6">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Temperature Chart</CardTitle>
+          {chartData && chartData.series[0].data.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Link to={`/cycles/${cycle.id}/add-day`}>
+                <Button variant="outline" size="sm">
+                  <svg className="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="16"></line>
+                    <line x1="8" y1="12" x2="16" y2="12"></line>
+                  </svg>
+                  Add a Day
+                </Button>
+              </Link>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {chartData && chartData.series[0].data.length > 0 ? (
-            <ReactApexChart
-              options={chartOptions}
-              series={chartData.series}
-              type="line"
-              height={400}
-            />
+            <div ref={chartContainerRef} className="relative">
+              {/* Custom X-axis rows with labels */}
+              {chartData && cellWidth > 0 && labelPositions.length > 0 && (
+                <div className="relative">
+                  {/* Week Days Row */}
+                  <div 
+                    className="relative bg-slate-100 border-b-2 border-slate-300"
+                    style={{
+                      height: '36px' // Fixed height for the row
+                    }}
+                  >
+                    {Array.from({ length: chartData.maxDay - chartData.minDay + 1 }, (_, i) => {
+                      const dayNumber = chartData.minDay + i;
+                      const weekDay = weekDaysMap.get(dayNumber) || '';
+                      const isHovered = hoveredDayNumber === dayNumber;
+                      const xPosition = labelPositions[i] || 0;
+                      
+                      return (
+                        <div
+                          key={dayNumber}
+                          className={`absolute flex items-center justify-center transition-colors duration-150 ${
+                            isHovered ? 'bg-blue-200' : ''
+                          }`}
+                          style={{ 
+                            left: `${xPosition}px`, // xPosition is now the actual center point in container coordinates
+                            width: `${cellWidth}px`,
+                            top: 0,
+                            height: '100%',
+                            fontSize: '12px',
+                            fontFamily: 'Helvetica, Arial, sans-serif',
+                            color: '#373d3f',
+                            transform: 'translateX(-50%)' // Center the cell on that point
+                          }}
+                        >
+                          {weekDay}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Week Day Label - positioned absolutely to align with Cycle Day label */}
+                  <div 
+                    className="absolute flex items-center justify-end pr-3" 
+                    style={{ 
+                      width: '80px',
+                      top: 0,
+                      left: 0,
+                      height: '36px', // Match the week days row height
+                      fontSize: '12px',
+                      fontFamily: 'Helvetica, Arial, sans-serif',
+                      color: '#373d3f',
+                      whiteSpace: 'nowrap',
+                      backgroundColor: 'rgb(241 245 249)', // bg-slate-100 to match the row
+                      borderBottom: '2px solid rgb(203 213 225)' // border-slate-300 to match
+                    }}
+                  >
+                    Week Day
+                  </div>
+                  
+                  {/* Cycle Day Label - positioned to align with x-axis labels */}
+                  <div 
+                    className="absolute flex items-end justify-end pr-3" 
+                    style={{ 
+                      width: '80px',
+                      top: 'calc(100% + 1px)', // Position right below the border to align with x-axis labels
+                      left: 0,
+                      height: '25px', // Align with x-axis label height
+                      fontSize: '12px',
+                      fontFamily: 'Helvetica, Arial, sans-serif',
+                      color: '#373d3f',
+                      paddingBottom: '5px', // Fine-tune vertical alignment with numbers
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Cycle Day
+                  </div>
+                </div>
+              )}
+              
+              {/* ApexChart */}
+              <ReactApexChart
+                options={chartOptions}
+                series={chartData.series}
+                type="line"
+                height={400}
+              />
+            </div>
           ) : (
             <div className="text-center py-12 text-muted-foreground">
               <p className="mb-4">No temperature data recorded yet.</p>

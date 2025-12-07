@@ -79,3 +79,19 @@ export function parseDateFromInput(dateString: string): Date {
   return new Date(dateString + 'T00:00:00');
 }
 
+/**
+ * Convert full day name to abbreviation (M, T, W, Th, F, Sat, Sun)
+ */
+export function getDayOfWeekAbbreviation(dayName: string): string {
+  const abbreviations: Record<string, string> = {
+    'Monday': 'M',
+    'Tuesday': 'T',
+    'Wednesday': 'W',
+    'Thursday': 'Th',
+    'Friday': 'F',
+    'Saturday': 'Sat',
+    'Sunday': 'Sun'
+  };
+  return abbreviations[dayName] || dayName;
+}
+
