@@ -26,12 +26,47 @@ type TemperatureUnit = 'FAHRENHEIT' | 'CELSIUS';
  */
 type CycleWithDays = Cycle & { days: CycleDay[] };
 
+/**
+ * Ensure an inactive cycle's endDate matches the last recorded day, and return the normalized cycle.
+ */
+async function ensureCycleEndDate(
+  cycle: CycleWithDays,
+  context: any // Wasp context type not re-exported here
+): Promise<CycleWithDays> {
+  if (cycle.isActive) {
+    return cycle;
+  }
+
+  const lastDay = cycle.days.length > 0 ? cycle.days[cycle.days.length - 1] : null;
+  if (!lastDay) {
+    return cycle;
+  }
+
+  const lastDayDate = new Date(lastDay.date);
+  const currentEndDate = cycle.endDate ? new Date(cycle.endDate) : null;
+
+  if (!currentEndDate || currentEndDate.getTime() !== lastDayDate.getTime()) {
+    const updated = await context.entities.Cycle.update({
+      where: { id: cycle.id },
+      data: { endDate: lastDayDate },
+      include: {
+        days: {
+          orderBy: { dayNumber: 'asc' }
+        }
+      }
+    });
+    return updated as CycleWithDays;
+  }
+
+  return cycle;
+}
+
 export const getUserCycles: GetUserCycles<void, CycleWithDays[]> = async (_args, context) => {
   if (!context.user) {
     throw new HttpError(401, 'Not authorized');
   }
 
-  return context.entities.Cycle.findMany({
+  const cycles = await context.entities.Cycle.findMany({
     where: { userId: context.user.id },
     orderBy: { cycleNumber: 'desc' },
     include: {
@@ -39,7 +74,14 @@ export const getUserCycles: GetUserCycles<void, CycleWithDays[]> = async (_args,
         orderBy: { dayNumber: 'asc' }
       }
     }
-  }) as Promise<CycleWithDays[]>;
+  }) as CycleWithDays[];
+
+  // Normalize past cycles so endDate reflects the last recorded day
+  const normalizedCycles = await Promise.all(
+    cycles.map((cycle) => ensureCycleEndDate(cycle, context))
+  );
+
+  return normalizedCycles;
 };
 
 /**
@@ -133,17 +175,44 @@ export const createCycle: CreateCycle<CreateCycleArgs, CycleWithDays> = async (a
     throw new HttpError(401, 'Not authorized');
   }
 
-  // Set any currently active cycle to inactive
-  await context.entities.Cycle.updateMany({
+  // Set any currently active cycle to inactive, ensuring endDate reflects the last recorded day
+  const activeCycles = await context.entities.Cycle.findMany({
     where: {
       userId: context.user.id,
       isActive: true
     },
-    data: {
-      isActive: false,
-      endDate: new Date(args.startDate)
+    orderBy: { cycleNumber: 'desc' },
+    include: {
+      days: {
+        orderBy: { dayNumber: 'desc' },
+        take: 1
+      }
     }
   });
+
+  const newCycleStartDate = new Date(args.startDate);
+
+  await Promise.all(
+    activeCycles.map(async (cycle) => {
+      const lastRecordedDay = cycle.days[0];
+
+      // If no days were recorded, fall back to the day before the new cycle starts (but not before the cycle start)
+      const fallbackEndDate = new Date(Math.max(
+        newCycleStartDate.getTime() - 24 * 60 * 60 * 1000,
+        new Date(cycle.startDate).getTime()
+      ));
+
+      const endDate = lastRecordedDay ? new Date(lastRecordedDay.date) : fallbackEndDate;
+
+      await context.entities.Cycle.update({
+        where: { id: cycle.id },
+        data: {
+          isActive: false,
+          endDate
+        }
+      });
+    })
+  );
 
   // Get the next cycle number
   const lastCycle = await context.entities.Cycle.findFirst({
