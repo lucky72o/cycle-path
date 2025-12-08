@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { formatTemperature, fahrenheitToCelsius, formatDate, formatDateLong, getDayOfWeekAbbreviation } from './utils';
+import { formatTemperature, fahrenheitToCelsius, formatDate, formatDateLong, getDayOfWeekAbbreviation, getDayOfWeek } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 
@@ -47,32 +47,31 @@ export default function CycleChartPage() {
     return allDaysWithBBT.filter((day: any) => day.excludeFromInterpretation);
   }, [allDaysWithBBT]);
 
-  // Create a map of day numbers to week day abbreviations
-  const weekDaysMap = useMemo(() => {
-    if (!cycle) return new Map<number, string>();
-    
-    const map = new Map<number, string>();
-    cycle.days.forEach((day: any) => {
-      if (day.bbt !== null) {
-        const abbreviation = getDayOfWeekAbbreviation(day.dayOfWeek);
-        map.set(day.dayNumber, abbreviation);
-      }
-    });
-    return map;
+  // Determine how many days to show on the chart.
+  const displayDayRange = useMemo(() => {
+    if (!cycle) {
+      return { minDay: 1, maxDay: 28 };
+    }
+
+    const DEFAULT_DAYS = 28;
+    const recordedMaxDay =
+      cycle.days.length > 0
+        ? Math.max(...cycle.days.map((day: any) => day.dayNumber))
+        : 1;
+
+    // If the cycle is still active, always show at least the default length.
+    // If it has ended, shrink to the actual recorded length (unless it exceeds the default).
+    const maxDay = cycle.endDate
+      ? Math.max(recordedMaxDay, 1) // ended: show actual (may be below default)
+      : Math.max(DEFAULT_DAYS, recordedMaxDay); // active: pad to default, but still expands if recorded > default
+
+    return { minDay: 1, maxDay };
   }, [cycle]);
 
   const chartData = useMemo(() => {
-    if (!allDaysWithBBT.length || !settings) return null;
+    if (!settings || !cycle) return null;
 
     const tempUnit = settings.temperatureUnit;
-    
-    // Create a map for quick lookup
-    const includedDaysMap = new Map(
-      includedBBTDays.map((day: any) => [day.dayNumber, day])
-    );
-    const excludedDaysMap = new Map(
-      excludedBBTDays.map((day: any) => [day.dayNumber, day])
-    );
     
     // Build series data with {x, y} format for numeric x-axis
     const includedData = includedBBTDays.map((day: any) => {
@@ -95,11 +94,6 @@ export default function CycleChartPage() {
       };
     });
 
-    // Get min and max day numbers for x-axis range
-    const allDayNumbers = allDaysWithBBT.map((day: any) => day.dayNumber);
-    const minDay = Math.min(...allDayNumbers);
-    const maxDay = Math.max(...allDayNumbers);
-
     return {
       series: [
         {
@@ -111,10 +105,27 @@ export default function CycleChartPage() {
           data: excludedData
         }
       ],
-      minDay,
-      maxDay
+      minDay: displayDayRange.minDay,
+      maxDay: displayDayRange.maxDay
     };
-  }, [allDaysWithBBT, includedBBTDays, excludedBBTDays, settings]);
+  }, [cycle, displayDayRange, includedBBTDays, excludedBBTDays, settings]);
+
+  // Create a map of day numbers to week day abbreviations across the displayed range.
+  const weekDaysMap = useMemo(() => {
+    if (!cycle) return new Map<number, string>();
+    
+    const map = new Map<number, string>();
+    const startDate = new Date(cycle.startDate);
+
+    for (let dayNumber = displayDayRange.minDay; dayNumber <= displayDayRange.maxDay; dayNumber++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + (dayNumber - 1));
+      const abbreviation = getDayOfWeekAbbreviation(getDayOfWeek(date));
+      map.set(dayNumber, abbreviation);
+    }
+
+    return map;
+  }, [cycle, displayDayRange]);
 
   // Calculate dynamic Y-axis range based on actual data (including excluded points)
   const yAxisRange = useMemo(() => {
@@ -124,16 +135,18 @@ export default function CycleChartPage() {
     const allTemperatures = chartData.series.flatMap(series => 
       series.data.map((point: any) => point.y)
     );
-    
-    if (allTemperatures.length === 0) return null;
-
-    const actualMin = Math.min(...allTemperatures);
-    const actualMax = Math.max(...allTemperatures);
 
     // Default ranges
     const defaultRange = settings.temperatureUnit === 'CELSIUS' 
       ? { min: 36.0, max: 37.5 }
       : { min: 96.8, max: 99.5 }; // Equivalent Fahrenheit range
+
+    if (allTemperatures.length === 0) {
+      return defaultRange;
+    }
+
+    const actualMin = Math.min(...allTemperatures);
+    const actualMax = Math.max(...allTemperatures);
 
     // Use the wider range to ensure all data points are visible (including excluded ones)
     const min = Math.min(defaultRange.min, actualMin);
@@ -142,39 +155,34 @@ export default function CycleChartPage() {
     return { min, max };
   }, [chartData, settings]);
 
-  // Create a map of day numbers to formatted dates
+  // Build labels for dates and weekdays for the full displayed range using the cycle start date.
   const datesMap = useMemo(() => {
-    if (!cycle || !chartData) return new Map<number, string>();
+    if (!cycle) return new Map<number, string>();
     
     const map = new Map<number, string>();
     let previousMonth: number | null = null;
-    
-    // Sort days by day number to process them in order
-    const sortedDays = [...cycle.days]
-      .filter((day: any) => day.bbt !== null)
-      .sort((a: any, b: any) => a.dayNumber - b.dayNumber);
-    
-    sortedDays.forEach((day: any) => {
-      const date = new Date(day.date);
+    const startDate = new Date(cycle.startDate);
+
+    for (let dayNumber = displayDayRange.minDay; dayNumber <= displayDayRange.maxDay; dayNumber++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + (dayNumber - 1));
       const dayOfMonth = date.getDate();
-      const month = date.getMonth() + 1; // getMonth() returns 0-11
-      
-      // First cycle day or first day of a new month: use D/M format
-      if (day.dayNumber === chartData.minDay || (previousMonth !== null && month !== previousMonth)) {
-        map.set(day.dayNumber, `${dayOfMonth}/${month}`);
+      const month = date.getMonth() + 1;
+
+      if (dayNumber === displayDayRange.minDay || (previousMonth !== null && month !== previousMonth)) {
+        map.set(dayNumber, `${dayOfMonth}/${month}`);
       } else {
-        // All other days: just the day number
-        map.set(day.dayNumber, `${dayOfMonth}`);
+        map.set(dayNumber, `${dayOfMonth}`);
       }
-      
+
       previousMonth = month;
-    });
+    }
     
     return map;
-  }, [cycle, chartData]);
+  }, [cycle, displayDayRange]);
 
   const chartOptions: ApexOptions = useMemo(() => {
-    if (!settings || !cycle || !yAxisRange) return {};
+    if (!settings || !cycle || !yAxisRange || !chartData) return {};
     
     const tempUnit = settings.temperatureUnit === 'CELSIUS' ? '°C' : '°F';
     
@@ -273,9 +281,9 @@ export default function CycleChartPage() {
         title: {
           text: undefined // Remove centered title, we'll use custom labels
         },
-        min: chartData?.minDay || 1,
-        max: chartData?.maxDay || 1,
-        tickAmount: (chartData?.maxDay || 1) - 1, // Show all days (tickAmount is intervals, not total ticks)
+        min: chartData.minDay,
+        max: chartData.maxDay,
+        tickAmount: chartData.maxDay - chartData.minDay, // intervals count; ensures one tick per day
         position: 'top',
         labels: {
           formatter: (value: string) => Math.round(Number(value)).toString(), // Show whole numbers only
@@ -460,23 +468,21 @@ export default function CycleChartPage() {
       <Card className="mb-6">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Temperature Chart</CardTitle>
-          {chartData && chartData.series[0].data.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Link to={`/cycles/${cycle.id}/add-day`}>
-                <Button variant="outline" size="sm">
-                  <svg className="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="8" x2="12" y2="16"></line>
-                    <line x1="8" y1="12" x2="16" y2="12"></line>
-                  </svg>
-                  Add a Day
-                </Button>
-              </Link>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <Link to={`/cycles/${cycle.id}/add-day`}>
+              <Button variant="outline" size="sm">
+                <svg className="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="16"></line>
+                  <line x1="8" y1="12" x2="16" y2="12"></line>
+                </svg>
+                Add a Day
+              </Button>
+            </Link>
+          </div>
         </CardHeader>
         <CardContent>
-          {chartData && chartData.series[0].data.length > 0 ? (
+          {chartData ? (
             <div ref={chartContainerRef} className="relative">
               {/* Custom X-axis rows with labels */}
               {chartData && cellWidth > 0 && labelPositions.length > 0 && (
