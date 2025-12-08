@@ -52,7 +52,12 @@ export default function CyclesPage() {
     <div className="flex">
       <SideNav />
       <div className="flex-1 p-8 max-w-4xl">
-        <h1 className="text-3xl font-bold mb-8">My Cycles</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold">My Cycles</h1>
+          <Link to="/cycles/new">
+            <Button variant="default">Begin new cycle</Button>
+          </Link>
+        </div>
 
       {!activeCycle && (
         <Card className="mb-8">

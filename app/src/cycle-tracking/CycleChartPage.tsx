@@ -444,12 +444,17 @@ export default function CycleChartPage() {
     <div className="flex">
       <SideNav />
       <div className="flex-1 p-8 max-w-6xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Cycle #{cycle.cycleNumber} Chart</h1>
-        <p className="text-muted-foreground">
-          Started: {formatDateLong(new Date(cycle.startDate))}
-          {cycle.endDate && ` - Ended: ${formatDateLong(new Date(cycle.endDate))}`}
-        </p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Cycle #{cycle.cycleNumber} Chart</h1>
+          <p className="text-muted-foreground">
+            Started: {formatDateLong(new Date(cycle.startDate))}
+            {cycle.endDate && ` - Ended: ${formatDateLong(new Date(cycle.endDate))}`}
+          </p>
+        </div>
+        <Link to="/cycles/new">
+          <Button variant="default">Begin new cycle</Button>
+        </Link>
       </div>
 
       <Card className="mb-6">

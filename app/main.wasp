@@ -336,6 +336,12 @@ page SettingsPage {
   component: import SettingsPage from "@src/cycle-tracking/SettingsPage"
 }
 
+route NewCycleRoute { path: "/cycles/new", to: NewCyclePage }
+page NewCyclePage {
+  authRequired: true,
+  component: import NewCyclePage from "@src/cycle-tracking/NewCyclePage"
+}
+
 query getUserCycles {
   fn: import { getUserCycles } from "@src/cycle-tracking/operations",
   entities: [Cycle, CycleDay]
