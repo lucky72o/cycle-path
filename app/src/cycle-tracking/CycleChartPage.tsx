@@ -142,6 +142,37 @@ export default function CycleChartPage() {
     return { min, max };
   }, [chartData, settings]);
 
+  // Create a map of day numbers to formatted dates
+  const datesMap = useMemo(() => {
+    if (!cycle || !chartData) return new Map<number, string>();
+    
+    const map = new Map<number, string>();
+    let previousMonth: number | null = null;
+    
+    // Sort days by day number to process them in order
+    const sortedDays = [...cycle.days]
+      .filter((day: any) => day.bbt !== null)
+      .sort((a: any, b: any) => a.dayNumber - b.dayNumber);
+    
+    sortedDays.forEach((day: any) => {
+      const date = new Date(day.date);
+      const dayOfMonth = date.getDate();
+      const month = date.getMonth() + 1; // getMonth() returns 0-11
+      
+      // First cycle day or first day of a new month: use D/M format
+      if (day.dayNumber === chartData.minDay || (previousMonth !== null && month !== previousMonth)) {
+        map.set(day.dayNumber, `${dayOfMonth}/${month}`);
+      } else {
+        // All other days: just the day number
+        map.set(day.dayNumber, `${dayOfMonth}`);
+      }
+      
+      previousMonth = month;
+    });
+    
+    return map;
+  }, [cycle, chartData]);
+
   const chartOptions: ApexOptions = useMemo(() => {
     if (!settings || !cycle || !yAxisRange) return {};
     
@@ -445,6 +476,61 @@ export default function CycleChartPage() {
               {/* Custom X-axis rows with labels */}
               {chartData && cellWidth > 0 && labelPositions.length > 0 && (
                 <div className="relative">
+                  {/* Date Row */}
+                  <div 
+                    className="relative bg-blue-50 border-b border-slate-300"
+                    style={{
+                      height: '36px' // Fixed height for the row
+                    }}
+                  >
+                    {Array.from({ length: chartData.maxDay - chartData.minDay + 1 }, (_, i) => {
+                      const dayNumber = chartData.minDay + i;
+                      const dateLabel = datesMap.get(dayNumber) || '';
+                      const isHovered = hoveredDayNumber === dayNumber;
+                      const xPosition = labelPositions[i] || 0;
+                      
+                      return (
+                        <div
+                          key={dayNumber}
+                          className={`absolute flex items-center justify-center transition-colors duration-150 ${
+                            isHovered ? 'bg-blue-200' : ''
+                          }`}
+                          style={{ 
+                            left: `${xPosition}px`,
+                            width: `${cellWidth}px`,
+                            top: 0,
+                            height: '100%',
+                            fontSize: '12px',
+                            fontFamily: 'Helvetica, Arial, sans-serif',
+                            color: '#373d3f',
+                            transform: 'translateX(-50%)'
+                          }}
+                        >
+                          {dateLabel}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Date Label - positioned absolutely to align with Week Day label */}
+                  <div 
+                    className="absolute flex items-center justify-end pr-3" 
+                    style={{ 
+                      width: '80px',
+                      top: 0,
+                      left: 0,
+                      height: '36px',
+                      fontSize: '12px',
+                      fontFamily: 'Helvetica, Arial, sans-serif',
+                      color: '#373d3f',
+                      whiteSpace: 'nowrap',
+                      backgroundColor: 'rgb(239 246 255)', // bg-blue-50
+                      borderBottom: '1px solid rgb(203 213 225)' // border-slate-300
+                    }}
+                  >
+                    Date
+                  </div>
+                  
                   {/* Week Days Row */}
                   <div 
                     className="relative bg-slate-100 border-b-2 border-slate-300"
@@ -486,7 +572,7 @@ export default function CycleChartPage() {
                     className="absolute flex items-center justify-end pr-3" 
                     style={{ 
                       width: '80px',
-                      top: 0,
+                      top: '36px', // Position below Date row
                       left: 0,
                       height: '36px', // Match the week days row height
                       fontSize: '12px',
@@ -505,7 +591,7 @@ export default function CycleChartPage() {
                     className="absolute flex items-end justify-end pr-3" 
                     style={{ 
                       width: '80px',
-                      top: 'calc(100% + 1px)', // Position right below the border to align with x-axis labels
+                      top: 'calc(100% + 1px)', // Position right below the border (100% already includes both Date and Week Day rows)
                       left: 0,
                       height: '25px', // Align with x-axis label height
                       fontSize: '12px',
