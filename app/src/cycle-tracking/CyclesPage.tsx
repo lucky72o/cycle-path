@@ -101,6 +101,9 @@ export default function CyclesPage() {
               <Link to={`/cycles/${activeCycle.id}/days`}>
                 <Button variant="outline">View Days</Button>
               </Link>
+              <Link to={`/cycles/${activeCycle.id}/chart`}>
+                <Button variant="outline">View Graph</Button>
+              </Link>
               <Button 
                 variant="destructive" 
                 size="sm"
@@ -140,6 +143,9 @@ export default function CyclesPage() {
                   <div className="flex flex-wrap gap-2">
                     <Link to={`/cycles/${cycle.id}/days`}>
                       <Button size="sm">View Days</Button>
+                    </Link>
+                    <Link to={`/cycles/${cycle.id}/chart`}>
+                      <Button size="sm" variant="outline">View Graph</Button>
                     </Link>
                     <Button 
                       size="sm"
