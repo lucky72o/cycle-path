@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
+import { Info } from 'lucide-react';
 import { formatDateForInput, convertToFahrenheitForStorage, fahrenheitToCelsius } from './utils';
 import SideNav from './SideNav';
 
@@ -19,11 +20,27 @@ export default function AddCycleDayPage() {
   const { data: cycle, isLoading: cycleLoading } = useQuery(getCycleById, { cycleId: cycleId || '' }, { enabled: !!cycleId });
   const { data: settings, isLoading: settingsLoading } = useQuery(getUserSettings);
 
+  const InfoTooltip = ({ text }: { text: string }) => (
+    <span className="relative inline-flex items-center group">
+      <span className="inline-flex items-center justify-center rounded-full border border-muted-foreground/40 text-muted-foreground h-5 w-5 text-[10px]">
+        <Info className="h-3 w-3" />
+      </span>
+      <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-popover px-2 py-1 text-xs text-popover-foreground opacity-0 shadow group-hover:opacity-100 transition-opacity duration-100">
+        {text}
+      </span>
+    </span>
+  );
+
+  type AppearanceOption = 'NONE' | 'STICKY' | 'CREAMY' | 'WATERY' | 'EGGWHITE';
+  type SensationOption = 'DRY' | 'DAMP' | 'WET' | 'SLIPPERY';
+
   const [date, setDate] = useState(formatDateForInput(new Date()));
   const [bbt, setBbt] = useState('');
   const [bbtTime, setBbtTime] = useState('');
   const [hadIntercourse, setHadIntercourse] = useState(false);
   const [excludeFromInterpretation, setExcludeFromInterpretation] = useState(false);
+  const [cervicalAppearance, setCervicalAppearance] = useState<AppearanceOption | ''>('');
+  const [cervicalSensation, setCervicalSensation] = useState<SensationOption | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Find the existing day if we're editing
@@ -47,6 +64,8 @@ export default function AddCycleDayPage() {
       setBbtTime(existingDay.bbtTime || '');
       setHadIntercourse(existingDay.hadIntercourse || false);
       setExcludeFromInterpretation(existingDay.excludeFromInterpretation || false);
+      setCervicalAppearance(existingDay.cervicalAppearance || '');
+      setCervicalSensation(existingDay.cervicalSensation || '');
     }
   }, [existingDay, settings]);
 
@@ -75,7 +94,9 @@ export default function AddCycleDayPage() {
         bbt: bbtInFahrenheit,
         bbtTime: bbtTime || undefined,
         hadIntercourse,
-        excludeFromInterpretation
+        excludeFromInterpretation,
+        cervicalAppearance: cervicalAppearance || undefined,
+        cervicalSensation: cervicalSensation || undefined
       });
 
       // Reset form (only if adding, not editing)
@@ -84,6 +105,8 @@ export default function AddCycleDayPage() {
         setBbtTime('');
         setHadIntercourse(false);
         setExcludeFromInterpretation(false);
+        setCervicalAppearance('');
+        setCervicalSensation('');
       }
       
       // Redirect to days page
@@ -124,6 +147,28 @@ export default function AddCycleDayPage() {
   }
 
   const tempUnit = settings?.temperatureUnit === 'CELSIUS' ? '°C' : '°F';
+  const appearanceOptions: { value: AppearanceOption; label: string; description: string }[] = [
+    { value: 'NONE', label: 'None', description: 'Nothing visible when you wipe' },
+    { value: 'STICKY', label: 'Sticky', description: 'Thick, crumbly, glue-like' },
+    { value: 'CREAMY', label: 'Creamy', description: 'Lotion-like, smooth, white' },
+    { value: 'WATERY', label: 'Watery', description: 'Thin, clear, looks like water' },
+    { value: 'EGGWHITE', label: 'Eggwhite', description: 'Clear, stretchy, slippery. Most fertile' }
+  ];
+
+  const sensationOptions: { value: SensationOption; label: string }[] = [
+    { value: 'DRY', label: 'Dry' },
+    { value: 'DAMP', label: 'Damp' },
+    { value: 'WET', label: 'Wet' },
+    { value: 'SLIPPERY', label: 'Slippery' }
+  ];
+
+  const handleAppearanceToggle = (value: AppearanceOption) => {
+    setCervicalAppearance((prev) => (prev === value ? '' : value));
+  };
+
+  const handleSensationToggle = (value: SensationOption) => {
+    setCervicalSensation((prev) => (prev === value ? '' : value));
+  };
 
   return (
     <div className="flex">
@@ -212,6 +257,55 @@ export default function AddCycleDayPage() {
               <Label htmlFor="excludeFromInterpretation" className="cursor-pointer">
                 Exclude from BBT-based interpretation?
               </Label>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">Cervical Fluid</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Appearance</p>
+                  <div className="space-y-2">
+                    {appearanceOptions.map((option) => (
+                      <div key={option.value} className="flex items-start gap-2">
+                        <Checkbox
+                          id={`appearance-${option.value}`}
+                          checked={cervicalAppearance === option.value}
+                          onCheckedChange={() => handleAppearanceToggle(option.value)}
+                          className="mt-0.5"
+                        />
+                        <Label
+                          htmlFor={`appearance-${option.value}`}
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
+                          <span>{option.label}</span>
+                          <InfoTooltip text={option.description} />
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Sensation</p>
+                  <div className="space-y-2">
+                    {sensationOptions.map((option) => (
+                      <div key={option.value} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`sensation-${option.value}`}
+                          checked={cervicalSensation === option.value}
+                          onCheckedChange={() => handleSensationToggle(option.value)}
+                        />
+                        <Label
+                          htmlFor={`sensation-${option.value}`}
+                          className="cursor-pointer"
+                        >
+                          {option.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex gap-4">

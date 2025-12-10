@@ -118,6 +118,21 @@ enum TemperatureUnit {
   CELSIUS
 }
 
+enum CervicalAppearance {
+  NONE
+  STICKY
+  CREAMY
+  WATERY
+  EGGWHITE
+}
+
+enum CervicalSensation {
+  DRY
+  DAMP
+  WET
+  SLIPPERY
+}
+
 model UserSettings {
   id              String          @id @default(uuid())
   createdAt       DateTime        @default(now())
@@ -160,6 +175,8 @@ model CycleDay {
   bbtTime                     String?
   excludeFromInterpretation   Boolean   @default(false)
   hadIntercourse              Boolean   @default(false)
+  cervicalAppearance          CervicalAppearance?
+  cervicalSensation           CervicalSensation?
   
   @@unique([cycleId, dayNumber])
   @@index([cycleId, date])
