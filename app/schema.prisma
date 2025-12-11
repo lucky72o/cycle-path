@@ -133,6 +133,13 @@ enum CervicalSensation {
   SLIPPERY
 }
 
+enum OpkStatus {
+  low
+  rising
+  peak
+  declining
+}
+
 model UserSettings {
   id              String          @id @default(uuid())
   createdAt       DateTime        @default(now())
@@ -177,6 +184,7 @@ model CycleDay {
   hadIntercourse              Boolean   @default(false)
   cervicalAppearance          CervicalAppearance?
   cervicalSensation           CervicalSensation?
+  opkStatus                   OpkStatus?
   
   @@unique([cycleId, dayNumber])
   @@index([cycleId, date])

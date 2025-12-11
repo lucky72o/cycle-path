@@ -25,7 +25,7 @@ export default function AddCycleDayPage() {
       <span className="inline-flex items-center justify-center rounded-full border border-muted-foreground/40 text-muted-foreground h-5 w-5 text-[10px]">
         <Info className="h-3 w-3" />
       </span>
-      <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-popover px-2 py-1 text-xs text-popover-foreground opacity-0 shadow group-hover:opacity-100 transition-opacity duration-100">
+      <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-normal text-left min-w-[220px] max-w-sm rounded bg-popover px-3 py-2 text-xs leading-relaxed text-popover-foreground opacity-0 shadow group-hover:opacity-100 transition-opacity duration-100">
         {text}
       </span>
     </span>
@@ -33,6 +33,7 @@ export default function AddCycleDayPage() {
 
   type AppearanceOption = 'NONE' | 'STICKY' | 'CREAMY' | 'WATERY' | 'EGGWHITE';
   type SensationOption = 'DRY' | 'DAMP' | 'WET' | 'SLIPPERY';
+  type OpkStatusOption = 'low' | 'rising' | 'peak' | 'declining';
 
   const [date, setDate] = useState(formatDateForInput(new Date()));
   const [bbt, setBbt] = useState('');
@@ -41,6 +42,7 @@ export default function AddCycleDayPage() {
   const [excludeFromInterpretation, setExcludeFromInterpretation] = useState(false);
   const [cervicalAppearance, setCervicalAppearance] = useState<AppearanceOption | ''>('');
   const [cervicalSensation, setCervicalSensation] = useState<SensationOption | ''>('');
+  const [opkStatus, setOpkStatus] = useState<OpkStatusOption | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Find the existing day if we're editing
@@ -66,6 +68,7 @@ export default function AddCycleDayPage() {
       setExcludeFromInterpretation(existingDay.excludeFromInterpretation || false);
       setCervicalAppearance(existingDay.cervicalAppearance || '');
       setCervicalSensation(existingDay.cervicalSensation || '');
+      setOpkStatus((existingDay.opkStatus as OpkStatusOption | undefined) || '');
     }
   }, [existingDay, settings]);
 
@@ -96,7 +99,8 @@ export default function AddCycleDayPage() {
         hadIntercourse,
         excludeFromInterpretation,
         cervicalAppearance: cervicalAppearance || undefined,
-        cervicalSensation: cervicalSensation || undefined
+        cervicalSensation: cervicalSensation || undefined,
+        opkStatus: opkStatus || undefined
       });
 
       // Reset form (only if adding, not editing)
@@ -107,6 +111,7 @@ export default function AddCycleDayPage() {
         setExcludeFromInterpretation(false);
         setCervicalAppearance('');
         setCervicalSensation('');
+        setOpkStatus('');
       }
       
       // Redirect to days page
@@ -169,6 +174,34 @@ export default function AddCycleDayPage() {
   const handleSensationToggle = (value: SensationOption) => {
     setCervicalSensation((prev) => (prev === value ? '' : value));
   };
+
+  const opkOptions: { value: OpkStatusOption; label: string; description: string }[] = [
+    {
+      value: 'low',
+      label: 'Low LH',
+      description:
+        'Faint line. The test line is much lighter than the control line. You are likely not yet in your fertile window.'
+    },
+    {
+      value: 'rising',
+      label: 'Rising LH',
+      description:
+        "Darker line. Your LH is starting to rise. The test line is getting darker, but it isn't as dark as the control line yet. This usually means your fertile window is opening and ovulation may be a few days away."
+    },
+    {
+      value: 'peak',
+      label: 'Peak LH – Surge',
+      description:
+        'Very dark line. Your LH has reached its highest level. The test line is as dark or darker than the control line. Ovulation typically happens within the next 24–36 hours, and this is your most fertile time.'
+    },
+    {
+      value: 'declining',
+      label: 'Declining LH',
+      description:
+        'Line fades. Your LH levels are now falling after the surge. This usually means ovulation has already happened or is finishing soon.'
+    }
+  ];
+
 
   return (
     <div className="flex">
@@ -305,6 +338,31 @@ export default function AddCycleDayPage() {
                     ))}
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">Ovulation Predictor Kit</h3>
+              <div className="space-y-2">
+                {opkOptions.map((option) => (
+                  <div key={option.value} className="flex items-start gap-2">
+                    <Checkbox
+                      id={`opk-${option.value}`}
+                      checked={opkStatus === option.value}
+                      onCheckedChange={() =>
+                        setOpkStatus((prev) => (prev === option.value ? '' : option.value))
+                      }
+                      className="mt-0.5"
+                    />
+                    <Label
+                      htmlFor={`opk-${option.value}`}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>{option.label}</span>
+                      <InfoTooltip text={option.description} />
+                    </Label>
+                  </div>
+                ))}
               </div>
             </div>
 

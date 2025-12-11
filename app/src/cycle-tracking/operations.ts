@@ -251,6 +251,7 @@ type CreateOrUpdateCycleDayArgs = {
   excludeFromInterpretation: boolean;
   cervicalAppearance?: 'NONE' | 'STICKY' | 'CREAMY' | 'WATERY' | 'EGGWHITE';
   cervicalSensation?: 'DRY' | 'DAMP' | 'WET' | 'SLIPPERY';
+  opkStatus?: 'low' | 'rising' | 'peak' | 'declining';
 };
 
 export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleDayArgs, CycleDay> = async (args, context) => {
@@ -308,7 +309,8 @@ export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleD
         hadIntercourse: args.hadIntercourse,
         excludeFromInterpretation: args.excludeFromInterpretation,
         cervicalAppearance: args.cervicalAppearance,
-        cervicalSensation: args.cervicalSensation
+        cervicalSensation: args.cervicalSensation,
+        opkStatus: args.opkStatus
       }
     });
   } else {
@@ -324,7 +326,8 @@ export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleD
         hadIntercourse: args.hadIntercourse,
         excludeFromInterpretation: args.excludeFromInterpretation,
         cervicalAppearance: args.cervicalAppearance,
-        cervicalSensation: args.cervicalSensation
+        cervicalSensation: args.cervicalSensation,
+        opkStatus: args.opkStatus
       }
     });
   }
