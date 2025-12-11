@@ -140,6 +140,14 @@ enum OpkStatus {
   declining
 }
 
+enum MenstrualFlow {
+  SPOTTING
+  LIGHT
+  MEDIUM
+  HEAVY
+  VERY_HEAVY
+}
+
 model UserSettings {
   id              String          @id @default(uuid())
   createdAt       DateTime        @default(now())
@@ -185,6 +193,7 @@ model CycleDay {
   cervicalAppearance          CervicalAppearance?
   cervicalSensation           CervicalSensation?
   opkStatus                   OpkStatus?
+  menstrualFlow               MenstrualFlow?
   
   @@unique([cycleId, dayNumber])
   @@index([cycleId, date])

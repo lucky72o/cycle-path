@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { formatTemperature, fahrenheitToCelsius, formatDate, formatDateLong, getDayOfWeekAbbreviation, getDayOfWeek } from './utils';
+import { fahrenheitToCelsius, formatDate, formatDateLong, getDayOfWeekAbbreviation, getDayOfWeek } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 
@@ -31,7 +31,7 @@ export default function CycleChartPage() {
         navigate(`/cycles/${activeCycle.id}/chart`, { replace: true });
       }
     }
-  }, [cycleId, allCycles, navigate]);
+  }, [cycleId, allCycles]);
 
   // Separate included and excluded BBT days
   const allDaysWithBBT = useMemo(() => {
@@ -320,7 +320,7 @@ export default function CycleChartPage() {
         enabled: true,
         intersect: true,
         shared: false,
-        custom: function({ series, seriesIndex, dataPointIndex, w }) {
+        custom: function({ seriesIndex, dataPointIndex }) {
           // Determine if this is an included or excluded point based on seriesIndex
           const isExcluded = seriesIndex === 1;
           const daysList = isExcluded ? excludedBBTDays : includedBBTDays;
@@ -438,7 +438,7 @@ export default function CycleChartPage() {
         <SideNav />
         <div className="flex-1 p-8">
           <div className="text-center">
-            <p className="mb-4">Cycle not found or you haven't started any cycles yet.</p>
+            <p className="mb-4">Cycle not found or you haven&apos;t started any cycles yet.</p>
             <Link to="/cycles">
               <Button>Go to My Cycles</Button>
             </Link>

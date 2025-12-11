@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from 'wasp/client/operations';
 import { getCycleById, getUserSettings } from 'wasp/client/operations';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -25,7 +25,7 @@ export default function AddCycleDayPage() {
       <span className="inline-flex items-center justify-center rounded-full border border-muted-foreground/40 text-muted-foreground h-5 w-5 text-[10px]">
         <Info className="h-3 w-3" />
       </span>
-      <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-normal text-left min-w-[220px] max-w-sm rounded bg-popover px-3 py-2 text-xs leading-relaxed text-popover-foreground opacity-0 shadow group-hover:opacity-100 transition-opacity duration-100">
+      <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-normal text-left w-64 rounded bg-popover px-3 py-2 text-xs leading-relaxed text-popover-foreground opacity-0 shadow group-hover:opacity-100 transition-opacity duration-100">
         {text}
       </span>
     </span>
@@ -34,6 +34,7 @@ export default function AddCycleDayPage() {
   type AppearanceOption = 'NONE' | 'STICKY' | 'CREAMY' | 'WATERY' | 'EGGWHITE';
   type SensationOption = 'DRY' | 'DAMP' | 'WET' | 'SLIPPERY';
   type OpkStatusOption = 'low' | 'rising' | 'peak' | 'declining';
+  type MenstrualFlowOption = 'SPOTTING' | 'LIGHT' | 'MEDIUM' | 'HEAVY' | 'VERY_HEAVY';
 
   const [date, setDate] = useState(formatDateForInput(new Date()));
   const [bbt, setBbt] = useState('');
@@ -43,6 +44,7 @@ export default function AddCycleDayPage() {
   const [cervicalAppearance, setCervicalAppearance] = useState<AppearanceOption | ''>('');
   const [cervicalSensation, setCervicalSensation] = useState<SensationOption | ''>('');
   const [opkStatus, setOpkStatus] = useState<OpkStatusOption | ''>('');
+  const [menstrualFlow, setMenstrualFlow] = useState<MenstrualFlowOption | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Find the existing day if we're editing
@@ -69,6 +71,7 @@ export default function AddCycleDayPage() {
       setCervicalAppearance(existingDay.cervicalAppearance || '');
       setCervicalSensation(existingDay.cervicalSensation || '');
       setOpkStatus((existingDay.opkStatus as OpkStatusOption | undefined) || '');
+      setMenstrualFlow((existingDay.menstrualFlow as MenstrualFlowOption | undefined) || '');
     }
   }, [existingDay, settings]);
 
@@ -100,7 +103,8 @@ export default function AddCycleDayPage() {
         excludeFromInterpretation,
         cervicalAppearance: cervicalAppearance || undefined,
         cervicalSensation: cervicalSensation || undefined,
-        opkStatus: opkStatus || undefined
+        opkStatus: opkStatus || undefined,
+        menstrualFlow: menstrualFlow || undefined
       });
 
       // Reset form (only if adding, not editing)
@@ -112,6 +116,7 @@ export default function AddCycleDayPage() {
         setCervicalAppearance('');
         setCervicalSensation('');
         setOpkStatus('');
+        setMenstrualFlow('');
       }
       
       // Redirect to days page
@@ -167,12 +172,29 @@ export default function AddCycleDayPage() {
     { value: 'SLIPPERY', label: 'Slippery' }
   ];
 
+  const menstrualFlowOptions: { value: MenstrualFlowOption; label: string; tooltip?: string }[] = [
+    {
+      value: 'SPOTTING',
+      label: 'Spotting',
+      tooltip:
+        "Not counted as a full period day. Very small drops of blood. Often brown or pink. Doesn’t need a full pad or tampon. Happens before or after the main period."
+    },
+    { value: 'LIGHT', label: 'Light' },
+    { value: 'MEDIUM', label: 'Medium' },
+    { value: 'HEAVY', label: 'Heavy' },
+    { value: 'VERY_HEAVY', label: 'Very Heavy' }
+  ];
+
   const handleAppearanceToggle = (value: AppearanceOption) => {
     setCervicalAppearance((prev) => (prev === value ? '' : value));
   };
 
   const handleSensationToggle = (value: SensationOption) => {
     setCervicalSensation((prev) => (prev === value ? '' : value));
+  };
+
+  const handleMenstrualFlowToggle = (value: MenstrualFlowOption) => {
+    setMenstrualFlow((prev) => (prev === value ? '' : value));
   };
 
   const opkOptions: { value: OpkStatusOption; label: string; description: string }[] = [
@@ -252,7 +274,7 @@ export default function AddCycleDayPage() {
                 className="mt-1"
               />
               <p className="text-sm text-muted-foreground mt-1">
-                Basal Body Temperature (your body's lowest resting temperature)
+                Basal Body Temperature (your body&apos;s lowest resting temperature)
               </p>
             </div>
 
@@ -290,6 +312,29 @@ export default function AddCycleDayPage() {
               <Label htmlFor="excludeFromInterpretation" className="cursor-pointer">
                 Exclude from BBT-based interpretation?
               </Label>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">Menstrual Flow</h3>
+              <div className="space-y-2">
+                {menstrualFlowOptions.map((option) => (
+                  <div key={option.value} className="flex items-start gap-2">
+                    <Checkbox
+                      id={`menstrualFlow-${option.value}`}
+                      checked={menstrualFlow === option.value}
+                      onCheckedChange={() => handleMenstrualFlowToggle(option.value)}
+                      className="mt-0.5"
+                    />
+                    <Label
+                      htmlFor={`menstrualFlow-${option.value}`}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>{option.label}</span>
+                      {option.tooltip && <InfoTooltip text={option.tooltip} />}
+                    </Label>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-3">

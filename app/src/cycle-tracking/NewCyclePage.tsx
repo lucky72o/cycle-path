@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from 'wasp/client/operations';
 import { getUserCycles, getUserSettings, createCycle, createOrUpdateCycleDay } from 'wasp/client/operations';
 import { useNavigate } from 'react-router-dom';
@@ -106,7 +106,7 @@ export default function NewCyclePage() {
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-2">Begin New Cycle</h1>
           <p className="text-muted-foreground">
-            Start tracking a new fertility cycle and optionally record your first day's data.
+            Start tracking a new fertility cycle and optionally record your first day&apos;s data.
           </p>
         </div>
 

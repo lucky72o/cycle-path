@@ -1,6 +1,9 @@
 {
   "name": "opensaas",
   "type": "module",
+  "scripts": {
+    "lint": "eslint \"src/**/*.{ts,tsx}\""
+  },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.523.0",
     "@aws-sdk/s3-presigned-post": "^3.750.0",
@@ -49,6 +52,13 @@
     "@faker-js/faker": "8.3.1",
     "@types/express": "^5.0.0",
     "@types/react": "^18.0.37",
+    "@typescript-eslint/eslint-plugin": "^8.49.0",
+    "@typescript-eslint/parser": "^8.49.0",
+    "eslint": "^9.39.1",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
     "prisma": "5.19.1",
     "typescript": "5.8.2",
     "vite": "^7.0.6"

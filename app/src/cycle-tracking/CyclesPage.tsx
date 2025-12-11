@@ -174,7 +174,7 @@ export default function CyclesPage() {
 
       {cycles && cycles.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
-          <p className="mb-4">You haven't started tracking any cycles yet.</p>
+          <p className="mb-4">You haven&apos;t started tracking any cycles yet.</p>
           <p>Start your first cycle above to begin!</p>
         </div>
       )}
