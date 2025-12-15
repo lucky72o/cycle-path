@@ -367,6 +367,11 @@ action createCycle {
   entities: [User, Cycle]
 }
 
+action importCycleCsv {
+  fn: import { importCycleCsv } from "@src/cycle-tracking/operations",
+  entities: [User, UserSettings, Cycle, CycleDay]
+}
+
 action createOrUpdateCycleDay {
   fn: import { createOrUpdateCycleDay } from "@src/cycle-tracking/operations",
   entities: [Cycle, CycleDay]
@@ -394,6 +399,6 @@ action updateCycle {
 
 action deleteCycleDay {
   fn: import { deleteCycleDay } from "@src/cycle-tracking/operations",
-  entities: [CycleDay]
+  entities: [Cycle, CycleDay]
 }
 //#endregion

@@ -11,6 +11,31 @@ export default function CyclesPage() {
   const navigate = useNavigate();
   const { data: cycles, isLoading, error } = useQuery(getUserCycles);
   const [startDate, setStartDate] = useState(formatDateForInput(new Date()));
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+
+  const handleImportCsv = async () => {
+    if (!importFile) return;
+    setIsImporting(true);
+    setImportError(null);
+    setImportSuccess(null);
+    try {
+      const csvText = await importFile.text();
+      const { importCycleCsv } = await import('wasp/client/operations');
+      const result = await importCycleCsv({ csvText });
+      setImportSuccess(
+        `Imported ${result.updatedDays} day(s). Temp unit: ${result.detectedUnit}. ${result.createdCycle ? 'Created a new cycle.' : 'Updated existing cycle.'}`
+      );
+      navigate(`/cycles/${result.cycleId}/chart`);
+    } catch (err: any) {
+      console.error('Failed to import CSV:', err);
+      setImportError(err.message || 'Failed to import CSV');
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   const handleStartNewCycle = async () => {
     try {
@@ -58,6 +83,38 @@ export default function CyclesPage() {
             <Button variant="default">Begin new cycle</Button>
           </Link>
         </div>
+
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Import cycle from CSV</CardTitle>
+          <CardDescription>
+            Upload a CSV export to create or update a cycle by date. We auto-detect temperature unit and overwrite matching days.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+              className="w-full sm:w-auto"
+            />
+            <Button onClick={handleImportCsv} disabled={!importFile || isImporting}>
+              {isImporting ? 'Importing...' : 'Import CSV'}
+            </Button>
+          </div>
+          {importSuccess && (
+            <p className="text-sm text-green-700 mt-2">
+              {importSuccess}
+            </p>
+          )}
+          {importError && (
+            <p className="text-sm text-red-600 mt-2">
+              {importError}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {!activeCycle && (
         <Card className="mb-8">

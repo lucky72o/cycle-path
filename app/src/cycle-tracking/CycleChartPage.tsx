@@ -189,7 +189,7 @@ export default function CycleChartPage() {
     // Set Y-axis range and intervals based on temperature unit
     // Calculate tickAmount dynamically to show 0.1 degree increments
     const tempRange = yAxisRange.max - yAxisRange.min;
-    const tickAmount = Math.round(tempRange / 0.1);
+    const tickAmount = Math.min(Math.max(Math.round(tempRange / 0.1), 8), 30);
     
     const yAxisConfig = settings.temperatureUnit === 'CELSIUS' ? {
       min: yAxisRange.min,
@@ -213,6 +213,12 @@ export default function CycleChartPage() {
         zoom: {
           enabled: true
         },
+        animations: {
+          enabled: true,
+          dynamicAnimation: {
+            enabled: true
+          }
+        },
         events: {
           dataPointMouseEnter: function(_event: any, _chartContext: any, config: any) {
             // Get the day number from the x value of the data point
@@ -235,13 +241,21 @@ export default function CycleChartPage() {
       grid: {
         padding: {
           left: 100, // Increased to accommodate the "Cycle Day" label
-          right: 10
-        }
+          right: 10 // Enough padding to ensure last data point is fully visible
+        },
+        show: true,
+        clipMarkers: false // Don't clip markers at the edge
       },
       colors: ['#3b82f6', '#9CA3AF'], // Blue for included, grey for excluded
       stroke: {
         curve: 'straight',
         width: [2, 0] // Line for included series, no line for excluded series
+      },
+      fill: {
+        opacity: 1
+      },
+      dataLabels: {
+        enabled: false
       },
       markers: {
         size: [5, 5], // Same size for both
@@ -277,16 +291,17 @@ export default function CycleChartPage() {
         ]
       },
       xaxis: {
-        type: 'numeric', // Use numeric axis to handle gaps properly
+        type: 'numeric',
         title: {
-          text: undefined // Remove centered title, we'll use custom labels
+          text: undefined
         },
         min: chartData.minDay,
         max: chartData.maxDay,
-        tickAmount: chartData.maxDay - chartData.minDay, // intervals count; ensures one tick per day
+        tickAmount: chartData.maxDay - chartData.minDay,
+        floating: false,
         position: 'top',
         labels: {
-          formatter: (value: string) => Math.round(Number(value)).toString(), // Show whole numbers only
+          formatter: (value: string) => Math.round(Number(value)).toString(),
           offsetY: -5,
           rotate: 0
         },
