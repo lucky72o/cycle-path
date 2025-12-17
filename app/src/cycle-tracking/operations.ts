@@ -21,6 +21,32 @@ import { celsiusToFahrenheit, getDayOfWeek } from './utils';
 // Will be available from '@prisma/client' after running migration
 type TemperatureUnit = 'FAHRENHEIT' | 'CELSIUS';
 
+// ===== HELPER FUNCTIONS =====
+
+/**
+ * Recalculate cycle numbers for all user cycles based on chronological order
+ */
+async function recalculateCycleNumbers(userId: string, context: any): Promise<void> {
+  // Fetch all user cycles
+  const allCycles = await context.entities.Cycle.findMany({
+    where: { userId },
+    orderBy: [
+      { startDate: 'asc' },
+      { createdAt: 'asc' }
+    ]
+  });
+
+  // Update each cycle with its new number based on chronological position
+  await Promise.all(
+    allCycles.map((cycle: Cycle, index: number) =>
+      context.entities.Cycle.update({
+        where: { id: cycle.id },
+        data: { cycleNumber: index + 1 }
+      })
+    )
+  );
+}
+
 // ===== QUERIES =====
 
 /**
@@ -70,7 +96,10 @@ export const getUserCycles: GetUserCycles<void, CycleWithDays[]> = async (_args,
 
   const cycles = await context.entities.Cycle.findMany({
     where: { userId: context.user.id },
-    orderBy: { cycleNumber: 'desc' },
+    orderBy: [
+      { startDate: 'asc' },
+      { createdAt: 'asc' }
+    ],
     include: {
       days: {
         orderBy: { dayNumber: 'asc' }
@@ -212,20 +241,12 @@ export const createCycle: CreateCycle<CreateCycleArgs, CycleWithDays> = async (a
     })
   );
 
-  // Get the next cycle number
-  const lastCycle = await context.entities.Cycle.findFirst({
-    where: { userId: context.user.id },
-    orderBy: { cycleNumber: 'desc' }
-  });
-
-  const nextCycleNumber = lastCycle ? lastCycle.cycleNumber + 1 : 1;
-
-  // Create new cycle
+  // Create new cycle with temporary cycle number (will be recalculated)
   const newCycle = await context.entities.Cycle.create({
     data: {
       userId: context.user.id,
       startDate: new Date(args.startDate),
-      cycleNumber: nextCycleNumber,
+      cycleNumber: 1, // Temporary, will be recalculated
       isActive: true
     },
     include: {
@@ -233,7 +254,18 @@ export const createCycle: CreateCycle<CreateCycleArgs, CycleWithDays> = async (a
     }
   });
 
-  return newCycle as CycleWithDays;
+  // Recalculate all cycle numbers based on chronological order
+  await recalculateCycleNumbers(context.user.id, context);
+
+  // Fetch the updated cycle with correct cycleNumber
+  const updatedCycle = await context.entities.Cycle.findUnique({
+    where: { id: newCycle.id },
+    include: {
+      days: true
+    }
+  });
+
+  return updatedCycle as CycleWithDays;
 };
 
 /**
@@ -545,20 +577,13 @@ export const importCycleCsv: ImportCycleCsv<ImportCycleCsvArgs, ImportSummary> =
 
   let createdCycle = false;
   if (!cycle) {
-    const lastCycle = await context.entities.Cycle.findFirst({
-      where: { userId: context.user.id },
-      orderBy: { cycleNumber: 'desc' }
-    });
-
-    const nextCycleNumber = lastCycle ? lastCycle.cycleNumber + 1 : 1;
-
     cycle = await context.entities.Cycle.create({
       data: {
         userId: context.user.id,
         startDate: firstDate,
         endDate: null, // Will be set after importing days
         isActive: true, // Will be adjusted based on date comparison
-        cycleNumber: nextCycleNumber
+        cycleNumber: 1 // Temporary, will be recalculated
       }
     });
 
@@ -677,6 +702,9 @@ export const importCycleCsv: ImportCycleCsv<ImportCycleCsvArgs, ImportSummary> =
     );
   }
 
+  // Recalculate all cycle numbers based on chronological order
+  await recalculateCycleNumbers(context.user.id, context);
+
   return {
     cycleId: cycle.id,
     createdCycle,
@@ -776,6 +804,9 @@ export const deleteCycle: DeleteCycle<DeleteCycleArgs, void> = async (args, cont
   await context.entities.Cycle.delete({
     where: { id: args.cycleId }
   });
+
+  // Recalculate all remaining cycle numbers based on chronological order
+  await recalculateCycleNumbers(context.user.id, context);
 };
 
 /**

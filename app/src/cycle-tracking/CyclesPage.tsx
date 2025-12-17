@@ -71,7 +71,12 @@ export default function CyclesPage() {
   }
 
   const activeCycle = cycles?.find(c => c.isActive);
-  const pastCycles = cycles?.filter(c => !c.isActive) || [];
+  const pastCycles = (cycles?.filter(c => !c.isActive) || []).sort((a, b) => {
+    // Sort by startDate ascending (earliest first), then by createdAt if dates are equal
+    const dateCompare = new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+    if (dateCompare !== 0) return dateCompare;
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  });
 
   return (
     <div className="flex">
