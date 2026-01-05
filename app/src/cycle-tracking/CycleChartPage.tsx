@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect, useState } from 'react';
+import { useMemo, useRef, useEffect, useState, Fragment } from 'react';
 import { useQuery } from 'wasp/client/operations';
 import { getCycleById, getUserSettings, getUserCycles } from 'wasp/client/operations';
 import { useParams, Link, useNavigate } from 'react-router-dom';
@@ -20,8 +20,9 @@ export default function CycleChartPage() {
   // Refs and state for custom x-axis rows
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [hoveredDayNumber, setHoveredDayNumber] = useState<number | null>(null);
-  const [labelSpacing, setLabelSpacing] = useState<number>(0);
-  const [labelPositions, setLabelPositions] = useState<number[]>([]);
+  const [plotAreaOffset, setPlotAreaOffset] = useState<number>(0);
+  const [plotAreaWidth, setPlotAreaWidth] = useState<number>(0);
+  const [crosshairX, setCrosshairX] = useState<number | null>(null);
 
   // If no cycleId provided, redirect to active cycle
   useMemo(() => {
@@ -73,26 +74,40 @@ export default function CycleChartPage() {
 
     const tempUnit = settings.temperatureUnit;
     
-    // Build series data with {x, y} format for numeric x-axis
-    const includedData = includedBBTDays.map((day: any) => {
-      const temp = tempUnit === 'CELSIUS' 
-        ? fahrenheitToCelsius(day.bbt!)
-        : day.bbt!;
-      return {
-        x: day.dayNumber,
-        y: Number(temp.toFixed(2))
-      };
-    });
+    // Create a map of day numbers to temperatures for quick lookup
+    const includedTempMap = new Map(
+      includedBBTDays.map((day: any) => {
+        const temp = tempUnit === 'CELSIUS' 
+          ? fahrenheitToCelsius(day.bbt!)
+          : day.bbt!;
+        return [day.dayNumber, Number(temp.toFixed(2))];
+      })
+    );
     
-    const excludedData = excludedBBTDays.map((day: any) => {
-      const temp = tempUnit === 'CELSIUS' 
-        ? fahrenheitToCelsius(day.bbt!)
-        : day.bbt!;
-      return {
-        x: day.dayNumber,
-        y: Number(temp.toFixed(2))
-      };
-    });
+    const excludedTempMap = new Map(
+      excludedBBTDays.map((day: any) => {
+        const temp = tempUnit === 'CELSIUS' 
+          ? fahrenheitToCelsius(day.bbt!)
+          : day.bbt!;
+        return [day.dayNumber, Number(temp.toFixed(2))];
+      })
+    );
+
+    // Build arrays with x,y pairs for numeric axis with even spacing
+    const includedData: Array<{x: number, y: number}> = [];
+    const excludedData: Array<{x: number, y: number}> = [];
+    
+    for (let dayNumber = displayDayRange.minDay; dayNumber <= displayDayRange.maxDay; dayNumber++) {
+      const includedTemp = includedTempMap.get(dayNumber);
+      const excludedTemp = excludedTempMap.get(dayNumber);
+      
+      if (includedTemp !== undefined) {
+        includedData.push({ x: dayNumber, y: includedTemp });
+      }
+      if (excludedTemp !== undefined) {
+        excludedData.push({ x: dayNumber, y: excludedTemp });
+      }
+    }
 
     return {
       series: [
@@ -131,9 +146,9 @@ export default function CycleChartPage() {
   const yAxisRange = useMemo(() => {
     if (!chartData || !settings) return null;
 
-    // Collect all temperature values from both series (extract y values from {x, y} objects)
+    // Collect all temperature values from both series ({x, y} format)
     const allTemperatures = chartData.series.flatMap(series => 
-      series.data.map((point: any) => point.y)
+      series.data.map((point: {x: number, y: number}) => point.y)
     );
 
     // Default ranges
@@ -219,32 +234,52 @@ export default function CycleChartPage() {
             enabled: true
           }
         },
+        foreColor: '#002142', // Set default text color for axis labels
         events: {
           dataPointMouseEnter: function(_event: any, _chartContext: any, config: any) {
-            // Get the day number from the x value of the data point
             const seriesIndex = config.seriesIndex;
             const dataPointIndex = config.dataPointIndex;
             
-            if (seriesIndex >= 0 && dataPointIndex >= 0) {
+            if (seriesIndex >= 0 && dataPointIndex >= 0 && chartData && plotAreaWidth > 0) {
               const daysList = seriesIndex === 0 ? includedBBTDays : excludedBBTDays;
               const day = daysList[dataPointIndex];
               if (day) {
                 setHoveredDayNumber(day.dayNumber);
+                
+                // Calculate crosshair position
+                const numDays = chartData.maxDay - chartData.minDay + 1;
+                const cellWidth = plotAreaWidth / numDays;
+                const dayIndex = day.dayNumber - chartData.minDay;
+                const xPos = plotAreaOffset + (dayIndex + 0.5) * cellWidth;
+                setCrosshairX(xPos);
               }
             }
           },
           dataPointMouseLeave: function() {
             setHoveredDayNumber(null);
+            setCrosshairX(null);
           }
+        }
+      },
+      theme: {
+        mode: 'light',
+        palette: 'palette1',
+        monochrome: {
+          enabled: false
         }
       },
       grid: {
         padding: {
-          left: 100, // Increased to accommodate the "Cycle Day" label
-          right: 10 // Enough padding to ensure last data point is fully visible
+          left: 50, // Increased to create more space between title and labels
+          right: 40 // Extra padding to ensure last data point is fully visible with room
         },
         show: true,
-        clipMarkers: false // Don't clip markers at the edge
+        clipMarkers: false, // Don't clip markers at the edge
+        xaxis: {
+          lines: {
+            show: false // Hide vertical grid lines - we use custom table borders instead
+          }
+        }
       },
       colors: ['#3b82f6', '#9CA3AF'], // Blue for included, grey for excluded
       stroke: {
@@ -266,28 +301,35 @@ export default function CycleChartPage() {
           size: 7
         },
         discrete: [
-          // Mark intercourse days in the included BBT series with pink markers
+          // Mark intercourse days with pink markers
+          // For included BBT series (seriesIndex 0)
           ...(cycle?.days
             .filter((day: any) => day.hadIntercourse && day.bbt !== null && !day.excludeFromInterpretation)
-            .map((day: any) => ({
-              seriesIndex: 0, // First series (included BBT)
-              dataPointIndex: includedBBTDays.findIndex((d: any) => d.id === day.id),
-              fillColor: '#ec4899',
-              strokeColor: '#fff',
-              size: 5
-            }))
-            .filter((marker: any) => marker.dataPointIndex !== -1) || []),
-          // Mark intercourse days in the excluded BBT series with pink markers
+            .map((day: any) => {
+              const dataPointIndex = includedBBTDays.findIndex((d: any) => d.id === day.id);
+              return dataPointIndex !== -1 ? {
+                seriesIndex: 0,
+                dataPointIndex: dataPointIndex,
+                fillColor: '#ec4899',
+                strokeColor: '#fff',
+                size: 5
+              } : null;
+            })
+            .filter(marker => marker !== null) || []),
+          // For excluded BBT series (seriesIndex 1)
           ...(cycle?.days
             .filter((day: any) => day.hadIntercourse && day.bbt !== null && day.excludeFromInterpretation)
-            .map((day: any) => ({
-              seriesIndex: 1, // Second series (excluded BBT)
-              dataPointIndex: excludedBBTDays.findIndex((d: any) => d.id === day.id),
-              fillColor: '#ec4899',
-              strokeColor: '#fff',
-              size: 5
-            }))
-            .filter((marker: any) => marker.dataPointIndex !== -1) || [])
+            .map((day: any) => {
+              const dataPointIndex = excludedBBTDays.findIndex((d: any) => d.id === day.id);
+              return dataPointIndex !== -1 ? {
+                seriesIndex: 1,
+                dataPointIndex: dataPointIndex,
+                fillColor: '#ec4899',
+                strokeColor: '#fff',
+                size: 5
+              } : null;
+            })
+            .filter(marker => marker !== null) || [])
         ]
       },
       xaxis: {
@@ -295,28 +337,31 @@ export default function CycleChartPage() {
         title: {
           text: undefined
         },
-        min: chartData.minDay,
-        max: chartData.maxDay,
-        tickAmount: chartData.maxDay - chartData.minDay,
+        min: chartData.minDay - 0.5, // Start half a unit before first day
+        max: chartData.maxDay + 0.5, // End half a unit after last day
+        tickAmount: chartData.maxDay - chartData.minDay, // One tick per day
         floating: false,
         position: 'top',
         labels: {
-          formatter: (value: string) => Math.round(Number(value)).toString(),
-          offsetY: -5,
-          rotate: 0
+          show: false, // Hide x-axis labels since we show them in the custom grid
+          formatter: (value: string) => Math.round(Number(value)).toString()
         },
         axisBorder: {
-          show: true,
-          offsetY: -1
+          show: false // Hide axis border
         },
         axisTicks: {
-          show: true,
-          offsetY: -1
+          show: false // Hide axis ticks
         }
       },
       yaxis: {
         title: {
-          text: `Temperature (${tempUnit})`
+          text: `Temperature (${tempUnit})`,
+          offsetX: -30, // Push title further to the left to create more space from labels
+          style: {
+            fontSize: '14px',
+            fontWeight: 600,
+            color: '#002142'
+          }
         },
         min: yAxisConfig.min,
         max: yAxisConfig.max,
@@ -328,7 +373,11 @@ export default function CycleChartPage() {
             return settings.temperatureUnit === 'CELSIUS' 
               ? value.toFixed(1) 
               : value.toFixed(2);
-          }
+          },
+          style: {
+            fontSize: '11px'
+          },
+          offsetX: 40 // Compensate for increased padding to keep labels close to plot area
         }
       },
       tooltip: {
@@ -342,11 +391,11 @@ export default function CycleChartPage() {
           
           // Get the day data from the list using the dataPointIndex
           const day = daysList[dataPointIndex];
-          if (!day) return '';
+          if (!day || !day.bbt) return '';
           
           const temp = settings.temperatureUnit === 'CELSIUS' 
-            ? fahrenheitToCelsius(day.bbt!).toFixed(2)
-            : day.bbt!.toFixed(2);
+            ? fahrenheitToCelsius(day.bbt).toFixed(2)
+            : day.bbt.toFixed(2);
           const tempUnit = settings.temperatureUnit === 'CELSIUS' ? '°C' : '°F';
           
           return `
@@ -362,16 +411,10 @@ export default function CycleChartPage() {
         }
       },
       crosshairs: {
-        show: true,
-        position: 'back',
-        stroke: {
-          color: '#b6b6b6',
-          width: 1,
-          dashArray: 4
-        }
+        show: false // Disabled - using custom crosshair overlay instead
       }
     };
-  }, [settings, chartData, includedBBTDays, excludedBBTDays, cycle, navigate, yAxisRange]);
+  }, [settings, chartData, includedBBTDays, excludedBBTDays, cycle, navigate, yAxisRange, plotAreaWidth, plotAreaOffset]);
 
   const prevCycle = useMemo(() => {
     if (!cycle || !allCycles) return null;
@@ -385,43 +428,30 @@ export default function CycleChartPage() {
     return currentIndex > 0 ? allCycles[currentIndex - 1] : null;
   }, [cycle, allCycles]);
 
-  // Handle chart container resize and calculate cell widths
+  // Handle chart container resize and measure plot area dimensions
   useEffect(() => {
-    const updateChartDimensions = () => {
+    const updatePlotAreaDimensions = () => {
       if (chartContainerRef.current) {
-        // Get the x-axis labels group
-        const xAxisLabels = chartContainerRef.current.querySelector('.apexcharts-xaxis-texts-g');
-        if (xAxisLabels) {
-          const labels = xAxisLabels.querySelectorAll('text');
-          if (labels.length >= 2) {
-            // Get the container's position for relative calculations
-            const containerRect = chartContainerRef.current.getBoundingClientRect();
-            
-            // Get all label positions by measuring their actual rendered position
-            const positions: number[] = [];
-            labels.forEach((label) => {
-              const labelRect = label.getBoundingClientRect();
-              // Calculate center of label relative to container
-              const labelCenter = labelRect.left + labelRect.width / 2 - containerRect.left;
-              positions.push(labelCenter);
-            });
-            
-            // Calculate the spacing between labels
-            const spacing = positions.length >= 2 ? positions[1] - positions[0] : 0;
-            
-            setLabelSpacing(spacing);
-            setLabelPositions(positions);
-          }
+        // Find the Apex plot area (excludes y-axis labels)
+        const plotArea = chartContainerRef.current.querySelector('.apexcharts-inner');
+        if (plotArea) {
+          const containerRect = chartContainerRef.current.getBoundingClientRect();
+          const plotRect = plotArea.getBoundingClientRect();
+          
+          // Calculate offset and width relative to container
+          const offset = plotRect.left - containerRect.left;
+          setPlotAreaOffset(offset);
+          setPlotAreaWidth(plotRect.width);
         }
       }
     };
 
-    // Initial width calculation with delay to ensure chart is rendered
-    const timer = setTimeout(updateChartDimensions, 300);
+    // Initial measurement with delay to ensure chart is rendered
+    const timer = setTimeout(updatePlotAreaDimensions, 300);
 
     // Setup resize observer
     const resizeObserver = new ResizeObserver(() => {
-      setTimeout(updateChartDimensions, 100);
+      setTimeout(updatePlotAreaDimensions, 100);
     });
     if (chartContainerRef.current) {
       resizeObserver.observe(chartContainerRef.current);
@@ -432,9 +462,6 @@ export default function CycleChartPage() {
       resizeObserver.disconnect();
     };
   }, [chartData]);
-
-  // Calculate cell width for custom x-axis rows
-  const cellWidth = labelSpacing; // Use the label spacing directly as cell width
 
   if (cycleLoading || settingsLoading) {
     return (
@@ -497,139 +524,110 @@ export default function CycleChartPage() {
           </div>
         </CardHeader>
         <CardContent>
+          <style>{`
+            .apexcharts-yaxis-label,
+            .apexcharts-yaxis-title-text {
+              fill: #002142 !important;
+            }
+          `}</style>
           {chartData ? (
-            <div ref={chartContainerRef} className="relative">
+            <div ref={chartContainerRef} className="relative" style={{ paddingTop: '108px' }}>
               {/* Custom X-axis rows with labels */}
-              {chartData && cellWidth > 0 && labelPositions.length > 0 && (
-                <div className="relative">
-                  {/* Date Row */}
-                  <div 
-                    className="relative bg-blue-50 border-b border-slate-300"
-                    style={{
-                      height: '36px' // Fixed height for the row
-                    }}
-                  >
+              {chartData && plotAreaWidth > 0 && (
+                <>
+                  {/* Row Labels - positioned in y-axis area */}
+                  <div className="absolute top-0 left-0" style={{ width: `${plotAreaOffset}px`, zIndex: 2 }}>
+                    <div className="flex items-center justify-end px-3 h-9 text-xs font-medium bg-blue-50 border-b border-slate-300 border-r border-slate-300">
+                      Date
+                    </div>
+                    <div className="flex items-center justify-end px-3 h-9 text-xs font-medium bg-slate-100 border-b border-slate-300 border-r border-slate-300">
+                      Week Day
+                    </div>
+                    <div className="flex items-center justify-end px-3 h-9 text-xs font-medium bg-white border-b border-slate-200 border-r border-slate-300">
+                      Cycle Day
+                    </div>
+                  </div>
+
+                  {/* Grid cells - calculated positions within plot area */}
+                  <div className="absolute top-0 pointer-events-none" style={{ left: 0, right: 0, zIndex: 1 }}>
                     {Array.from({ length: chartData.maxDay - chartData.minDay + 1 }, (_, i) => {
                       const dayNumber = chartData.minDay + i;
                       const dateLabel = datesMap.get(dayNumber) || '';
-                      const isHovered = hoveredDayNumber === dayNumber;
-                      const xPosition = labelPositions[i] || 0;
-                      
-                      return (
-                        <div
-                          key={dayNumber}
-                          className={`absolute flex items-center justify-center transition-colors duration-150 ${
-                            isHovered ? 'bg-blue-200' : ''
-                          }`}
-                          style={{ 
-                            left: `${xPosition}px`,
-                            width: `${cellWidth}px`,
-                            top: 0,
-                            height: '100%',
-                            fontSize: '12px',
-                            fontFamily: 'Helvetica, Arial, sans-serif',
-                            color: '#373d3f',
-                            transform: 'translateX(-50%)'
-                          }}
-                        >
-                          {dateLabel}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  
-                  {/* Date Label - positioned absolutely to align with Week Day label */}
-                  <div 
-                    className="absolute flex items-center justify-end pr-3" 
-                    style={{ 
-                      width: '80px',
-                      top: 0,
-                      left: 0,
-                      height: '36px',
-                      fontSize: '12px',
-                      fontFamily: 'Helvetica, Arial, sans-serif',
-                      color: '#373d3f',
-                      whiteSpace: 'nowrap',
-                      backgroundColor: 'rgb(239 246 255)', // bg-blue-50
-                      borderBottom: '1px solid rgb(203 213 225)' // border-slate-300
-                    }}
-                  >
-                    Date
-                  </div>
-                  
-                  {/* Week Days Row */}
-                  <div 
-                    className="relative bg-slate-100 border-b-2 border-slate-300"
-                    style={{
-                      height: '36px' // Fixed height for the row
-                    }}
-                  >
-                    {Array.from({ length: chartData.maxDay - chartData.minDay + 1 }, (_, i) => {
-                      const dayNumber = chartData.minDay + i;
                       const weekDay = weekDaysMap.get(dayNumber) || '';
                       const isHovered = hoveredDayNumber === dayNumber;
-                      const xPosition = labelPositions[i] || 0;
+                      
+                      // Calculate cell position within plot area
+                      const numDays = chartData.maxDay - chartData.minDay + 1;
+                      const cellWidth = plotAreaWidth / numDays;
+                      const leftEdge = plotAreaOffset + (i * cellWidth);
                       
                       return (
-                        <div
-                          key={dayNumber}
-                          className={`absolute flex items-center justify-center transition-colors duration-150 ${
-                            isHovered ? 'bg-blue-200' : ''
-                          }`}
-                          style={{ 
-                            left: `${xPosition}px`, // xPosition is now the actual center point in container coordinates
-                            width: `${cellWidth}px`,
-                            top: 0,
-                            height: '100%',
-                            fontSize: '12px',
-                            fontFamily: 'Helvetica, Arial, sans-serif',
-                            color: '#373d3f',
-                            transform: 'translateX(-50%)' // Center the cell on that point
-                          }}
-                        >
-                          {weekDay}
-                        </div>
+                        <Fragment key={dayNumber}>
+                          {/* Date Cell */}
+                          <div
+                            className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 bg-blue-50 transition-colors ${
+                              isHovered ? 'bg-blue-200' : ''
+                            }`}
+                            style={{
+                              left: `${leftEdge}px`,
+                              width: `${cellWidth}px`,
+                              top: 0,
+                              height: '36px'
+                            }}
+                          >
+                            {dateLabel}
+                          </div>
+                          
+                          {/* Week Day Cell */}
+                          <div
+                            className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 bg-slate-100 transition-colors ${
+                              isHovered ? 'bg-blue-200' : ''
+                            }`}
+                            style={{
+                              left: `${leftEdge}px`,
+                              width: `${cellWidth}px`,
+                              top: '36px',
+                              height: '36px'
+                            }}
+                          >
+                            {weekDay}
+                          </div>
+                          
+                          {/* Cycle Day Cell */}
+                          <div
+                            className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-200 bg-white transition-colors ${
+                              isHovered ? 'bg-blue-200' : ''
+                            }`}
+                            style={{
+                              left: `${leftEdge}px`,
+                              width: `${cellWidth}px`,
+                              top: '72px',
+                              height: '36px'
+                            }}
+                          >
+                            {dayNumber}
+                          </div>
+                        </Fragment>
                       );
                     })}
                   </div>
-                  
-                  {/* Week Day Label - positioned absolutely to align with Cycle Day label */}
-                  <div 
-                    className="absolute flex items-center justify-end pr-3" 
-                    style={{ 
-                      width: '80px',
-                      top: '36px', // Position below Date row
-                      left: 0,
-                      height: '36px', // Match the week days row height
-                      fontSize: '12px',
-                      fontFamily: 'Helvetica, Arial, sans-serif',
-                      color: '#373d3f',
-                      whiteSpace: 'nowrap',
-                      backgroundColor: 'rgb(241 245 249)', // bg-slate-100 to match the row
-                      borderBottom: '2px solid rgb(203 213 225)' // border-slate-300 to match
-                    }}
-                  >
-                    Week Day
-                  </div>
-                  
-                  {/* Cycle Day Label - positioned to align with x-axis labels */}
-                  <div 
-                    className="absolute flex items-end justify-end pr-3" 
-                    style={{ 
-                      width: '80px',
-                      top: 'calc(100% + 1px)', // Position right below the border (100% already includes both Date and Week Day rows)
-                      left: 0,
-                      height: '25px', // Align with x-axis label height
-                      fontSize: '12px',
-                      fontFamily: 'Helvetica, Arial, sans-serif',
-                      color: '#373d3f',
-                      paddingBottom: '5px', // Fine-tune vertical alignment with numbers
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    Cycle Day
-                  </div>
-                </div>
+                </>
+              )}
+              
+              {/* Custom Crosshair Overlay - extends through custom grid */}
+              {crosshairX !== null && (
+                <div
+                  className="absolute pointer-events-none"
+                  style={{
+                    left: `${crosshairX}px`,
+                    top: 0,
+                    width: '1px',
+                    height: '100%',
+                    background: '#b6b6b6',
+                    backgroundImage: 'repeating-linear-gradient(0deg, #b6b6b6, #b6b6b6 4px, transparent 4px, transparent 8px)',
+                    zIndex: 5
+                  }}
+                />
               )}
               
               {/* ApexChart */}
