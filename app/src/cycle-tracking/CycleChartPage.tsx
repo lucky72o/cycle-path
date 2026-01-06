@@ -74,56 +74,101 @@ export default function CycleChartPage() {
 
     const tempUnit = settings.temperatureUnit;
     
-    // Create a map of day numbers to temperatures for quick lookup
-    const includedTempMap = new Map(
-      includedBBTDays.map((day: any) => {
-        const temp = tempUnit === 'CELSIUS' 
-          ? fahrenheitToCelsius(day.bbt!)
-          : day.bbt!;
-        return [day.dayNumber, Number(temp.toFixed(2))];
-      })
-    );
-    
-    const excludedTempMap = new Map(
-      excludedBBTDays.map((day: any) => {
-        const temp = tempUnit === 'CELSIUS' 
-          ? fahrenheitToCelsius(day.bbt!)
-          : day.bbt!;
-        return [day.dayNumber, Number(temp.toFixed(2))];
-      })
+    // Create a map of day numbers to day data for quick lookup
+    const allBBTDaysMap = new Map(
+      allDaysWithBBT.map((day: any) => [day.dayNumber, day])
     );
 
-    // Build arrays with x,y pairs for numeric axis with even spacing
-    const includedData: Array<{x: number, y: number}> = [];
-    const excludedData: Array<{x: number, y: number}> = [];
+    // Build all data points with metadata
+    const allPoints: Array<{x: number, y: number, isExcluded: boolean, dayNumber: number}> = [];
     
     for (let dayNumber = displayDayRange.minDay; dayNumber <= displayDayRange.maxDay; dayNumber++) {
-      const includedTemp = includedTempMap.get(dayNumber);
-      const excludedTemp = excludedTempMap.get(dayNumber);
+      const day = allBBTDaysMap.get(dayNumber);
       
-      if (includedTemp !== undefined) {
-        includedData.push({ x: dayNumber, y: includedTemp });
-      }
-      if (excludedTemp !== undefined) {
-        excludedData.push({ x: dayNumber, y: excludedTemp });
+      if (day && day.bbt !== null) {
+        const temp = tempUnit === 'CELSIUS' 
+          ? fahrenheitToCelsius(day.bbt!)
+          : day.bbt!;
+        const tempValue = Number(temp.toFixed(2));
+        
+        allPoints.push({ 
+          x: dayNumber, 
+          y: tempValue,
+          isExcluded: day.excludeFromInterpretation,
+          dayNumber
+        });
       }
     }
 
-    return {
-      series: [
-        {
-          name: 'BBT',
-          data: includedData
-        },
-        {
-          name: 'BBT (Excluded)',
-          data: excludedData
+    // Build series: separate solid and dashed segments
+    const solidSegments: Array<{x: number, y: number}>[] = [];
+    const dashedSegments: Array<{x: number, y: number}>[] = [];
+    
+    let currentSolidSegment: Array<{x: number, y: number}> = [];
+    
+    for (let i = 0; i < allPoints.length; i++) {
+      const point = allPoints[i];
+      const prevPoint = i > 0 ? allPoints[i - 1] : null;
+      const nextPoint = i < allPoints.length - 1 ? allPoints[i + 1] : null;
+      
+      if (point.isExcluded) {
+        // Close current solid segment if it exists
+        if (currentSolidSegment.length > 0) {
+          solidSegments.push([...currentSolidSegment]);
+          currentSolidSegment = [];
         }
-      ],
+        
+        // Create dashed segment from previous to this excluded point
+        if (prevPoint) {
+          dashedSegments.push([
+            { x: prevPoint.x, y: prevPoint.y },
+            { x: point.x, y: point.y }
+          ]);
+        }
+        
+        // Create dashed segment from this excluded point to next
+        if (nextPoint) {
+          dashedSegments.push([
+            { x: point.x, y: point.y },
+            { x: nextPoint.x, y: nextPoint.y }
+          ]);
+        }
+      } else {
+        // Add to current solid segment
+        currentSolidSegment.push({ x: point.x, y: point.y });
+        
+        // If next point is excluded or this is the last point, close the segment
+        if (!nextPoint || nextPoint.isExcluded) {
+          if (currentSolidSegment.length > 0) {
+            solidSegments.push([...currentSolidSegment]);
+            currentSolidSegment = [];
+          }
+        }
+      }
+    }
+
+    // Build series array: solid segments + dashed segments
+    const series = [
+      ...solidSegments.map((segment, index) => ({
+        name: `BBT-${index}`,
+        data: segment
+      })),
+      ...dashedSegments.map((segment, index) => ({
+        name: `Dashed-${index}`,
+        data: segment
+      }))
+    ];
+
+    return {
+      series,
       minDay: displayDayRange.minDay,
-      maxDay: displayDayRange.maxDay
+      maxDay: displayDayRange.maxDay,
+      numSolidSegments: solidSegments.length,
+      numDashedSegments: dashedSegments.length,
+      allPoints: allPoints,
+      allDaysMap: allBBTDaysMap
     };
-  }, [cycle, displayDayRange, includedBBTDays, excludedBBTDays, settings]);
+  }, [cycle, displayDayRange, allDaysWithBBT, settings]);
 
   // Create a map of day numbers to week day abbreviations across the displayed range.
   const weekDaysMap = useMemo(() => {
@@ -241,15 +286,16 @@ export default function CycleChartPage() {
             const dataPointIndex = config.dataPointIndex;
             
             if (seriesIndex >= 0 && dataPointIndex >= 0 && chartData && plotAreaWidth > 0) {
-              const daysList = seriesIndex === 0 ? includedBBTDays : excludedBBTDays;
-              const day = daysList[dataPointIndex];
-              if (day) {
-                setHoveredDayNumber(day.dayNumber);
+              // Get the data point from the series
+              const point = chartData.series[seriesIndex]?.data[dataPointIndex];
+              if (point) {
+                const dayNumber = point.x;
+                setHoveredDayNumber(dayNumber);
                 
                 // Calculate crosshair position
                 const numDays = chartData.maxDay - chartData.minDay + 1;
                 const cellWidth = plotAreaWidth / numDays;
-                const dayIndex = day.dayNumber - chartData.minDay;
+                const dayIndex = dayNumber - chartData.minDay;
                 const xPos = plotAreaOffset + (dayIndex + 0.5) * cellWidth;
                 setCrosshairX(xPos);
               }
@@ -268,6 +314,9 @@ export default function CycleChartPage() {
           enabled: false
         }
       },
+      legend: {
+        show: false // Hide legend since we have multiple internal series (BBT-0, BBT-1, Dashed-0, etc.)
+      },
       grid: {
         padding: {
           left: 50, // Increased to create more space between title and labels
@@ -281,10 +330,20 @@ export default function CycleChartPage() {
           }
         }
       },
-      colors: ['#3b82f6', '#9CA3AF'], // Blue for included, grey for excluded
+      colors: [
+        ...Array(chartData.numSolidSegments).fill('#3b82f6'), // Blue for solid segments
+        ...Array(chartData.numDashedSegments).fill('#9CA3AF')  // Grey for dashed segments
+      ],
       stroke: {
         curve: 'straight',
-        width: [2, 0] // Line for included series, no line for excluded series
+        width: [
+          ...Array(chartData.numSolidSegments).fill(2),       // Width 2 for solid
+          ...Array(chartData.numDashedSegments).fill(2)        // Width 2 for dashed
+        ],
+        dashArray: [
+          ...Array(chartData.numSolidSegments).fill(0),        // Solid lines
+          ...Array(chartData.numDashedSegments).fill(5)        // Dashed lines
+        ]
       },
       fill: {
         opacity: 1
@@ -293,44 +352,116 @@ export default function CycleChartPage() {
         enabled: false
       },
       markers: {
-        size: [5, 5], // Same size for both
-        fillOpacity: [1, 1],
-        strokeWidth: [2, 2],
-        strokeColors: ['#fff', '#fff'],
+        size: [
+          ...Array(chartData.numSolidSegments).fill(5),  // Show markers on solid segments
+          ...Array(chartData.numDashedSegments).fill(0)   // Hide markers on dashed segments (we'll use discrete markers)
+        ],
+        fillOpacity: 1,
+        strokeWidth: 2,
+        strokeColors: '#fff',
         hover: {
-          size: 7
+          size: 7,
+          sizeOffset: 0
         },
-        discrete: [
-          // Mark intercourse days with pink markers
-          // For included BBT series (seriesIndex 0)
-          ...(cycle?.days
-            .filter((day: any) => day.hadIntercourse && day.bbt !== null && !day.excludeFromInterpretation)
-            .map((day: any) => {
-              const dataPointIndex = includedBBTDays.findIndex((d: any) => d.id === day.id);
-              return dataPointIndex !== -1 ? {
-                seriesIndex: 0,
-                dataPointIndex: dataPointIndex,
-                fillColor: '#ec4899',
-                strokeColor: '#fff',
-                size: 5
-              } : null;
-            })
-            .filter(marker => marker !== null) || []),
-          // For excluded BBT series (seriesIndex 1)
-          ...(cycle?.days
-            .filter((day: any) => day.hadIntercourse && day.bbt !== null && day.excludeFromInterpretation)
-            .map((day: any) => {
-              const dataPointIndex = excludedBBTDays.findIndex((d: any) => d.id === day.id);
-              return dataPointIndex !== -1 ? {
-                seriesIndex: 1,
-                dataPointIndex: dataPointIndex,
-                fillColor: '#ec4899',
-                strokeColor: '#fff',
-                size: 5
-              } : null;
-            })
-            .filter(marker => marker !== null) || [])
-        ]
+        discrete: (() => {
+          const discreteMarkers: any[] = [];
+          
+          // Helper to find all occurrences of a day number in series (it may appear in multiple)
+          const findPointInSolidSeries = (dayNumber: number) => {
+            // Only look in solid segments (first numSolidSegments series)
+            for (let seriesIndex = 0; seriesIndex < chartData.numSolidSegments; seriesIndex++) {
+              const series = chartData.series[seriesIndex];
+              for (let dataPointIndex = 0; dataPointIndex < series.data.length; dataPointIndex++) {
+                const point = series.data[dataPointIndex];
+                if (point.x === dayNumber) {
+                  return { seriesIndex, dataPointIndex };
+                }
+              }
+            }
+            return null;
+          };
+          
+          // Helper to find point in dashed segments
+          const findPointInDashedSeries = (dayNumber: number) => {
+            const results: Array<{seriesIndex: number, dataPointIndex: number}> = [];
+            // Look in dashed segments (after solid segments)
+            for (let i = 0; i < chartData.numDashedSegments; i++) {
+              const seriesIndex = chartData.numSolidSegments + i;
+              const series = chartData.series[seriesIndex];
+              for (let dataPointIndex = 0; dataPointIndex < series.data.length; dataPointIndex++) {
+                const point = series.data[dataPointIndex];
+                if (point.x === dayNumber) {
+                  results.push({ seriesIndex, dataPointIndex });
+                }
+              }
+            }
+            return results;
+          };
+          
+          // Add discrete markers for excluded points (grey) in dashed segments
+          allDaysWithBBT
+            .filter((day: any) => day.excludeFromInterpretation)
+            .forEach((day: any) => {
+              const dashedLocations = findPointInDashedSeries(day.dayNumber);
+              dashedLocations.forEach(location => {
+                discreteMarkers.push({
+                  seriesIndex: location.seriesIndex,
+                  dataPointIndex: location.dataPointIndex,
+                  fillColor: '#9CA3AF',
+                  strokeColor: '#fff',
+                  size: 5
+                });
+              });
+            });
+          
+          // Add discrete markers for included points that appear in dashed segments (blue)
+          // These are the points adjacent to excluded points
+          allDaysWithBBT
+            .filter((day: any) => !day.excludeFromInterpretation)
+            .forEach((day: any) => {
+              const dashedLocations = findPointInDashedSeries(day.dayNumber);
+              dashedLocations.forEach(location => {
+                discreteMarkers.push({
+                  seriesIndex: location.seriesIndex,
+                  dataPointIndex: location.dataPointIndex,
+                  fillColor: '#3b82f6',
+                  strokeColor: '#fff',
+                  size: 5
+                });
+              });
+            });
+          
+          // Mark intercourse days with pink markers (overrides all colors)
+          cycle?.days
+            .filter((day: any) => day.hadIntercourse && day.bbt !== null)
+            .forEach((day: any) => {
+              // Find in solid series
+              const solidLocation = findPointInSolidSeries(day.dayNumber);
+              if (solidLocation) {
+                discreteMarkers.push({
+                  seriesIndex: solidLocation.seriesIndex,
+                  dataPointIndex: solidLocation.dataPointIndex,
+                  fillColor: '#ec4899',
+                  strokeColor: '#fff',
+                  size: 5
+                });
+              }
+              
+              // Also find in dashed series (in case it's adjacent to an excluded point)
+              const dashedLocations = findPointInDashedSeries(day.dayNumber);
+              dashedLocations.forEach(location => {
+                discreteMarkers.push({
+                  seriesIndex: location.seriesIndex,
+                  dataPointIndex: location.dataPointIndex,
+                  fillColor: '#ec4899',
+                  strokeColor: '#fff',
+                  size: 5
+                });
+              });
+            });
+          
+          return discreteMarkers;
+        })()
       },
       xaxis: {
         type: 'numeric',
@@ -403,12 +534,12 @@ export default function CycleChartPage() {
           show: false // Hide the marker/color indicator in tooltip
         },
         custom: function({ seriesIndex, dataPointIndex }) {
-          // Determine if this is an included or excluded point based on seriesIndex
-          const isExcluded = seriesIndex === 1;
-          const daysList = isExcluded ? excludedBBTDays : includedBBTDays;
+          // Get the data point from the series
+          const point = chartData?.series[seriesIndex]?.data[dataPointIndex];
+          if (!point) return '';
           
-          // Get the day data from the list using the dataPointIndex
-          const day = daysList[dataPointIndex];
+          // Find the corresponding day data using the day number (x value)
+          const day = chartData?.allDaysMap.get(point.x);
           if (!day || !day.bbt) return '';
           
           const temp = settings.temperatureUnit === 'CELSIUS' 
@@ -423,6 +554,7 @@ export default function CycleChartPage() {
               <div class="font-semibold mt-2">${temp}${tempUnit}</div>
               ${day.bbtTime ? `<div class="text-sm">Time: ${day.bbtTime}</div>` : ''}
               ${day.hadIntercourse ? '<div class="text-sm text-pink-600">Intercourse</div>' : ''}
+              ${day.excludeFromInterpretation ? '<div class="text-sm text-gray-500">Excluded from interpretation</div>' : ''}
             </div>
           `;
         }
@@ -431,18 +563,18 @@ export default function CycleChartPage() {
         show: false // Disabled - using custom crosshair overlay instead
       }
     };
-  }, [settings, chartData, includedBBTDays, excludedBBTDays, cycle, navigate, yAxisRange, plotAreaWidth, plotAreaOffset]);
+  }, [settings, chartData, allDaysWithBBT, cycle, navigate, yAxisRange, plotAreaWidth, plotAreaOffset]);
 
   const prevCycle = useMemo(() => {
     if (!cycle || !allCycles) return null;
     const currentIndex = allCycles.findIndex(c => c.id === cycle.id);
-    return currentIndex < allCycles.length - 1 ? allCycles[currentIndex + 1] : null;
+    return currentIndex > 0 ? allCycles[currentIndex - 1] : null;
   }, [cycle, allCycles]);
 
   const nextCycle = useMemo(() => {
     if (!cycle || !allCycles) return null;
     const currentIndex = allCycles.findIndex(c => c.id === cycle.id);
-    return currentIndex > 0 ? allCycles[currentIndex - 1] : null;
+    return currentIndex < allCycles.length - 1 ? allCycles[currentIndex + 1] : null;
   }, [cycle, allCycles]);
 
   // Handle chart container resize and measure plot area dimensions
