@@ -354,6 +354,9 @@ export default function CycleChartPage() {
         },
         crosshairs: {
           show: false // Explicitly disable x-axis crosshairs
+        },
+        tooltip: {
+          enabled: false // Disable x-axis tooltip that might show day number
         }
       },
       yaxis: {
@@ -387,8 +390,17 @@ export default function CycleChartPage() {
         enabled: true,
         intersect: true,
         shared: false,
+        followCursor: false,
         x: {
           show: false // Disable tooltip-related x-axis crosshairs
+        },
+        y: {
+          title: {
+            formatter: () => '' // Remove series name from tooltip
+          }
+        },
+        marker: {
+          show: false // Hide the marker/color indicator in tooltip
         },
         custom: function({ seriesIndex, dataPointIndex }) {
           // Determine if this is an included or excluded point based on seriesIndex
@@ -406,8 +418,7 @@ export default function CycleChartPage() {
           
           return `
             <div class="p-3 bg-white border rounded shadow-lg">
-              <div class="font-bold mb-1">Day ${day.dayNumber}${isExcluded ? ' <span class="text-gray-500">(excluded)</span>' : ''}</div>
-              <div class="text-sm">${formatDate(new Date(day.date))}</div>
+              <div class="font-bold mb-1">${formatDate(new Date(day.date))}</div>
               <div class="text-sm">${day.dayOfWeek}</div>
               <div class="font-semibold mt-2">${temp}${tempUnit}</div>
               ${day.bbtTime ? `<div class="text-sm">Time: ${day.bbtTime}</div>` : ''}
@@ -571,8 +582,8 @@ export default function CycleChartPage() {
                         <Fragment key={dayNumber}>
                           {/* Date Cell */}
                           <div
-                            className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 bg-blue-50 transition-colors ${
-                              isHovered ? 'bg-blue-200' : ''
+                            className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 transition-colors ${
+                              isHovered ? 'bg-[#bfdbfe]' : 'bg-blue-50'
                             }`}
                             style={{
                               left: `${leftEdge}px`,
@@ -586,8 +597,8 @@ export default function CycleChartPage() {
                           
                           {/* Week Day Cell */}
                           <div
-                            className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 bg-slate-100 transition-colors ${
-                              isHovered ? 'bg-blue-200' : ''
+                            className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 transition-colors ${
+                              isHovered ? 'bg-[#bfdbfe]' : 'bg-slate-100'
                             }`}
                             style={{
                               left: `${leftEdge}px`,
@@ -601,8 +612,8 @@ export default function CycleChartPage() {
                           
                           {/* Cycle Day Cell */}
                           <div
-                            className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-200 bg-white transition-colors ${
-                              isHovered ? 'bg-blue-200' : ''
+                            className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-200 transition-colors ${
+                              isHovered ? 'bg-[#bfdbfe]' : 'bg-white'
                             }`}
                             style={{
                               left: `${leftEdge}px`,
