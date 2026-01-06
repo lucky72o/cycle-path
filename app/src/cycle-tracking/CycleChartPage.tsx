@@ -22,6 +22,8 @@ export default function CycleChartPage() {
   const [hoveredDayNumber, setHoveredDayNumber] = useState<number | null>(null);
   const [plotAreaOffset, setPlotAreaOffset] = useState<number>(0);
   const [plotAreaWidth, setPlotAreaWidth] = useState<number>(0);
+  const [plotAreaTop, setPlotAreaTop] = useState<number>(0);
+  const [chartHeight, setChartHeight] = useState<number>(0);
   const [crosshairX, setCrosshairX] = useState<number | null>(null);
 
   // If no cycleId provided, redirect to active cycle
@@ -240,6 +242,26 @@ export default function CycleChartPage() {
     
     return map;
   }, [cycle, displayDayRange]);
+
+  // Create a map of day numbers to parsed time data for BBT timestamps
+  const timeStampsMap = useMemo(() => {
+    if (!cycle || !chartData) return new Map<number, { hours: string; minutes: string } | null>();
+
+    const map = new Map<number, { hours: string; minutes: string } | null>();
+
+    for (let dayNumber = displayDayRange.minDay; dayNumber <= displayDayRange.maxDay; dayNumber++) {
+      const day = chartData.allDaysMap.get(dayNumber);
+      if (day?.bbtTime) {
+        // Parse "HH:MM" format
+        const [hours, minutes] = day.bbtTime.split(':');
+        map.set(dayNumber, { hours, minutes });
+      } else {
+        map.set(dayNumber, null);
+      }
+    }
+
+    return map;
+  }, [cycle, chartData, displayDayRange]);
 
   const chartOptions: ApexOptions = useMemo(() => {
     if (!settings || !cycle || !yAxisRange || !chartData) return {};
@@ -586,11 +608,22 @@ export default function CycleChartPage() {
         if (plotArea) {
           const containerRect = chartContainerRef.current.getBoundingClientRect();
           const plotRect = plotArea.getBoundingClientRect();
-          
+
           // Calculate offset and width relative to container
           const offset = plotRect.left - containerRect.left;
           setPlotAreaOffset(offset);
           setPlotAreaWidth(plotRect.width);
+
+          // NEW: Measure plot area top position (includes upper table + any padding)
+          const plotAreaTopPosition = plotRect.top - containerRect.top;
+          setPlotAreaTop(plotAreaTopPosition);
+
+          // NEW: Measure the actual chart height for dynamic positioning
+          const chartSvg = chartContainerRef.current.querySelector('.apexcharts-svg');
+          if (chartSvg) {
+            const chartRect = chartSvg.getBoundingClientRect();
+            setChartHeight(chartRect.height);
+          }
         }
       }
     };
@@ -680,7 +713,7 @@ export default function CycleChartPage() {
             }
           `}</style>
           {chartData ? (
-            <div ref={chartContainerRef} className="relative" style={{ paddingTop: '108px' }}>
+            <div ref={chartContainerRef} className="relative" style={{ paddingTop: '108px', paddingBottom: '48px' }}>
               {/* Custom X-axis rows with labels */}
               {chartData && plotAreaWidth > 0 && (
                 <>
@@ -771,7 +804,7 @@ export default function CycleChartPage() {
                     left: `${crosshairX}px`,
                     top: 0,
                     width: '0',
-                    height: '100%',
+                    height: 'calc(100% + 48px)', // Extend by the height of the time stamp row
                     borderLeft: '1px dashed #b6b6b6',
                     zIndex: 5
                   }}
@@ -785,6 +818,69 @@ export default function CycleChartPage() {
                 type="line"
                 height={400}
               />
+
+              {/* Time Stamp Row - positioned below the chart */}
+              {chartData && plotAreaWidth > 0 && plotAreaTop > 0 && chartHeight > 0 && (
+                <>
+                  {/* Row Label - positioned in y-axis area */}
+                  <div
+                    className="absolute left-0"
+                    style={{
+                      width: `${plotAreaOffset}px`,
+                      top: `${plotAreaTop + chartHeight}px`, // Measured plot area top + measured chart height
+                      zIndex: 2
+                    }}
+                  >
+                    <div className="flex items-center justify-end px-3 h-12 text-xs font-medium bg-amber-50 border-b border-slate-300 border-r border-slate-300">
+                      Time Stamp
+                    </div>
+                  </div>
+
+                  {/* Grid cells for time stamps */}
+                  <div
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: 0,
+                      right: 0,
+                      top: `${plotAreaTop + chartHeight}px`, // Measured plot area top + measured chart height
+                      zIndex: 1
+                    }}
+                  >
+                    {Array.from({ length: chartData.maxDay - chartData.minDay + 1 }, (_, i) => {
+                      const dayNumber = chartData.minDay + i;
+                      const timeData = timeStampsMap.get(dayNumber);
+                      const isHovered = hoveredDayNumber === dayNumber;
+
+                      // Calculate cell position within plot area
+                      const numDays = chartData.maxDay - chartData.minDay + 1;
+                      const cellWidth = plotAreaWidth / numDays;
+                      const leftEdge = plotAreaOffset + (i * cellWidth);
+
+                      return (
+                        <div
+                          key={dayNumber}
+                          className={`absolute flex flex-col items-center justify-center text-xs border-r border-b border-slate-300 transition-colors ${
+                            isHovered ? 'bg-[#fde68a]' : 'bg-amber-50'
+                          }`}
+                          style={{
+                            left: `${leftEdge}px`,
+                            width: `${cellWidth}px`,
+                            top: 0,
+                            height: '48px'
+                          }}
+                        >
+                          {timeData && (
+                            <>
+                              <div className="font-medium leading-tight">{timeData.hours}</div>
+                              <div className="text-xs leading-tight">{timeData.minutes}</div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="text-center py-12 text-muted-foreground">
