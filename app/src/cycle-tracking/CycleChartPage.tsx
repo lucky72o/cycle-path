@@ -351,6 +351,9 @@ export default function CycleChartPage() {
         },
         axisTicks: {
           show: false // Hide axis ticks
+        },
+        crosshairs: {
+          show: false // Explicitly disable x-axis crosshairs
         }
       },
       yaxis: {
@@ -384,6 +387,9 @@ export default function CycleChartPage() {
         enabled: true,
         intersect: true,
         shared: false,
+        x: {
+          show: false // Disable tooltip-related x-axis crosshairs
+        },
         custom: function({ seriesIndex, dataPointIndex }) {
           // Determine if this is an included or excluded point based on seriesIndex
           const isExcluded = seriesIndex === 1;
@@ -621,10 +627,9 @@ export default function CycleChartPage() {
                   style={{
                     left: `${crosshairX}px`,
                     top: 0,
-                    width: '1px',
+                    width: '0',
                     height: '100%',
-                    background: '#b6b6b6',
-                    backgroundImage: 'repeating-linear-gradient(0deg, #b6b6b6, #b6b6b6 4px, transparent 4px, transparent 8px)',
+                    borderLeft: '1px dashed #b6b6b6',
                     zIndex: 5
                   }}
                 />
