@@ -270,15 +270,15 @@ export default function CycleChartPage() {
   }, [cycle, chartData, displayDayRange]);
 
   // Helper functions for cervical fluid bars
-  const CF_ROW_HEIGHT = 36;
+  const CF_ROW_HEIGHT = 28;
 
   const getCFBarHeight = (appearance: string): number => {
     switch (appearance) {
-      case 'NONE': return CF_ROW_HEIGHT * 1;      // 36px
-      case 'STICKY': return CF_ROW_HEIGHT * 2;    // 72px
-      case 'CREAMY': return CF_ROW_HEIGHT * 3;    // 108px
-      case 'WATERY': return CF_ROW_HEIGHT * 4;    // 144px
-      case 'EGGWHITE': return CF_ROW_HEIGHT * 5;  // 180px
+      case 'NONE': return CF_ROW_HEIGHT * 1;      // 28px
+      case 'STICKY': return CF_ROW_HEIGHT * 2;    // 56px
+      case 'CREAMY': return CF_ROW_HEIGHT * 3;    // 84px
+      case 'WATERY': return CF_ROW_HEIGHT * 4;    // 112px
+      case 'EGGWHITE': return CF_ROW_HEIGHT * 5;  // 140px
       default: return 0;
     }
   };
@@ -498,35 +498,6 @@ export default function CycleChartPage() {
                   seriesIndex: location.seriesIndex,
                   dataPointIndex: location.dataPointIndex,
                   fillColor: '#3b82f6',
-                  strokeColor: '#fff',
-                  size: 5
-                });
-              });
-            });
-          
-          // Mark intercourse days with pink markers (overrides all colors)
-          cycle?.days
-            .filter((day: any) => day.hadIntercourse && day.bbt !== null)
-            .forEach((day: any) => {
-              // Find in solid series
-              const solidLocation = findPointInSolidSeries(day.dayNumber);
-              if (solidLocation) {
-                discreteMarkers.push({
-                  seriesIndex: solidLocation.seriesIndex,
-                  dataPointIndex: solidLocation.dataPointIndex,
-                  fillColor: '#ec4899',
-                  strokeColor: '#fff',
-                  size: 5
-                });
-              }
-              
-              // Also find in dashed series (in case it's adjacent to an excluded point)
-              const dashedLocations = findPointInDashedSeries(day.dayNumber);
-              dashedLocations.forEach(location => {
-                discreteMarkers.push({
-                  seriesIndex: location.seriesIndex,
-                  dataPointIndex: location.dataPointIndex,
-                  fillColor: '#ec4899',
                   strokeColor: '#fff',
                   size: 5
                 });
@@ -806,7 +777,7 @@ export default function CycleChartPage() {
             }
           `}</style>
           {chartData ? (
-            <div ref={chartContainerRef} className="relative" style={{ paddingTop: '108px', paddingBottom: '228px' }}>
+            <div ref={chartContainerRef} className="relative" style={{ paddingTop: '108px', paddingBottom: '216px' }}>
               {/* Custom X-axis rows with labels */}
               {chartData && plotAreaWidth > 0 && (
                 <>
@@ -830,6 +801,8 @@ export default function CycleChartPage() {
                       const dateLabel = datesMap.get(dayNumber) || '';
                       const weekDay = weekDaysMap.get(dayNumber) || '';
                       const isHovered = hoveredDayNumber === dayNumber;
+                      const dayData = allCycleDaysMap.get(dayNumber);
+                      const hasIntercourse = dayData?.hadIntercourse;
                       
                       // Calculate cell position within plot area
                       const numDays = chartData.maxDay - chartData.minDay + 1;
@@ -877,7 +850,8 @@ export default function CycleChartPage() {
                               left: `${leftEdge}px`,
                               width: `${cellWidth}px`,
                               top: '72px',
-                              height: '36px'
+                              height: '36px',
+                              color: hasIntercourse ? '#ec4899' : undefined
                             }}
                           >
                             {dayNumber}
@@ -975,7 +949,68 @@ export default function CycleChartPage() {
                 </>
               )}
 
-              {/* Cervical Fluid & Menstrual Flow Rows - positioned below Time Stamp */}
+              {/* Intimacy Row - positioned below Time Stamp */}
+              {chartData && plotAreaWidth > 0 && plotAreaTop > 0 && chartHeight > 0 && (
+                <>
+                  {/* Row Label - positioned in y-axis area */}
+                  <div
+                    className="absolute left-0"
+                    style={{
+                      width: `${plotAreaOffset}px`,
+                      top: `${plotAreaTop + chartHeight + 48}px`, // After Time Stamp (48px)
+                      zIndex: 2
+                    }}
+                  >
+                    <div className="flex items-center justify-end px-3 text-xs font-medium bg-pink-50 border-b border-slate-300 border-r border-slate-300" style={{ height: '28px' }}>
+                      Intimacy
+                    </div>
+                  </div>
+
+                  {/* Grid cells for intimacy hearts */}
+                  <div
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: 0,
+                      right: 0,
+                      top: `${plotAreaTop + chartHeight + 48}px`, // After Time Stamp (48px)
+                      zIndex: 1
+                    }}
+                  >
+                    {Array.from({ length: chartData.maxDay - chartData.minDay + 1 }, (_, i) => {
+                      const dayNumber = chartData.minDay + i;
+                      const dayData = allCycleDaysMap.get(dayNumber);
+                      const hasIntercourse = dayData?.hadIntercourse;
+                      const isHovered = hoveredDayNumber === dayNumber;
+
+                      // Calculate cell position within plot area
+                      const numDays = chartData.maxDay - chartData.minDay + 1;
+                      const cellWidth = plotAreaWidth / numDays;
+                      const leftEdge = plotAreaOffset + (i * cellWidth);
+
+                      return (
+                        <div
+                          key={dayNumber}
+                          className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 transition-colors ${
+                            isHovered ? 'bg-pink-100' : 'bg-pink-50'
+                          }`}
+                          style={{
+                            left: `${leftEdge}px`,
+                            width: `${cellWidth}px`,
+                            top: 0,
+                            height: '28px'
+                          }}
+                        >
+                          {hasIntercourse && (
+                            <span style={{ color: '#ec4899', fontSize: '18px', lineHeight: 1 }}>❤</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* Cervical Fluid & Menstrual Flow Rows - positioned below Intimacy */}
               {chartData && plotAreaWidth > 0 && plotAreaTop > 0 && chartHeight > 0 && (
                 <>
                   {/* Row Labels - positioned in y-axis area */}
@@ -983,7 +1018,7 @@ export default function CycleChartPage() {
                     className="absolute left-0" 
                     style={{ 
                       width: `${plotAreaOffset}px`, 
-                      top: `${plotAreaTop + chartHeight + 48}px`, 
+                      top: `${plotAreaTop + chartHeight + 48 + 28}px`, 
                       zIndex: 2 
                     }}
                   >
@@ -996,7 +1031,8 @@ export default function CycleChartPage() {
                     ].map((row, idx) => (
                       <div
                         key={row.name}
-                        className="flex items-center justify-end px-3 h-9 text-xs font-medium bg-slate-50 border-b border-slate-300 border-r border-slate-300 cf-tooltip-trigger"
+                        className="flex items-center justify-end px-3 text-xs font-medium bg-slate-50 border-b border-slate-300 border-r border-slate-300 cf-tooltip-trigger"
+                        style={{ height: '28px' }}
                       >
                         <span>{row.name}</span>
                         <span className="ml-1 text-slate-400 cursor-help">ⓘ</span>
@@ -1011,8 +1047,8 @@ export default function CycleChartPage() {
                     style={{
                       left: 0,
                       right: 0,
-                      top: `${plotAreaTop + chartHeight + 48}px`,
-                      height: '180px',
+                      top: `${plotAreaTop + chartHeight + 48 + 28}px`,
+                      height: '140px',
                       zIndex: 1
                     }}
                   >
@@ -1034,7 +1070,7 @@ export default function CycleChartPage() {
                             left: `${leftEdge}px`,
                             width: `${cellWidth}px`,
                             top: 0,
-                            height: '180px'
+                            height: '140px'
                           }}
                         >
                           {/* 5 background cells - solid fill with rounded corners and white space gaps */}
@@ -1043,10 +1079,10 @@ export default function CycleChartPage() {
                               key={rowIdx}
                               className="absolute transition-opacity"
                               style={{
-                                top: `${rowIdx * 36 + 0.5}px`,
+                                top: `${rowIdx * 28 + 0.5}px`,
                                 left: '0.5px',
                                 width: 'calc(100% - 1px)',
-                                height: '35px',
+                                height: '27px',
                                 backgroundColor: '#e7f1ff',
                                 borderRadius: '2px',
                                 opacity: isHovered ? 0.7 : 1
@@ -1074,7 +1110,7 @@ export default function CycleChartPage() {
                               style={{
                                 bottom: 0,
                                 width: '100%',
-                                height: '36px'
+                                height: '28px'
                               }}
                             >
                               {cfData.menstrualFlow === 'SPOTTING' && (
@@ -1109,7 +1145,7 @@ export default function CycleChartPage() {
                                   className="rounded"
                                   style={{
                                     width: '70%',
-                                    height: '36px',
+                                    height: '28px',
                                     backgroundColor: '#d65866'
                                   }}
                                 />
@@ -1119,7 +1155,7 @@ export default function CycleChartPage() {
                                   className="rounded"
                                   style={{
                                     width: '70%',
-                                    height: '36px',
+                                    height: '28px',
                                     backgroundColor: '#c82739'
                                   }}
                                 />
