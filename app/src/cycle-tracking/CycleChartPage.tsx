@@ -671,7 +671,7 @@ export default function CycleChartPage() {
     return (
       <div className="flex">
         <SideNav />
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 md:p-8">
           <div className="text-center">Loading chart...</div>
         </div>
       </div>
@@ -682,7 +682,7 @@ export default function CycleChartPage() {
     return (
       <div className="flex">
         <SideNav />
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 md:p-8">
           <div className="text-center">
             <p className="mb-4">Cycle not found or you haven&apos;t started any cycles yet.</p>
             <Link to="/cycles">
@@ -697,17 +697,20 @@ export default function CycleChartPage() {
   return (
     <div className="flex">
       <SideNav />
-      <div className="flex-1 p-8 max-w-6xl">
-      <div className="mb-6 flex items-start justify-between">
+      <div className="flex-1 p-4 md:p-8 max-w-6xl">
+      <div className="mb-4 md:mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Cycle #{cycle.cycleNumber} Chart</h1>
+          <h1 className="text-xl md:text-3xl font-bold mb-2">Cycle #{cycle.cycleNumber} Chart</h1>
           <p className="text-muted-foreground">
             Started: {formatDateLong(new Date(cycle.startDate))}
             {cycle.endDate && ` - Ended: ${formatDateLong(new Date(cycle.endDate))}`}
           </p>
         </div>
         <Link to="/cycles/new">
-          <Button variant="default">Begin new cycle</Button>
+          <Button variant="default">
+            <span className="sm:hidden">Cycle +</span>
+            <span className="hidden sm:inline">Begin new cycle</span>
+          </Button>
         </Link>
       </div>
 
@@ -716,18 +719,21 @@ export default function CycleChartPage() {
           <CardTitle>Temperature Chart</CardTitle>
           <div className="flex items-center gap-2">
             <Link to={`/cycles/${cycle.id}/days`}>
-              <Button variant="outline" size="sm" className="hover:bg-[#002142] hover:text-white">
-                View Days
+              <Button variant="outline" size="sm" className="hover:bg-[#002142] hover:text-white" aria-label="View Days">
+                <svg className="w-4 h-4 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                </svg>
+                <span className="hidden sm:inline">View Days</span>
               </Button>
             </Link>
             <Link to={`/cycles/${cycle.id}/add-day`}>
-              <Button variant="outline" size="sm">
-                <svg className="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <Button variant="outline" size="sm" aria-label="Add a Day">
+                <svg className="w-4 h-4 sm:mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <circle cx="12" cy="12" r="10"></circle>
                   <line x1="12" y1="8" x2="12" y2="16"></line>
                   <line x1="8" y1="12" x2="16" y2="12"></line>
                 </svg>
-                Add a Day
+                <span className="hidden sm:inline">Add a Day</span>
               </Button>
             </Link>
           </div>
@@ -777,7 +783,8 @@ export default function CycleChartPage() {
             }
           `}</style>
           {chartData ? (
-            <div ref={chartContainerRef} className="relative" style={{ paddingTop: '108px', paddingBottom: '216px' }}>
+            <div className="overflow-x-auto">
+            <div ref={chartContainerRef} className="relative min-w-[800px]" style={{ paddingTop: '108px', paddingBottom: '216px' }}>
               {/* Custom X-axis rows with labels */}
               {chartData && plotAreaWidth > 0 && (
                 <>
@@ -1169,6 +1176,7 @@ export default function CycleChartPage() {
                 </>
               )}
             </div>
+            </div>
           ) : (
             <div className="text-center py-12 text-muted-foreground">
               <p className="mb-4">No temperature data recorded yet.</p>
@@ -1184,14 +1192,20 @@ export default function CycleChartPage() {
       <div className="flex justify-between items-center">
         {prevCycle ? (
           <Link to={`/cycles/${prevCycle.id}/chart`}>
-            <Button variant="outline">← Previous Cycle (#{prevCycle.cycleNumber})</Button>
+            <Button variant="outline">
+              <span className="sm:hidden">← #{prevCycle.cycleNumber}</span>
+              <span className="hidden sm:inline">← Previous Cycle (#{prevCycle.cycleNumber})</span>
+            </Button>
           </Link>
         ) : (
           <div></div>
         )}
         {nextCycle ? (
           <Link to={`/cycles/${nextCycle.id}/chart`}>
-            <Button variant="outline">Next Cycle (#{nextCycle.cycleNumber}) →</Button>
+            <Button variant="outline">
+              <span className="sm:hidden">#{nextCycle.cycleNumber} →</span>
+              <span className="hidden sm:inline">Next Cycle (#{nextCycle.cycleNumber}) →</span>
+            </Button>
           </Link>
         ) : (
           <div></div>

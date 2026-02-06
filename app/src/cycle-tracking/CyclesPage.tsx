@@ -52,7 +52,7 @@ export default function CyclesPage() {
     return (
       <div className="flex">
         <SideNav />
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 md:p-8">
           <div className="text-center">Loading...</div>
         </div>
       </div>
@@ -63,7 +63,7 @@ export default function CyclesPage() {
     return (
       <div className="flex">
         <SideNav />
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 md:p-8">
           <div className="text-center text-red-600">Error loading cycles: {error.message}</div>
         </div>
       </div>
@@ -81,11 +81,14 @@ export default function CyclesPage() {
   return (
     <div className="flex">
       <SideNav />
-      <div className="flex-1 p-8 max-w-4xl">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold">My Cycles</h1>
+      <div className="flex-1 p-4 md:p-8 max-w-4xl">
+        <div className="flex items-center justify-between mb-4 md:mb-8">
+          <h1 className="text-xl md:text-3xl font-bold">My Cycles</h1>
           <Link to="/cycles/new">
-            <Button variant="default">Begin new cycle</Button>
+            <Button variant="default">
+              <span className="sm:hidden">Cycle +</span>
+              <span className="hidden sm:inline">Begin new cycle</span>
+            </Button>
           </Link>
         </div>
 
@@ -158,17 +161,35 @@ export default function CyclesPage() {
           <CardContent>
             <div className="flex flex-wrap gap-2">
               <Link to={`/cycles/${activeCycle.id}/add-day`}>
-                <Button>Add Day</Button>
+                <Button aria-label="Add Day">
+                  <svg className="w-4 h-4 sm:mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="16"></line>
+                    <line x1="8" y1="12" x2="16" y2="12"></line>
+                  </svg>
+                  <span className="hidden sm:inline">Add Day</span>
+                </Button>
               </Link>
               <Link to={`/cycles/${activeCycle.id}/days`}>
-                <Button variant="outline">View Days</Button>
+                <Button variant="outline" aria-label="View Days">
+                  <svg className="w-4 h-4 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                  <span className="hidden sm:inline">View Days</span>
+                </Button>
               </Link>
               <Link to={`/cycles/${activeCycle.id}/chart`}>
-                <Button variant="outline">View Graph</Button>
+                <Button variant="outline" aria-label="View Graph">
+                  <svg className="w-4 h-4 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 19V5m0 14h16M7 14l4-5 4 3 3-4" />
+                  </svg>
+                  <span className="hidden sm:inline">View Graph</span>
+                </Button>
               </Link>
               <Button 
                 variant="destructive" 
                 size="sm"
+                aria-label="Delete Cycle"
                 onClick={async () => {
                   if (confirm('Are you sure you want to delete this cycle? This will delete all cycle days as well.')) {
                     try {
@@ -181,7 +202,10 @@ export default function CyclesPage() {
                   }
                 }}
               >
-                Delete Cycle
+                <svg className="w-4 h-4 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <span className="hidden sm:inline">Delete Cycle</span>
               </Button>
             </div>
           </CardContent>
@@ -190,7 +214,7 @@ export default function CyclesPage() {
 
       {pastCycles.length > 0 && (
         <div>
-          <h2 className="text-2xl font-bold mb-4">Past Cycles</h2>
+          <h2 className="text-lg md:text-2xl font-bold mb-4">Past Cycles</h2>
           <div className="space-y-4">
             {pastCycles.map((cycle) => (
               <Card key={cycle.id}>
@@ -204,14 +228,25 @@ export default function CyclesPage() {
                 <CardContent>
                   <div className="flex flex-wrap gap-2">
                     <Link to={`/cycles/${cycle.id}/days`}>
-                      <Button size="sm">View Days</Button>
+                      <Button size="sm" aria-label="View Days">
+                        <svg className="w-4 h-4 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                        </svg>
+                        <span className="hidden sm:inline">View Days</span>
+                      </Button>
                     </Link>
                     <Link to={`/cycles/${cycle.id}/chart`}>
-                      <Button size="sm" variant="outline">View Graph</Button>
+                      <Button size="sm" variant="outline" aria-label="View Graph">
+                        <svg className="w-4 h-4 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 19V5m0 14h16M7 14l4-5 4 3 3-4" />
+                        </svg>
+                        <span className="hidden sm:inline">View Graph</span>
+                      </Button>
                     </Link>
                     <Button 
                       size="sm"
                       variant="destructive"
+                      aria-label="Delete"
                       onClick={async () => {
                         if (confirm('Are you sure you want to delete this cycle? This will delete all cycle days as well.')) {
                           try {
@@ -224,7 +259,10 @@ export default function CyclesPage() {
                         }
                       }}
                     >
-                      Delete
+                      <svg className="w-4 h-4 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      <span className="hidden sm:inline">Delete</span>
                     </Button>
                   </div>
                 </CardContent>

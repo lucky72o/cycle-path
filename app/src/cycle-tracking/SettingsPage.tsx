@@ -35,7 +35,7 @@ export default function SettingsPage() {
     return (
       <div className="flex">
         <SideNav />
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 md:p-8">
           <div className="text-center">Loading...</div>
         </div>
       </div>
@@ -45,8 +45,8 @@ export default function SettingsPage() {
   return (
     <div className="flex">
       <SideNav />
-      <div className="flex-1 p-8 max-w-4xl">
-        <h1 className="text-3xl font-bold mb-8">Settings</h1>
+      <div className="flex-1 p-4 md:p-8 max-w-4xl">
+        <h1 className="text-xl md:text-3xl font-bold mb-4 md:mb-8">Settings</h1>
 
         <Card>
           <CardHeader>

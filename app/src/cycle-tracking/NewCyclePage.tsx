@@ -92,7 +92,7 @@ export default function NewCyclePage() {
     return (
       <div className="flex">
         <SideNav />
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 md:p-8">
           <div className="text-center">Loading...</div>
         </div>
       </div>
@@ -102,9 +102,9 @@ export default function NewCyclePage() {
   return (
     <div className="flex">
       <SideNav />
-      <div className="flex-1 p-8 max-w-3xl">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Begin New Cycle</h1>
+      <div className="flex-1 p-4 md:p-8 max-w-3xl">
+        <div className="mb-4 md:mb-6">
+          <h1 className="text-xl md:text-3xl font-bold mb-2">Begin New Cycle</h1>
           <p className="text-muted-foreground">
             Start tracking a new fertility cycle and optionally record your first day&apos;s data.
           </p>

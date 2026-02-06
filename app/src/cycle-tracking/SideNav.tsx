@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from 'wasp/client/operations';
 import { getUserCycles } from 'wasp/client/operations';
@@ -7,6 +8,7 @@ export default function SideNav() {
   const location = useLocation();
   const { data: cycles } = useQuery(getUserCycles);
   const activeCycle = cycles?.find(c => c.isActive);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
     {
@@ -39,37 +41,84 @@ export default function SideNav() {
     }
   ];
 
+  const navContent = (
+    <nav className="space-y-1">
+      {navItems.map((item) => {
+        const isActive = location.pathname === item.path || 
+                        (item.path.includes('/chart') && location.pathname.includes('/chart')) ||
+                        (item.path.includes('/cycles') && location.pathname.startsWith('/cycles/') && item.path !== '/cycles');
+        
+        return (
+          <Link
+            key={item.path}
+            to={item.path}
+            onClick={() => setMobileOpen(false)}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+              isActive
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            {item.icon}
+            <span>{item.name}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+
   return (
-    <div className="w-64 bg-muted/30 border-r min-h-screen p-4">
-      <div className="mb-8">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-          Navigation
-        </h2>
+    <>
+      {/* Mobile hamburger button */}
+      <button
+        className="md:hidden fixed top-20 left-3 z-50 p-2 rounded-lg bg-muted/80 backdrop-blur border shadow-sm"
+        onClick={() => setMobileOpen(true)}
+        aria-label="Open navigation"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setMobileOpen(false)}
+          />
+          {/* Drawer */}
+          <div className="absolute left-0 top-0 bottom-0 w-64 bg-background border-r p-4 shadow-lg">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                Navigation
+              </h2>
+              <button
+                onClick={() => setMobileOpen(false)}
+                aria-label="Close navigation"
+                className="p-1 rounded hover:bg-muted"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            {navContent}
+          </div>
+        </div>
+      )}
+
+      {/* Desktop sidebar */}
+      <div className="hidden md:block w-64 bg-muted/30 border-r min-h-screen p-4">
+        <div className="mb-8">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+            Navigation
+          </h2>
+        </div>
+        {navContent}
       </div>
-      <nav className="space-y-1">
-        {navItems.map((item) => {
-          const isActive = location.pathname === item.path || 
-                          (item.path.includes('/chart') && location.pathname.includes('/chart')) ||
-                          (item.path.includes('/cycles') && location.pathname.startsWith('/cycles/') && item.path !== '/cycles');
-          
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              )}
-            >
-              {item.icon}
-              <span>{item.name}</span>
-            </Link>
-          );
-        })}
-      </nav>
-    </div>
+    </>
   );
 }
-

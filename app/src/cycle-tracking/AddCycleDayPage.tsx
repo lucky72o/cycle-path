@@ -133,7 +133,7 @@ export default function AddCycleDayPage() {
     return (
       <div className="flex">
         <SideNav />
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 md:p-8">
           <div className="text-center">Loading...</div>
         </div>
       </div>
@@ -144,7 +144,7 @@ export default function AddCycleDayPage() {
     return (
       <div className="flex">
         <SideNav />
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 md:p-8">
           <div className="text-center">
             <p className="mb-4">Cycle not found.</p>
             <Link to="/cycles">
@@ -228,9 +228,9 @@ export default function AddCycleDayPage() {
   return (
     <div className="flex">
       <SideNav />
-      <div className="flex-1 p-8 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">
+      <div className="flex-1 p-4 md:p-8 max-w-4xl">
+      <div className="mb-4 md:mb-6">
+        <h1 className="text-xl md:text-3xl font-bold mb-2">
           Cycle #{cycle.cycleNumber}: {existingDay ? 'Edit' : 'Add'} Daily Entry
         </h1>
         <p className="text-muted-foreground">
