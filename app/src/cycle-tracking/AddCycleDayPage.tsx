@@ -101,10 +101,10 @@ export default function AddCycleDayPage() {
         bbtTime: bbtTime || undefined,
         hadIntercourse,
         excludeFromInterpretation,
-        cervicalAppearance: cervicalAppearance || undefined,
-        cervicalSensation: cervicalSensation || undefined,
-        opkStatus: opkStatus || undefined,
-        menstrualFlow: menstrualFlow || undefined
+        cervicalAppearance: cervicalAppearance || null,
+        cervicalSensation: cervicalSensation || null,
+        opkStatus: opkStatus || null,
+        menstrualFlow: menstrualFlow || null
       });
 
       // Reset form (only if adding, not editing)

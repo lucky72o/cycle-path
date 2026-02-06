@@ -279,10 +279,10 @@ type CreateOrUpdateCycleDayArgs = {
   bbtTime?: string;
   hadIntercourse: boolean;
   excludeFromInterpretation: boolean;
-  cervicalAppearance?: 'NONE' | 'STICKY' | 'CREAMY' | 'WATERY' | 'EGGWHITE';
-  cervicalSensation?: 'DRY' | 'DAMP' | 'WET' | 'SLIPPERY';
-  opkStatus?: 'low' | 'rising' | 'peak' | 'declining';
-  menstrualFlow?: 'SPOTTING' | 'LIGHT' | 'MEDIUM' | 'HEAVY' | 'VERY_HEAVY';
+  cervicalAppearance?: 'NONE' | 'STICKY' | 'CREAMY' | 'WATERY' | 'EGGWHITE' | null;
+  cervicalSensation?: 'DRY' | 'DAMP' | 'WET' | 'SLIPPERY' | null;
+  opkStatus?: 'low' | 'rising' | 'peak' | 'declining' | null;
+  menstrualFlow?: 'SPOTTING' | 'LIGHT' | 'MEDIUM' | 'HEAVY' | 'VERY_HEAVY' | null;
 };
 
 export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleDayArgs, CycleDay> = async (args, context) => {
