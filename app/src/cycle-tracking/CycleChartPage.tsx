@@ -243,6 +243,12 @@ export default function CycleChartPage() {
     return map;
   }, [cycle, displayDayRange]);
 
+  // Create a map of ALL cycle days (not just BBT days) for cervical/menstrual data
+  const allCycleDaysMap = useMemo(() => {
+    if (!cycle) return new Map();
+    return new Map(cycle.days.map((day: any) => [day.dayNumber, day]));
+  }, [cycle]);
+
   // Create a map of day numbers to parsed time data for BBT timestamps
   const timeStampsMap = useMemo(() => {
     if (!cycle || !chartData) return new Map<number, { hours: string; minutes: string } | null>();
@@ -262,6 +268,51 @@ export default function CycleChartPage() {
 
     return map;
   }, [cycle, chartData, displayDayRange]);
+
+  // Helper functions for cervical fluid bars
+  const CF_ROW_HEIGHT = 36;
+
+  const getCFBarHeight = (appearance: string): number => {
+    switch (appearance) {
+      case 'NONE': return CF_ROW_HEIGHT * 1;      // 36px
+      case 'STICKY': return CF_ROW_HEIGHT * 2;    // 72px
+      case 'CREAMY': return CF_ROW_HEIGHT * 3;    // 108px
+      case 'WATERY': return CF_ROW_HEIGHT * 4;    // 144px
+      case 'EGGWHITE': return CF_ROW_HEIGHT * 5;  // 180px
+      default: return 0;
+    }
+  };
+
+  const getCFBarColor = (appearance: string): string => {
+    switch (appearance) {
+      case 'NONE': return '#D4D8DA';
+      case 'STICKY': return '#c0eef0';
+      case 'CREAMY': return '#7bdcdf';
+      case 'WATERY': return '#86d9ec';
+      case 'EGGWHITE': return '#0cc0df';
+      default: return 'transparent';
+    }
+  };
+
+  // Create a map of day numbers to cervical fluid and menstrual data
+  const cervicalMenstrualMap = useMemo(() => {
+    if (!cycle) return new Map();
+
+    const map = new Map<number, {
+      cervicalAppearance: string | null;
+      menstrualFlow: string | null;
+    }>();
+
+    for (let dayNumber = displayDayRange.minDay; dayNumber <= displayDayRange.maxDay; dayNumber++) {
+      const day = allCycleDaysMap.get(dayNumber);
+      map.set(dayNumber, {
+        cervicalAppearance: day?.cervicalAppearance || null,
+        menstrualFlow: day?.menstrualFlow || null
+      });
+    }
+
+    return map;
+  }, [cycle, allCycleDaysMap, displayDayRange]);
 
   const chartOptions: ApexOptions = useMemo(() => {
     if (!settings || !cycle || !yAxisRange || !chartData) return {};
@@ -693,6 +744,11 @@ export default function CycleChartPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Temperature Chart</CardTitle>
           <div className="flex items-center gap-2">
+            <Link to={`/cycles/${cycle.id}/days`}>
+              <Button variant="outline" size="sm" className="hover:bg-[#002142] hover:text-white">
+                View Days
+              </Button>
+            </Link>
             <Link to={`/cycles/${cycle.id}/add-day`}>
               <Button variant="outline" size="sm">
                 <svg className="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -711,9 +767,46 @@ export default function CycleChartPage() {
             .apexcharts-yaxis-title-text {
               fill: #002142 !important;
             }
+            .cf-cell-pattern {
+              background-color: white;
+              background-image: url("data:image/svg+xml,%3Csvg width='10' height='10' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='0.5' y='0.5' width='9' height='9' rx='2' ry='2' fill='%23e7f1ff'/%3E%3C/svg%3E");
+              background-size: 10px 10px;
+              background-repeat: repeat;
+            }
+            .cf-tooltip-trigger {
+              position: relative;
+            }
+            .cf-tooltip-trigger:hover .cf-tooltip-content {
+              display: block;
+            }
+            .cf-tooltip-content {
+              display: none;
+              position: absolute;
+              left: 100%;
+              top: 50%;
+              transform: translateY(-50%);
+              margin-left: 8px;
+              background-color: #1f2937;
+              color: white;
+              padding: 6px 10px;
+              border-radius: 4px;
+              font-size: 12px;
+              white-space: nowrap;
+              z-index: 1000;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            }
+            .cf-tooltip-content::before {
+              content: '';
+              position: absolute;
+              right: 100%;
+              top: 50%;
+              transform: translateY(-50%);
+              border: 5px solid transparent;
+              border-right-color: #1f2937;
+            }
           `}</style>
           {chartData ? (
-            <div ref={chartContainerRef} className="relative" style={{ paddingTop: '108px', paddingBottom: '48px' }}>
+            <div ref={chartContainerRef} className="relative" style={{ paddingTop: '108px', paddingBottom: '228px' }}>
               {/* Custom X-axis rows with labels */}
               {chartData && plotAreaWidth > 0 && (
                 <>
@@ -804,7 +897,7 @@ export default function CycleChartPage() {
                     left: `${crosshairX}px`,
                     top: 0,
                     width: '0',
-                    height: 'calc(100% + 48px)', // Extend by the height of the time stamp row
+                    height: '100%',
                     borderLeft: '1px dashed #b6b6b6',
                     zIndex: 5
                   }}
@@ -874,6 +967,164 @@ export default function CycleChartPage() {
                               <div className="font-medium leading-tight">{timeData.hours}</div>
                               <div className="text-xs leading-tight">{timeData.minutes}</div>
                             </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* Cervical Fluid & Menstrual Flow Rows - positioned below Time Stamp */}
+              {chartData && plotAreaWidth > 0 && plotAreaTop > 0 && chartHeight > 0 && (
+                <>
+                  {/* Row Labels - positioned in y-axis area */}
+                  <div 
+                    className="absolute left-0" 
+                    style={{ 
+                      width: `${plotAreaOffset}px`, 
+                      top: `${plotAreaTop + chartHeight + 48}px`, 
+                      zIndex: 2 
+                    }}
+                  >
+                    {[
+                      { name: 'Eggwhite', tooltip: 'Clear, slippery, stretchy mucus. Peak fertility.' },
+                      { name: 'Watery', tooltip: 'Clear, flowing, high-fertility mucus' },
+                      { name: 'Creamy', tooltip: 'Lotion-like mucus, moderate fertility' },
+                      { name: 'Sticky', tooltip: 'Sticky, paste-like mucus, low fertility' },
+                      { name: 'Dry', tooltip: 'No visible mucus AND dry sensation' }
+                    ].map((row, idx) => (
+                      <div
+                        key={row.name}
+                        className="flex items-center justify-end px-3 h-9 text-xs font-medium bg-slate-50 border-b border-slate-300 border-r border-slate-300 cf-tooltip-trigger"
+                      >
+                        <span>{row.name}</span>
+                        <span className="ml-1 text-slate-400 cursor-help">ⓘ</span>
+                        <span className="cf-tooltip-content">{row.tooltip}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Grid cells for CF/Menstrual rows */}
+                  <div
+                    className="absolute"
+                    style={{
+                      left: 0,
+                      right: 0,
+                      top: `${plotAreaTop + chartHeight + 48}px`,
+                      height: '180px',
+                      zIndex: 1
+                    }}
+                  >
+                    {Array.from({ length: chartData.maxDay - chartData.minDay + 1 }, (_, i) => {
+                      const dayNumber = chartData.minDay + i;
+                      const cfData = cervicalMenstrualMap.get(dayNumber);
+                      const isHovered = hoveredDayNumber === dayNumber;
+
+                      // Calculate cell position within plot area
+                      const numDays = chartData.maxDay - chartData.minDay + 1;
+                      const cellWidth = plotAreaWidth / numDays;
+                      const leftEdge = plotAreaOffset + (i * cellWidth);
+
+                      return (
+                        <div
+                          key={dayNumber}
+                          className="absolute"
+                          style={{
+                            left: `${leftEdge}px`,
+                            width: `${cellWidth}px`,
+                            top: 0,
+                            height: '180px'
+                          }}
+                        >
+                          {/* 5 background cells - solid fill with rounded corners and white space gaps */}
+                          {[0, 1, 2, 3, 4].map((rowIdx) => (
+                            <div
+                              key={rowIdx}
+                              className="absolute transition-opacity"
+                              style={{
+                                top: `${rowIdx * 36 + 0.5}px`,
+                                left: '0.5px',
+                                width: 'calc(100% - 1px)',
+                                height: '35px',
+                                backgroundColor: '#e7f1ff',
+                                borderRadius: '2px',
+                                opacity: isHovered ? 0.7 : 1
+                              }}
+                            />
+                          ))}
+
+                          {/* Cervical Fluid Bar - only if CF present and no menstrual flow */}
+                          {cfData?.cervicalAppearance && !cfData?.menstrualFlow && (
+                            <div
+                              className="absolute left-1/2 -translate-x-1/2 rounded"
+                              style={{
+                                bottom: 0,
+                                width: '70%',
+                                height: `${getCFBarHeight(cfData.cervicalAppearance)}px`,
+                                backgroundColor: getCFBarColor(cfData.cervicalAppearance)
+                              }}
+                            />
+                          )}
+
+                          {/* Menstrual Flow Indicators - on Dry row only */}
+                          {cfData?.menstrualFlow && (
+                            <div
+                              className="absolute left-1/2 -translate-x-1/2 flex items-end justify-center"
+                              style={{
+                                bottom: 0,
+                                width: '100%',
+                                height: '36px'
+                              }}
+                            >
+                              {cfData.menstrualFlow === 'SPOTTING' && (
+                                <div className="flex gap-0.5 mb-1">
+                                  <div className="w-1.5 h-2 rounded-full" style={{ backgroundColor: '#d65866' }} />
+                                  <div className="w-1.5 h-2 rounded-full" style={{ backgroundColor: '#d65866' }} />
+                                  <div className="w-1.5 h-2 rounded-full" style={{ backgroundColor: '#d65866' }} />
+                                </div>
+                              )}
+                              {cfData.menstrualFlow === 'LIGHT' && (
+                                <div
+                                  className="rounded"
+                                  style={{
+                                    width: '70%',
+                                    height: '12px',
+                                    backgroundColor: '#d65866'
+                                  }}
+                                />
+                              )}
+                              {cfData.menstrualFlow === 'MEDIUM' && (
+                                <div
+                                  className="rounded"
+                                  style={{
+                                    width: '70%',
+                                    height: '18px',
+                                    backgroundColor: '#d65866'
+                                  }}
+                                />
+                              )}
+                              {cfData.menstrualFlow === 'HEAVY' && (
+                                <div
+                                  className="rounded"
+                                  style={{
+                                    width: '70%',
+                                    height: '36px',
+                                    backgroundColor: '#d65866'
+                                  }}
+                                />
+                              )}
+                              {cfData.menstrualFlow === 'VERY_HEAVY' && (
+                                <div
+                                  className="rounded"
+                                  style={{
+                                    width: '70%',
+                                    height: '36px',
+                                    backgroundColor: '#c82739'
+                                  }}
+                                />
+                              )}
+                            </div>
                           )}
                         </div>
                       );

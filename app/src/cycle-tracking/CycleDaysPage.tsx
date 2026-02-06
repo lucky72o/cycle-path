@@ -67,9 +67,12 @@ export default function CycleDaysPage() {
 
       <Card className="mb-6">
         <CardHeader>
-          <div className="flex justify-end items-center">
+          <div className="flex justify-end items-center gap-2">
             <Link to={`/cycles/${cycle.id}/add-day`}>
               <Button>Add Cycle Day</Button>
+            </Link>
+            <Link to={`/cycles/${cycle.id}/chart`}>
+              <Button style={{ backgroundColor: '#e6a556' }}>View Graph</Button>
             </Link>
           </div>
         </CardHeader>
