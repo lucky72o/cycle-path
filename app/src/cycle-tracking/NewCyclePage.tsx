@@ -5,6 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
+import { Checkbox } from '../components/ui/checkbox';
+import { Label } from '../components/ui/label';
+import { Info } from 'lucide-react';
 import { formatDateForInput, celsiusToFahrenheit } from './utils';
 import SideNav from './SideNav';
 
@@ -13,11 +16,18 @@ export default function NewCyclePage() {
   const { data: cycles, isLoading: cyclesLoading } = useQuery(getUserCycles);
   const { data: settings, isLoading: settingsLoading } = useQuery(getUserSettings);
   
+  type AppearanceOption = 'NONE' | 'STICKY' | 'CREAMY' | 'WATERY' | 'EGGWHITE';
+  type SensationOption = 'DRY' | 'DAMP' | 'WET' | 'SLIPPERY';
+  type MenstrualFlowOption = 'SPOTTING' | 'LIGHT' | 'MEDIUM' | 'HEAVY' | 'VERY_HEAVY';
+  
   const [startDate, setStartDate] = useState(formatDateForInput(new Date()));
   const [bbt, setBbt] = useState('');
   const [bbtTime, setBbtTime] = useState('');
   const [hadIntercourse, setHadIntercourse] = useState(false);
   const [excludeFromInterpretation, setExcludeFromInterpretation] = useState(false);
+  const [cervicalAppearance, setCervicalAppearance] = useState<AppearanceOption | ''>('');
+  const [cervicalSensation, setCervicalSensation] = useState<SensationOption | ''>('');
+  const [menstrualFlow, setMenstrualFlow] = useState<MenstrualFlowOption | ''>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,6 +35,57 @@ export default function NewCyclePage() {
   const isLoading = cyclesLoading || settingsLoading;
   const tempUnit = settings?.temperatureUnit || 'FAHRENHEIT';
   const isCelsius = tempUnit === 'CELSIUS';
+
+  const InfoTooltip = ({ text }: { text: string }) => (
+    <span className="relative inline-flex items-center group">
+      <span className="inline-flex items-center justify-center rounded-full border border-muted-foreground/40 text-muted-foreground h-5 w-5 text-[10px]">
+        <Info className="h-3 w-3" />
+      </span>
+      <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-normal text-left w-64 rounded bg-popover px-3 py-2 text-xs leading-relaxed text-popover-foreground opacity-0 shadow group-hover:opacity-100 transition-opacity duration-100">
+        {text}
+      </span>
+    </span>
+  );
+
+  const appearanceOptions: { value: AppearanceOption; label: string; description: string }[] = [
+    { value: 'NONE', label: 'None', description: 'Nothing visible when you wipe' },
+    { value: 'STICKY', label: 'Sticky', description: 'Thick, crumbly, glue-like' },
+    { value: 'CREAMY', label: 'Creamy', description: 'Lotion-like, smooth, white' },
+    { value: 'WATERY', label: 'Watery', description: 'Thin, clear, looks like water' },
+    { value: 'EGGWHITE', label: 'Eggwhite', description: 'Clear, stretchy, slippery. Most fertile' }
+  ];
+
+  const sensationOptions: { value: SensationOption; label: string }[] = [
+    { value: 'DRY', label: 'Dry' },
+    { value: 'DAMP', label: 'Damp' },
+    { value: 'WET', label: 'Wet' },
+    { value: 'SLIPPERY', label: 'Slippery' }
+  ];
+
+  const menstrualFlowOptions: { value: MenstrualFlowOption; label: string; tooltip?: string }[] = [
+    {
+      value: 'SPOTTING',
+      label: 'Spotting',
+      tooltip:
+        "Not counted as a full period day. Very small drops of blood. Often brown or pink. Doesn't need a full pad or tampon. Happens before or after the main period."
+    },
+    { value: 'LIGHT', label: 'Light' },
+    { value: 'MEDIUM', label: 'Medium' },
+    { value: 'HEAVY', label: 'Heavy' },
+    { value: 'VERY_HEAVY', label: 'Very Heavy' }
+  ];
+
+  const handleAppearanceToggle = (value: AppearanceOption) => {
+    setCervicalAppearance((prev) => (prev === value ? '' : value));
+  };
+
+  const handleSensationToggle = (value: SensationOption) => {
+    setCervicalSensation((prev) => (prev === value ? '' : value));
+  };
+
+  const handleMenstrualFlowToggle = (value: MenstrualFlowOption) => {
+    setMenstrualFlow((prev) => (prev === value ? '' : value));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +122,7 @@ export default function NewCyclePage() {
       const newCycle = await createCycle({ startDate });
 
       // Create the first day entry if any data is provided
-      const hasDayData = bbt || bbtTime || hadIntercourse;
+      const hasDayData = bbt || bbtTime || hadIntercourse || cervicalAppearance || cervicalSensation || menstrualFlow;
       
       if (hasDayData) {
         // Convert temperature to Fahrenheit for storage if user entered in Celsius
@@ -75,7 +136,10 @@ export default function NewCyclePage() {
           bbt: bbtInFahrenheit,
           bbtTime: bbtTime || undefined,
           hadIntercourse,
-          excludeFromInterpretation
+          excludeFromInterpretation,
+          cervicalAppearance: cervicalAppearance || null,
+          cervicalSensation: cervicalSensation || null,
+          menstrualFlow: menstrualFlow || null
         });
       }
 
@@ -201,32 +265,114 @@ export default function NewCyclePage() {
 
               <div className="space-y-3 pt-2">
                 <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     id="hadIntercourse"
                     checked={hadIntercourse}
-                    onChange={(e) => setHadIntercourse(e.target.checked)}
-                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                    onCheckedChange={(checked) => setHadIntercourse(checked as boolean)}
                   />
-                  <label htmlFor="hadIntercourse" className="text-sm font-medium cursor-pointer">
+                  <Label htmlFor="hadIntercourse" className="cursor-pointer">
                     Had intercourse
-                  </label>
+                  </Label>
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     id="excludeFromInterpretation"
                     checked={excludeFromInterpretation}
-                    onChange={(e) => setExcludeFromInterpretation(e.target.checked)}
-                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                    onCheckedChange={(checked) => setExcludeFromInterpretation(checked as boolean)}
                   />
-                  <label htmlFor="excludeFromInterpretation" className="text-sm font-medium cursor-pointer">
+                  <Label htmlFor="excludeFromInterpretation" className="cursor-pointer">
                     Exclude from interpretation
-                  </label>
+                  </Label>
                   <span className="text-xs text-muted-foreground ml-2">
                     (e.g., due to illness or irregular sleep)
                   </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Menstrual Flow (Optional)</CardTitle>
+              <CardDescription>
+                Record your menstrual flow level for the first day
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {menstrualFlowOptions.map((option) => (
+                  <div key={option.value} className="flex items-start gap-2">
+                    <Checkbox
+                      id={`menstrualFlow-${option.value}`}
+                      checked={menstrualFlow === option.value}
+                      onCheckedChange={() => handleMenstrualFlowToggle(option.value)}
+                      className="mt-0.5"
+                    />
+                    <Label
+                      htmlFor={`menstrualFlow-${option.value}`}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <span>{option.label}</span>
+                      {option.tooltip && <InfoTooltip text={option.tooltip} />}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Cervical Fluid (Optional)</CardTitle>
+              <CardDescription>
+                Record cervical fluid appearance and sensation for the first day
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Appearance</p>
+                  <div className="space-y-2">
+                    {appearanceOptions.map((option) => (
+                      <div key={option.value} className="flex items-start gap-2">
+                        <Checkbox
+                          id={`appearance-${option.value}`}
+                          checked={cervicalAppearance === option.value}
+                          onCheckedChange={() => handleAppearanceToggle(option.value)}
+                          className="mt-0.5"
+                        />
+                        <Label
+                          htmlFor={`appearance-${option.value}`}
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
+                          <span>{option.label}</span>
+                          <InfoTooltip text={option.description} />
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Sensation</p>
+                  <div className="space-y-2">
+                    {sensationOptions.map((option) => (
+                      <div key={option.value} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`sensation-${option.value}`}
+                          checked={cervicalSensation === option.value}
+                          onCheckedChange={() => handleSensationToggle(option.value)}
+                        />
+                        <Label
+                          htmlFor={`sensation-${option.value}`}
+                          className="cursor-pointer"
+                        >
+                          {option.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </CardContent>
