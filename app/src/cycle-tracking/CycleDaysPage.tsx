@@ -57,12 +57,20 @@ export default function CycleDaysPage() {
     <div className="flex">
       <SideNav />
       <div className="flex-1 p-4 md:p-8 max-w-6xl">
-      <div className="mb-4 md:mb-6">
-        <h1 className="text-xl md:text-3xl font-bold mb-2">Cycle #{cycle.cycleNumber}: Cycle Days</h1>
-        <p className="text-muted-foreground">
-          Started: {new Date(cycle.startDate).toLocaleDateString()}
-          {cycle.endDate && ` - Ended: ${new Date(cycle.endDate).toLocaleDateString()}`}
-        </p>
+      <div className="mb-4 md:mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-xl md:text-3xl font-bold mb-2">Cycle #{cycle.cycleNumber}: Cycle Days</h1>
+          <p className="text-muted-foreground">
+            Started: {new Date(cycle.startDate).toLocaleDateString()}
+            {cycle.endDate && ` - Ended: ${new Date(cycle.endDate).toLocaleDateString()}`}
+          </p>
+        </div>
+        <Link to="/cycles/new">
+          <Button variant="default">
+            <span className="sm:hidden">Cycle +</span>
+            <span className="hidden sm:inline">Begin new cycle</span>
+          </Button>
+        </Link>
       </div>
 
       <Card className="mb-6">
