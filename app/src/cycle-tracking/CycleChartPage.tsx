@@ -102,71 +102,39 @@ export default function CycleChartPage() {
       }
     }
 
-    // Build series: separate solid and dashed segments
+    // Build solid line series from non-excluded points only.
+    // Excluded points are skipped entirely — non-excluded points connect directly.
+    const includedPoints = allPoints.filter(p => !p.isExcluded);
+    const excludedPoints = allPoints.filter(p => p.isExcluded);
+
+    // All included points form a single continuous solid line
     const solidSegments: Array<{x: number, y: number}>[] = [];
-    const dashedSegments: Array<{x: number, y: number}>[] = [];
-    
-    let currentSolidSegment: Array<{x: number, y: number}> = [];
-    
-    for (let i = 0; i < allPoints.length; i++) {
-      const point = allPoints[i];
-      const prevPoint = i > 0 ? allPoints[i - 1] : null;
-      const nextPoint = i < allPoints.length - 1 ? allPoints[i + 1] : null;
-      
-      if (point.isExcluded) {
-        // Close current solid segment if it exists
-        if (currentSolidSegment.length > 0) {
-          solidSegments.push([...currentSolidSegment]);
-          currentSolidSegment = [];
-        }
-        
-        // Create dashed segment from previous to this excluded point
-        if (prevPoint) {
-          dashedSegments.push([
-            { x: prevPoint.x, y: prevPoint.y },
-            { x: point.x, y: point.y }
-          ]);
-        }
-        
-        // Create dashed segment from this excluded point to next
-        if (nextPoint) {
-          dashedSegments.push([
-            { x: point.x, y: point.y },
-            { x: nextPoint.x, y: nextPoint.y }
-          ]);
-        }
-      } else {
-        // Add to current solid segment
-        currentSolidSegment.push({ x: point.x, y: point.y });
-        
-        // If next point is excluded or this is the last point, close the segment
-        if (!nextPoint || nextPoint.isExcluded) {
-          if (currentSolidSegment.length > 0) {
-            solidSegments.push([...currentSolidSegment]);
-            currentSolidSegment = [];
-          }
-        }
-      }
+    if (includedPoints.length > 0) {
+      solidSegments.push(includedPoints.map(p => ({ x: p.x, y: p.y })));
     }
 
-    // Build series array: solid segments + dashed segments
+    // Build series array: solid segments + one series for excluded points (no connecting lines)
     const series = [
       ...solidSegments.map((segment, index) => ({
         name: `BBT-${index}`,
         data: segment
       })),
-      ...dashedSegments.map((segment, index) => ({
-        name: `Dashed-${index}`,
-        data: segment
-      }))
+      // Excluded points as a separate series so they remain hoverable for tooltip/crosshair
+      ...(excludedPoints.length > 0 ? [{
+        name: 'Excluded',
+        data: excludedPoints.map(p => ({ x: p.x, y: p.y }))
+      }] : [])
     ];
+
+    const hasExcludedSeries = excludedPoints.length > 0;
 
     return {
       series,
       minDay: displayDayRange.minDay,
       maxDay: displayDayRange.maxDay,
       numSolidSegments: solidSegments.length,
-      numDashedSegments: dashedSegments.length,
+      hasExcludedSeries,
+      excludedPoints,
       allPoints: allPoints,
       allDaysMap: allBBTDaysMap
     };
@@ -193,7 +161,7 @@ export default function CycleChartPage() {
   const yAxisRange = useMemo(() => {
     if (!chartData || !settings) return null;
 
-    // Collect all temperature values from both series ({x, y} format)
+    // Collect all temperature values from all series (includes both solid and excluded)
     const allTemperatures = chartData.series.flatMap(series => 
       series.data.map((point: {x: number, y: number}) => point.y)
     );
@@ -388,7 +356,7 @@ export default function CycleChartPage() {
         }
       },
       legend: {
-        show: false // Hide legend since we have multiple internal series (BBT-0, BBT-1, Dashed-0, etc.)
+        show: false // Hide legend since we may have multiple internal series (BBT-0, etc.)
       },
       grid: {
         padding: {
@@ -405,17 +373,17 @@ export default function CycleChartPage() {
       },
       colors: [
         ...Array(chartData.numSolidSegments).fill('#3b82f6'), // Blue for solid segments
-        ...Array(chartData.numDashedSegments).fill('#9CA3AF')  // Grey for dashed segments
+        ...(chartData.hasExcludedSeries ? ['#9CA3AF'] : [])   // Grey for excluded series
       ],
       stroke: {
         curve: 'straight',
         width: [
           ...Array(chartData.numSolidSegments).fill(2),       // Width 2 for solid
-          ...Array(chartData.numDashedSegments).fill(2)        // Width 2 for dashed
+          ...(chartData.hasExcludedSeries ? [0] : [])          // Width 0 for excluded (no connecting lines)
         ],
         dashArray: [
           ...Array(chartData.numSolidSegments).fill(0),        // Solid lines
-          ...Array(chartData.numDashedSegments).fill(5)        // Dashed lines
+          ...(chartData.hasExcludedSeries ? [0] : [])
         ]
       },
       fill: {
@@ -427,7 +395,7 @@ export default function CycleChartPage() {
       markers: {
         size: [
           ...Array(chartData.numSolidSegments).fill(5),  // Show markers on solid segments
-          ...Array(chartData.numDashedSegments).fill(0)   // Hide markers on dashed segments (we'll use discrete markers)
+          ...(chartData.hasExcludedSeries ? [5] : [])     // Show markers on excluded series
         ],
         fillOpacity: 1,
         strokeWidth: 2,
@@ -435,77 +403,7 @@ export default function CycleChartPage() {
         hover: {
           size: 7,
           sizeOffset: 0
-        },
-        discrete: (() => {
-          const discreteMarkers: any[] = [];
-          
-          // Helper to find all occurrences of a day number in series (it may appear in multiple)
-          const findPointInSolidSeries = (dayNumber: number) => {
-            // Only look in solid segments (first numSolidSegments series)
-            for (let seriesIndex = 0; seriesIndex < chartData.numSolidSegments; seriesIndex++) {
-              const series = chartData.series[seriesIndex];
-              for (let dataPointIndex = 0; dataPointIndex < series.data.length; dataPointIndex++) {
-                const point = series.data[dataPointIndex];
-                if (point.x === dayNumber) {
-                  return { seriesIndex, dataPointIndex };
-                }
-              }
-            }
-            return null;
-          };
-          
-          // Helper to find point in dashed segments
-          const findPointInDashedSeries = (dayNumber: number) => {
-            const results: Array<{seriesIndex: number, dataPointIndex: number}> = [];
-            // Look in dashed segments (after solid segments)
-            for (let i = 0; i < chartData.numDashedSegments; i++) {
-              const seriesIndex = chartData.numSolidSegments + i;
-              const series = chartData.series[seriesIndex];
-              for (let dataPointIndex = 0; dataPointIndex < series.data.length; dataPointIndex++) {
-                const point = series.data[dataPointIndex];
-                if (point.x === dayNumber) {
-                  results.push({ seriesIndex, dataPointIndex });
-                }
-              }
-            }
-            return results;
-          };
-          
-          // Add discrete markers for excluded points (grey) in dashed segments
-          allDaysWithBBT
-            .filter((day: any) => day.excludeFromInterpretation)
-            .forEach((day: any) => {
-              const dashedLocations = findPointInDashedSeries(day.dayNumber);
-              dashedLocations.forEach(location => {
-                discreteMarkers.push({
-                  seriesIndex: location.seriesIndex,
-                  dataPointIndex: location.dataPointIndex,
-                  fillColor: '#9CA3AF',
-                  strokeColor: '#fff',
-                  size: 5
-                });
-              });
-            });
-          
-          // Add discrete markers for included points that appear in dashed segments (blue)
-          // These are the points adjacent to excluded points
-          allDaysWithBBT
-            .filter((day: any) => !day.excludeFromInterpretation)
-            .forEach((day: any) => {
-              const dashedLocations = findPointInDashedSeries(day.dayNumber);
-              dashedLocations.forEach(location => {
-                discreteMarkers.push({
-                  seriesIndex: location.seriesIndex,
-                  dataPointIndex: location.dataPointIndex,
-                  fillColor: '#3b82f6',
-                  strokeColor: '#fff',
-                  size: 5
-                });
-              });
-            });
-          
-          return discreteMarkers;
-        })()
+        }
       },
       xaxis: {
         type: 'numeric',
