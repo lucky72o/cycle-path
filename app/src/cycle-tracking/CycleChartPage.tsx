@@ -297,6 +297,48 @@ export default function CycleChartPage() {
     return map;
   }, [cycle, chartData, allCycleDaysMap, displayDayRange]);
 
+  // Map of day numbers to whether they have ANY recorded data
+  const daysWithDataMap = useMemo(() => {
+    if (!cycle || !chartData) return new Map<number, boolean>();
+    const map = new Map<number, boolean>();
+    for (let dayNumber = displayDayRange.minDay; dayNumber <= displayDayRange.maxDay; dayNumber++) {
+      const day = allCycleDaysMap.get(dayNumber);
+      const hasBBT = chartData.allDaysMap.has(dayNumber);
+      const hasTime = timeStampsMap.get(dayNumber) !== null;
+      const hasOPK = opkStatusMap.get(dayNumber) !== null;
+      const hasIntercourse = !!day?.hadIntercourse;
+      const cfData = cervicalMenstrualMap.get(dayNumber);
+      const hasCF = !!cfData?.cervicalAppearance;
+      const hasMenstrual = !!cfData?.menstrualFlow;
+      map.set(dayNumber, hasBBT || hasTime || hasOPK || hasIntercourse || hasCF || hasMenstrual);
+    }
+    return map;
+  }, [cycle, chartData, allCycleDaysMap, timeStampsMap, opkStatusMap, cervicalMenstrualMap, displayDayRange]);
+
+  // Shared hover handler for custom cells
+  const handleCellMouseEnter = (dayNumber: number) => {
+    if (!chartData || plotAreaWidth === 0) return;
+    setHoveredDayNumber(dayNumber);
+    const numDays = chartData.maxDay - chartData.minDay + 1;
+    const cellWidth = plotAreaWidth / numDays;
+    const dayIndex = dayNumber - chartData.minDay;
+    setCrosshairX(plotAreaOffset + (dayIndex + 0.5) * cellWidth);
+  };
+  const handleCellMouseLeave = () => {
+    setHoveredDayNumber(null);
+    setCrosshairX(null);
+  };
+
+  // Refs to hold the latest handler functions so ApexCharts stale event
+  // callbacks (registered only once at chart creation) always call through
+  // to the current closures that capture up-to-date plotAreaWidth etc.
+  const handleCellMouseEnterRef = useRef(handleCellMouseEnter);
+  const handleCellMouseLeaveRef = useRef(handleCellMouseLeave);
+  useEffect(() => {
+    handleCellMouseEnterRef.current = handleCellMouseEnter;
+    handleCellMouseLeaveRef.current = handleCellMouseLeave;
+  });
+
   const chartOptions: ApexOptions = useMemo(() => {
     if (!settings || !cycle || !yAxisRange || !chartData) return {};
     
@@ -335,33 +377,7 @@ export default function CycleChartPage() {
             enabled: true
           }
         },
-        foreColor: '#002142', // Set default text color for axis labels
-        events: {
-          dataPointMouseEnter: function(_event: any, _chartContext: any, config: any) {
-            const seriesIndex = config.seriesIndex;
-            const dataPointIndex = config.dataPointIndex;
-            
-            if (seriesIndex >= 0 && dataPointIndex >= 0 && chartData && plotAreaWidth > 0) {
-              // Get the data point from the series
-              const point = chartData.series[seriesIndex]?.data[dataPointIndex];
-              if (point) {
-                const dayNumber = point.x;
-                setHoveredDayNumber(dayNumber);
-                
-                // Calculate crosshair position
-                const numDays = chartData.maxDay - chartData.minDay + 1;
-                const cellWidth = plotAreaWidth / numDays;
-                const dayIndex = dayNumber - chartData.minDay;
-                const xPos = plotAreaOffset + (dayIndex + 0.5) * cellWidth;
-                setCrosshairX(xPos);
-              }
-            }
-          },
-          dataPointMouseLeave: function() {
-            setHoveredDayNumber(null);
-            setCrosshairX(null);
-          }
-        }
+        foreColor: '#002142' // Set default text color for axis labels
       },
       theme: {
         mode: 'light',
@@ -475,49 +491,7 @@ export default function CycleChartPage() {
         }
       },
       tooltip: {
-        enabled: true,
-        intersect: true,
-        shared: false,
-        followCursor: false,
-        x: {
-          show: false // Disable tooltip-related x-axis crosshairs
-        },
-        y: {
-          title: {
-            formatter: () => '' // Remove series name from tooltip
-          }
-        },
-        marker: {
-          show: false // Hide the marker/color indicator in tooltip
-        },
-        custom: function({ seriesIndex, dataPointIndex }) {
-          // Get the data point from the series
-          const point = chartData?.series[seriesIndex]?.data[dataPointIndex];
-          if (!point) return '';
-          
-          // Find the corresponding day data using the day number (x value)
-          const day = chartData?.allDaysMap.get(point.x);
-          if (!day || !day.bbt) return '';
-          
-          const temp = settings.temperatureUnit === 'CELSIUS' 
-            ? fahrenheitToCelsius(day.bbt).toFixed(2)
-            : day.bbt.toFixed(2);
-          const tempUnit = settings.temperatureUnit === 'CELSIUS' ? '°C' : '°F';
-          
-          return `
-            <div class="p-3 bg-white border rounded shadow-lg">
-              <div class="font-bold mb-1">${formatDate(new Date(day.date))}</div>
-              <div class="text-sm">${day.dayOfWeek}</div>
-              <div class="font-semibold mt-2">${temp}${tempUnit}</div>
-              ${day.bbtTime ? `<div class="text-sm">Time: ${day.bbtTime}</div>` : ''}
-              ${day.hadIntercourse ? '<div class="text-sm text-pink-600">Intercourse</div>' : ''}
-              ${day.excludeFromInterpretation ? '<div class="text-sm text-gray-500">Excluded from interpretation</div>' : ''}
-            </div>
-          `;
-        }
-      },
-      crosshairs: {
-        show: false // Disabled - using custom crosshair overlay instead
+        enabled: false // Disabled - using custom React tooltip + native mousemove listener
       }
     };
   }, [settings, chartData, allDaysWithBBT, cycle, navigate, yAxisRange, plotAreaWidth, plotAreaOffset]);
@@ -580,6 +554,54 @@ export default function CycleChartPage() {
       resizeObserver.disconnect();
     };
   }, [chartData]);
+
+  // Native mousemove/mouseleave on the ApexCharts canvas to drive crosshair+tooltip
+  // for BBT node hover (ApexCharts' dataPointMouseEnter event is unreliable).
+  useEffect(() => {
+    const container = chartContainerRef.current;
+    if (!container || !chartData || plotAreaWidth === 0) return;
+
+    const canvas = container.querySelector('.apexcharts-canvas') as HTMLElement | null;
+    if (!canvas) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const containerRect = container.getBoundingClientRect();
+      const mouseX = e.clientX - containerRect.left;
+      const mouseY = e.clientY - containerRect.top;
+
+      // Only respond when the cursor is inside the chart plot area
+      if (
+        mouseY < plotAreaTop || mouseY > plotAreaTop + plotAreaHeight ||
+        mouseX < plotAreaOffset || mouseX > plotAreaOffset + plotAreaWidth
+      ) {
+        handleCellMouseLeaveRef.current();
+        return;
+      }
+
+      // Determine which day column the cursor is in
+      const numDays = chartData.maxDay - chartData.minDay + 1;
+      const cellWidth = plotAreaWidth / numDays;
+      const dayIndex = Math.floor((mouseX - plotAreaOffset) / cellWidth);
+      const dayNumber = chartData.minDay + Math.min(dayIndex, numDays - 1);
+
+      if (daysWithDataMap.get(dayNumber)) {
+        handleCellMouseEnterRef.current(dayNumber);
+      } else {
+        handleCellMouseLeaveRef.current();
+      }
+    };
+
+    const handleMouseLeave = () => {
+      handleCellMouseLeaveRef.current();
+    };
+
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseleave', handleMouseLeave);
+    return () => {
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      canvas.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, [chartData, plotAreaWidth, plotAreaOffset, plotAreaTop, plotAreaHeight, daysWithDataMap]);
 
   if (cycleLoading || settingsLoading) {
     return (
@@ -716,7 +738,7 @@ export default function CycleChartPage() {
                   </div>
 
                   {/* Grid cells - calculated positions within plot area */}
-                  <div className="absolute top-0 pointer-events-none" style={{ left: 0, right: 0, zIndex: 1 }}>
+                  <div className="absolute top-0" style={{ left: 0, right: 0, zIndex: 1 }}>
                     {Array.from({ length: chartData.maxDay - chartData.minDay + 1 }, (_, i) => {
                       const dayNumber = chartData.minDay + i;
                       const dateLabel = datesMap.get(dayNumber) || '';
@@ -741,8 +763,12 @@ export default function CycleChartPage() {
                               left: `${leftEdge}px`,
                               width: `${cellWidth}px`,
                               top: 0,
-                              height: '36px'
+                              height: '36px',
+                              pointerEvents: daysWithDataMap.get(dayNumber) ? 'auto' : 'none',
+                              cursor: daysWithDataMap.get(dayNumber) ? 'pointer' : 'default'
                             }}
+                            onMouseEnter={() => handleCellMouseEnter(dayNumber)}
+                            onMouseLeave={handleCellMouseLeave}
                           >
                             {dateLabel}
                           </div>
@@ -756,8 +782,12 @@ export default function CycleChartPage() {
                               left: `${leftEdge}px`,
                               width: `${cellWidth}px`,
                               top: '36px',
-                              height: '36px'
+                              height: '36px',
+                              pointerEvents: daysWithDataMap.get(dayNumber) ? 'auto' : 'none',
+                              cursor: daysWithDataMap.get(dayNumber) ? 'pointer' : 'default'
                             }}
+                            onMouseEnter={() => handleCellMouseEnter(dayNumber)}
+                            onMouseLeave={handleCellMouseLeave}
                           >
                             {weekDay}
                           </div>
@@ -772,8 +802,12 @@ export default function CycleChartPage() {
                               width: `${cellWidth}px`,
                               top: '72px',
                               height: '36px',
-                              color: hasIntercourse ? '#ec4899' : undefined
+                              color: hasIntercourse ? '#ec4899' : undefined,
+                              pointerEvents: daysWithDataMap.get(dayNumber) ? 'auto' : 'none',
+                              cursor: daysWithDataMap.get(dayNumber) ? 'pointer' : 'default'
                             }}
+                            onMouseEnter={() => handleCellMouseEnter(dayNumber)}
+                            onMouseLeave={handleCellMouseLeave}
                           >
                             {dayNumber}
                           </div>
@@ -930,6 +964,41 @@ export default function CycleChartPage() {
                   }}
                 />
               )}
+
+              {/* Custom Tooltip Overlay */}
+              {hoveredDayNumber !== null && chartData && plotAreaTop > 0 && crosshairX !== null && (() => {
+                const day = allCycleDaysMap.get(hoveredDayNumber);
+                if (!day) return null;
+                const bbtDay = chartData.allDaysMap.get(hoveredDayNumber);
+                const temp = bbtDay?.bbt
+                  ? (settings?.temperatureUnit === 'CELSIUS'
+                      ? fahrenheitToCelsius(bbtDay.bbt).toFixed(2)
+                      : bbtDay.bbt.toFixed(2))
+                  : null;
+                const tempUnit = settings?.temperatureUnit === 'CELSIUS' ? '°C' : '°F';
+                return (
+                  <div
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: `${crosshairX + 12}px`,
+                      top: `${plotAreaTop + 8}px`,
+                      zIndex: 10,
+                    }}
+                  >
+                    <div className="p-3 bg-white border rounded shadow-lg text-sm min-w-[140px]">
+                      <div className="font-bold mb-1">{formatDate(new Date(day.date))}</div>
+                      <div className="text-xs text-gray-500">{weekDaysMap.get(hoveredDayNumber) || ''}</div>
+                      <div className="text-xs text-gray-500 mb-2">Cycle Day {hoveredDayNumber}</div>
+                      {temp && <div className="font-semibold">{temp}{tempUnit}</div>}
+                      {bbtDay?.bbtTime && <div className="text-xs">Time: {bbtDay.bbtTime}</div>}
+                      {day.hadIntercourse && <div className="text-xs text-pink-600">Intercourse</div>}
+                      {day.excludeFromInterpretation && (
+                        <div className="text-xs text-gray-500">Excluded from interpretation</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
               
               {/* ApexChart */}
               <ReactApexChart
@@ -1020,7 +1089,7 @@ export default function CycleChartPage() {
 
                   {/* Grid cells for time stamps */}
                   <div
-                    className="absolute pointer-events-none"
+                    className="absolute"
                     style={{
                       left: 0,
                       right: 0,
@@ -1048,8 +1117,12 @@ export default function CycleChartPage() {
                             left: `${leftEdge}px`,
                             width: `${cellWidth}px`,
                             top: 0,
-                            height: '48px'
+                            height: '48px',
+                            pointerEvents: timeData ? 'auto' : 'none',
+                            cursor: timeData ? 'pointer' : 'default'
                           }}
+                          onMouseEnter={() => handleCellMouseEnter(dayNumber)}
+                          onMouseLeave={handleCellMouseLeave}
                         >
                           {timeData && (
                             <>
@@ -1083,7 +1156,7 @@ export default function CycleChartPage() {
 
                   {/* Grid cells for LH status symbols */}
                   <div
-                    className="absolute pointer-events-none"
+                    className="absolute"
                     style={{
                       left: 0,
                       right: 0,
@@ -1149,8 +1222,12 @@ export default function CycleChartPage() {
                             width: `${cellWidth}px`,
                             top: 0,
                             height: '28px',
-                            backgroundColor: isHovered ? '#c8e6c9' : '#e8f5e9'
+                            backgroundColor: isHovered ? '#c8e6c9' : '#e8f5e9',
+                            pointerEvents: opkStatus ? 'auto' : 'none',
+                            cursor: opkStatus ? 'pointer' : 'default'
                           }}
+                          onMouseEnter={() => handleCellMouseEnter(dayNumber)}
+                          onMouseLeave={handleCellMouseLeave}
                         >
                           {symbol}
                         </div>
@@ -1179,7 +1256,7 @@ export default function CycleChartPage() {
 
                   {/* Grid cells for intimacy hearts */}
                   <div
-                    className="absolute pointer-events-none"
+                    className="absolute"
                     style={{
                       left: 0,
                       right: 0,
@@ -1208,8 +1285,12 @@ export default function CycleChartPage() {
                             left: `${leftEdge}px`,
                             width: `${cellWidth}px`,
                             top: 0,
-                            height: '28px'
+                            height: '28px',
+                            pointerEvents: hasIntercourse ? 'auto' : 'none',
+                            cursor: hasIntercourse ? 'pointer' : 'default'
                           }}
+                          onMouseEnter={() => handleCellMouseEnter(dayNumber)}
+                          onMouseLeave={handleCellMouseLeave}
                         >
                           {hasIntercourse && (
                             <span style={{ color: '#ec4899', fontSize: '18px', lineHeight: 1 }}>❤</span>
@@ -1281,8 +1362,12 @@ export default function CycleChartPage() {
                             left: `${leftEdge}px`,
                             width: `${cellWidth}px`,
                             top: 0,
-                            height: '140px'
+                            height: '140px',
+                            pointerEvents: (cfData?.cervicalAppearance || cfData?.menstrualFlow) ? 'auto' : 'none',
+                            cursor: (cfData?.cervicalAppearance || cfData?.menstrualFlow) ? 'pointer' : 'default'
                           }}
+                          onMouseEnter={() => handleCellMouseEnter(dayNumber)}
+                          onMouseLeave={handleCellMouseLeave}
                         >
                           {/* 5 background cells - solid fill with rounded corners and white space gaps */}
                           {[0, 1, 2, 3, 4].map((rowIdx) => (

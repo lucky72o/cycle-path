@@ -56,6 +56,9 @@ Track multiple fertility indicators for each day:
 - Green gradient fertile window highlighting for Rising/Peak LH days
 - "Fertile Window" label centered on the fertile period
 - Day-by-day detailed view
+- **Interactive Crosshair & Tooltip**: Hover over any data cell (temperature points, date/weekday/cycle day headers, time stamps, LH tests, intimacy markers, cervical fluid, or menstrual flow) to trigger a vertical crosshair line and detailed tooltip showing all recorded data for that day
+- **Smart Hover Detection**: Only days with recorded data are interactive; empty days remain non-hoverable
+- **Comprehensive Tooltip**: Displays date, weekday, cycle day number, temperature (if recorded), time stamp, intercourse status, and exclusion flags
 
 ### 📥 CSV Import
 - Import cycle data from CSV files
