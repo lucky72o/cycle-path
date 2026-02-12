@@ -720,7 +720,7 @@ export default function CycleChartPage() {
           `}</style>
           {chartData ? (
             <div className="overflow-x-auto">
-            <div ref={chartContainerRef} className="relative min-w-[800px]" style={{ paddingTop: '108px', paddingBottom: '244px' }}>
+            <div ref={chartContainerRef} className="relative min-w-[800px]" style={{ paddingTop: '108px', paddingBottom: '234px' }}>
               {/* Custom X-axis rows with labels */}
               {chartData && plotAreaWidth > 0 && (
                 <>
@@ -1082,7 +1082,7 @@ export default function CycleChartPage() {
                       zIndex: 2
                     }}
                   >
-                    <div className="flex items-center justify-end px-3 h-12 text-xs font-medium bg-amber-50 border-b border-slate-300 border-r border-slate-300">
+                    <div className="flex items-center justify-end px-3 text-xs font-medium bg-amber-50 border-b border-slate-300 border-r border-slate-300" style={{ height: '38px' }}>
                       Time Stamp
                     </div>
                   </div>
@@ -1117,7 +1117,7 @@ export default function CycleChartPage() {
                             left: `${leftEdge}px`,
                             width: `${cellWidth}px`,
                             top: 0,
-                            height: '48px',
+                            height: '38px',
                             pointerEvents: timeData ? 'auto' : 'none',
                             cursor: timeData ? 'pointer' : 'default'
                           }}
@@ -1145,7 +1145,7 @@ export default function CycleChartPage() {
                     className="absolute left-0"
                     style={{
                       width: `${plotAreaOffset}px`,
-                      top: `${plotAreaTop + chartHeight + 48}px`, // After Time Stamp (48px)
+                      top: `${plotAreaTop + chartHeight + 38}px`, // After Time Stamp (38px)
                       zIndex: 2
                     }}
                   >
@@ -1160,7 +1160,7 @@ export default function CycleChartPage() {
                     style={{
                       left: 0,
                       right: 0,
-                      top: `${plotAreaTop + chartHeight + 48}px`, // After Time Stamp (48px)
+                      top: `${plotAreaTop + chartHeight + 38}px`, // After Time Stamp (38px)
                       zIndex: 1
                     }}
                   >
@@ -1245,7 +1245,7 @@ export default function CycleChartPage() {
                     className="absolute left-0"
                     style={{
                       width: `${plotAreaOffset}px`,
-                      top: `${plotAreaTop + chartHeight + 76}px`, // After Time Stamp (48px) + LH Test (28px)
+                      top: `${plotAreaTop + chartHeight + 66}px`, // After Time Stamp (38px) + LH Test (28px)
                       zIndex: 2
                     }}
                   >
@@ -1260,7 +1260,7 @@ export default function CycleChartPage() {
                     style={{
                       left: 0,
                       right: 0,
-                      top: `${plotAreaTop + chartHeight + 76}px`, // After Time Stamp (48px) + LH Test (28px)
+                      top: `${plotAreaTop + chartHeight + 66}px`, // After Time Stamp (38px) + LH Test (28px)
                       zIndex: 1
                     }}
                   >
@@ -1310,7 +1310,7 @@ export default function CycleChartPage() {
                     className="absolute left-0" 
                     style={{ 
                       width: `${plotAreaOffset}px`, 
-                      top: `${plotAreaTop + chartHeight + 104}px`, // After Time Stamp (48px) + LH Test (28px) + Intimacy (28px)
+                      top: `${plotAreaTop + chartHeight + 94}px`, // After Time Stamp (38px) + LH Test (28px) + Intimacy (28px)
                       zIndex: 2 
                     }}
                   >
@@ -1339,7 +1339,7 @@ export default function CycleChartPage() {
                     style={{
                       left: 0,
                       right: 0,
-                      top: `${plotAreaTop + chartHeight + 104}px`, // After Time Stamp (48px) + LH Test (28px) + Intimacy (28px)
+                      top: `${plotAreaTop + chartHeight + 94}px`, // After Time Stamp (38px) + LH Test (28px) + Intimacy (28px)
                       height: '140px',
                       zIndex: 1
                     }}
