@@ -1175,7 +1175,7 @@ export default function CycleChartPage() {
                       const leftEdge = plotAreaOffset + (i * cellWidth);
 
                       // Render symbol based on status
-                      let symbol = null;
+                      let symbol: JSX.Element | null = null;
                       if (opkStatus === 'low') {
                         // Short horizontal dash at bottom
                         symbol = (
