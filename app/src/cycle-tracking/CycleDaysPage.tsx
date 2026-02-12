@@ -122,7 +122,16 @@ export default function CycleDaysPage() {
                         )}
                       </span>
                       {day.bbtTime && <span>Time: {day.bbtTime}</span>}
-                      {day.hadIntercourse && <span className="text-pink-600">♥ Intercourse</span>}
+                      {day.opkStatus && (
+                        <span>
+                          LH:{' '}
+                          {day.opkStatus === 'low' && 'Low'}
+                          {day.opkStatus === 'rising' && 'Rising'}
+                          {day.opkStatus === 'peak' && 'Peak'}
+                          {day.opkStatus === 'declining' && 'Declining'}
+                        </span>
+                      )}
+                      {day.hadIntercourse && <span className="text-pink-600">♥ Intimacy</span>}
                     </div>
                     <div className="flex gap-2">
                       <Link to={`/cycles/${cycle.id}/add-day?dayId=${day.id}`}>
@@ -165,10 +174,11 @@ export default function CycleDaysPage() {
                     <tr className="border-b">
                       <th className="text-left py-3 px-4">Cycle Day</th>
                       <th className="text-left py-3 px-4">Date</th>
-                      <th className="text-left py-3 px-4">Day of Week</th>
+                      <th className="text-left py-3 px-4">Week Day</th>
                       <th className="text-left py-3 px-4">BBT</th>
-                      <th className="text-left py-3 px-4">BBT Time</th>
-                      <th className="text-left py-3 px-4">Intercourse</th>
+                      <th className="text-left py-3 px-4">Time</th>
+                      <th className="text-left py-3 px-4">LH Test</th>
+                      <th className="text-left py-3 px-4">Intimacy</th>
                       <th className="text-left py-3 px-4">Actions</th>
                     </tr>
                   </thead>
@@ -183,7 +193,7 @@ export default function CycleDaysPage() {
                             <span>
                               {settings ? formatTemperature(day.bbt, settings.temperatureUnit) : `${day.bbt.toFixed(2)}°F`}
                               {day.excludeFromInterpretation && (
-                                <span className="text-xs text-muted-foreground ml-1">(excluded)</span>
+                                <span className="text-xs text-muted-foreground ml-1">(excl.)</span>
                               )}
                             </span>
                           ) : (
@@ -193,6 +203,18 @@ export default function CycleDaysPage() {
                         <td className="py-3 px-4">
                           {day.bbtTime ? (
                             <span className="text-sm">{day.bbtTime}</span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          {day.opkStatus ? (
+                            <span className="text-sm">
+                              {day.opkStatus === 'low' && 'Low'}
+                              {day.opkStatus === 'rising' && 'Rising'}
+                              {day.opkStatus === 'peak' && 'Peak'}
+                              {day.opkStatus === 'declining' && 'Declining'}
+                            </span>
                           ) : (
                             <span className="text-muted-foreground">-</span>
                           )}

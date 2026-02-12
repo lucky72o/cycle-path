@@ -23,6 +23,7 @@ export default function CycleChartPage() {
   const [plotAreaOffset, setPlotAreaOffset] = useState<number>(0);
   const [plotAreaWidth, setPlotAreaWidth] = useState<number>(0);
   const [plotAreaTop, setPlotAreaTop] = useState<number>(0);
+  const [plotAreaHeight, setPlotAreaHeight] = useState<number>(0);
   const [chartHeight, setChartHeight] = useState<number>(0);
   const [crosshairX, setCrosshairX] = useState<number | null>(null);
 
@@ -282,6 +283,20 @@ export default function CycleChartPage() {
     return map;
   }, [cycle, allCycleDaysMap, displayDayRange]);
 
+  // Create a map of day numbers to OPK status
+  const opkStatusMap = useMemo(() => {
+    if (!cycle || !chartData) return new Map<number, string | null>();
+
+    const map = new Map<number, string | null>();
+
+    for (let dayNumber = displayDayRange.minDay; dayNumber <= displayDayRange.maxDay; dayNumber++) {
+      const day = allCycleDaysMap.get(dayNumber);
+      map.set(dayNumber, day?.opkStatus || null);
+    }
+
+    return map;
+  }, [cycle, chartData, allCycleDaysMap, displayDayRange]);
+
   const chartOptions: ApexOptions = useMemo(() => {
     if (!settings || !cycle || !yAxisRange || !chartData) return {};
     
@@ -533,6 +548,7 @@ export default function CycleChartPage() {
           const offset = plotRect.left - containerRect.left;
           setPlotAreaOffset(offset);
           setPlotAreaWidth(plotRect.width);
+          setPlotAreaHeight(plotRect.height);
 
           // NEW: Measure plot area top position (includes upper table + any padding)
           const plotAreaTopPosition = plotRect.top - containerRect.top;
@@ -682,7 +698,7 @@ export default function CycleChartPage() {
           `}</style>
           {chartData ? (
             <div className="overflow-x-auto">
-            <div ref={chartContainerRef} className="relative min-w-[800px]" style={{ paddingTop: '108px', paddingBottom: '216px' }}>
+            <div ref={chartContainerRef} className="relative min-w-[800px]" style={{ paddingTop: '108px', paddingBottom: '244px' }}>
               {/* Custom X-axis rows with labels */}
               {chartData && plotAreaWidth > 0 && (
                 <>
@@ -767,6 +783,138 @@ export default function CycleChartPage() {
                   </div>
                 </>
               )}
+
+              {/* Green Gradient for Fertile Window - positioned behind chart */}
+              {chartData && plotAreaWidth > 0 && plotAreaTop > 0 && plotAreaHeight > 0 && yAxisRange && (() => {
+                // Build array of Rising/Peak LH days and sort numerically
+                const risingPeakDays: number[] = [];
+                for (let dayNumber = chartData.minDay; dayNumber <= chartData.maxDay; dayNumber++) {
+                  const opkStatus = opkStatusMap.get(dayNumber);
+                  if (opkStatus === 'rising' || opkStatus === 'peak') {
+                    risingPeakDays.push(dayNumber);
+                  }
+                }
+                risingPeakDays.sort((a, b) => a - b);
+
+                // Guard: skip if no Rising/Peak days
+                if (risingPeakDays.length === 0) return null;
+
+                const numDays = chartData.maxDay - chartData.minDay + 1;
+                const cellWidth = plotAreaWidth / numDays;
+
+                return (
+                  <>
+                    {/* SVG container for gradient rectangles */}
+                    <svg
+                      className="absolute pointer-events-none"
+                      style={{
+                        left: 0,
+                        top: 0,
+                        width: '100%',
+                        height: '100%',
+                        zIndex: 0
+                      }}
+                    >
+                      <defs>
+                        <linearGradient id="fertileGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" style={{ stopColor: '#4caf50', stopOpacity: 0.35 }} />
+                          <stop offset="100%" style={{ stopColor: '#4caf50', stopOpacity: 0 }} />
+                        </linearGradient>
+                      </defs>
+                      
+                      {/* Render one rectangle per Rising/Peak day */}
+                      {risingPeakDays.map(dayNumber => {
+                        const dayIndex = dayNumber - chartData.minDay;
+                        const leftEdge = plotAreaOffset + (dayIndex * cellWidth);
+                        
+                        // Determine starting y-position for this column
+                        let startY = plotAreaTop;
+                        const day = chartData.allDaysMap.get(dayNumber);
+                        
+                        if (day && day.bbt !== null) {
+                          // Has BBT: start at temperature point y-position
+                          const temp = settings?.temperatureUnit === 'CELSIUS' 
+                            ? fahrenheitToCelsius(day.bbt)
+                            : day.bbt;
+                          startY = plotAreaTop + ((yAxisRange.max - temp) / (yAxisRange.max - yAxisRange.min)) * plotAreaHeight;
+                        }
+                        
+                        // Rectangle extends from startY to bottom of plot area
+                        const rectHeight = plotAreaTop + plotAreaHeight - startY;
+
+                        return (
+                          <rect
+                            key={`gradient-${dayNumber}`}
+                            x={leftEdge}
+                            y={startY}
+                            width={cellWidth}
+                            height={rectHeight}
+                            fill="url(#fertileGradient)"
+                          />
+                        );
+                      })}
+                    </svg>
+                  </>
+                );
+              })()}
+
+              {/* Fertile Window Label - positioned behind chart */}
+              {chartData && plotAreaWidth > 0 && plotAreaTop > 0 && plotAreaHeight > 0 && (() => {
+                // Build array of Rising/Peak LH days and sort numerically
+                const risingPeakDays: number[] = [];
+                for (let dayNumber = chartData.minDay; dayNumber <= chartData.maxDay; dayNumber++) {
+                  const opkStatus = opkStatusMap.get(dayNumber);
+                  if (opkStatus === 'rising' || opkStatus === 'peak') {
+                    risingPeakDays.push(dayNumber);
+                  }
+                }
+                risingPeakDays.sort((a, b) => a - b);
+
+                // Guard: skip if no Rising/Peak days
+                if (risingPeakDays.length === 0) return null;
+
+                const numDays = chartData.maxDay - chartData.minDay + 1;
+                const cellWidth = plotAreaWidth / numDays;
+
+                // Calculate label x-position
+                let labelX: number;
+                if (risingPeakDays.length === 1) {
+                  // Center on single day
+                  const dayIndex = risingPeakDays[0] - chartData.minDay;
+                  labelX = plotAreaOffset + (dayIndex + 0.5) * cellWidth;
+                } else {
+                  // Center between first and last Rising/Peak day
+                  const firstDayIndex = risingPeakDays[0] - chartData.minDay;
+                  const lastDayIndex = risingPeakDays[risingPeakDays.length - 1] - chartData.minDay;
+                  const firstX = plotAreaOffset + (firstDayIndex + 0.5) * cellWidth;
+                  const lastX = plotAreaOffset + (lastDayIndex + 0.5) * cellWidth;
+                  labelX = (firstX + lastX) / 2;
+                }
+
+                // Position label below the graph line, within gradient area
+                const labelY = plotAreaTop + plotAreaHeight - 30;
+
+                return (
+                  <div
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: `${labelX}px`,
+                      top: `${labelY}px`,
+                      transform: 'translateX(-50%)',
+                      zIndex: 1
+                    }}
+                  >
+                    <span style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#2e7d32',
+                      textShadow: '0 1px 2px rgba(255,255,255,0.8)'
+                    }}>
+                      Fertile Window
+                    </span>
+                  </div>
+                );
+              })()}
               
               {/* Custom Crosshair Overlay - extends through custom grid */}
               {crosshairX !== null && (
@@ -790,6 +938,68 @@ export default function CycleChartPage() {
                 type="line"
                 height={400}
               />
+
+              {/* Flower Markers for Peak LH Days - positioned above chart */}
+              {chartData && plotAreaWidth > 0 && plotAreaTop > 0 && plotAreaHeight > 0 && yAxisRange && (
+                <>
+                  {Array.from({ length: chartData.maxDay - chartData.minDay + 1 }, (_, i) => {
+                    const dayNumber = chartData.minDay + i;
+                    const opkStatus = opkStatusMap.get(dayNumber);
+                    
+                    // Only render flower for Peak LH days
+                    if (opkStatus !== 'peak') return null;
+
+                    // Calculate x position (same formula as custom rows)
+                    const numDays = chartData.maxDay - chartData.minDay + 1;
+                    const cellWidth = plotAreaWidth / numDays;
+                    const xPos = plotAreaOffset + ((dayNumber - chartData.minDay) + 0.5) * cellWidth;
+
+                    // Calculate y position
+                    let yPos: number;
+                    const day = chartData.allDaysMap.get(dayNumber);
+                    
+                    if (day && day.bbt !== null) {
+                      // Peak day WITH BBT: place at temperature point
+                      const temp = settings?.temperatureUnit === 'CELSIUS' 
+                        ? fahrenheitToCelsius(day.bbt)
+                        : day.bbt;
+                      yPos = plotAreaTop + ((yAxisRange.max - temp) / (yAxisRange.max - yAxisRange.min)) * plotAreaHeight;
+                    } else {
+                      // Peak day WITHOUT BBT: center vertically in plot area
+                      yPos = plotAreaTop + plotAreaHeight / 2;
+                    }
+
+                    return (
+                      <div
+                        key={`flower-${dayNumber}`}
+                        className="absolute pointer-events-none"
+                        style={{
+                          left: `${xPos}px`,
+                          top: `${yPos}px`,
+                          transform: 'translate(-50%, -50%)', // Center the flower on the point
+                          zIndex: 3
+                        }}
+                      >
+                        {/* Flower SVG: carpel center with petals */}
+                        <svg width="24" height="24" viewBox="0 0 24 24">
+                          {/* Petals */}
+                          <ellipse cx="12" cy="6" rx="3" ry="5" fill="#FFB6C1" opacity="0.8" />
+                          <ellipse cx="18" cy="12" rx="5" ry="3" fill="#FFB6C1" opacity="0.8" />
+                          <ellipse cx="12" cy="18" rx="3" ry="5" fill="#FFB6C1" opacity="0.8" />
+                          <ellipse cx="6" cy="12" rx="5" ry="3" fill="#FFB6C1" opacity="0.8" />
+                          <ellipse cx="16" cy="8" rx="3.5" ry="4" fill="#FFC0CB" opacity="0.8" transform="rotate(45 16 8)" />
+                          <ellipse cx="16" cy="16" rx="3.5" ry="4" fill="#FFC0CB" opacity="0.8" transform="rotate(-45 16 16)" />
+                          <ellipse cx="8" cy="8" rx="3.5" ry="4" fill="#FFC0CB" opacity="0.8" transform="rotate(-45 8 8)" />
+                          <ellipse cx="8" cy="16" rx="3.5" ry="4" fill="#FFC0CB" opacity="0.8" transform="rotate(45 8 16)" />
+                          {/* Carpel center */}
+                          <circle cx="12" cy="12" r="4" fill="#FFD700" />
+                          <circle cx="12" cy="12" r="2.5" fill="#FFA500" />
+                        </svg>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
 
               {/* Time Stamp Row - positioned below the chart */}
               {chartData && plotAreaWidth > 0 && plotAreaTop > 0 && chartHeight > 0 && (
@@ -854,7 +1064,7 @@ export default function CycleChartPage() {
                 </>
               )}
 
-              {/* Intimacy Row - positioned below Time Stamp */}
+              {/* LH Test Row - positioned below Time Stamp */}
               {chartData && plotAreaWidth > 0 && plotAreaTop > 0 && chartHeight > 0 && (
                 <>
                   {/* Row Label - positioned in y-axis area */}
@@ -863,6 +1073,102 @@ export default function CycleChartPage() {
                     style={{
                       width: `${plotAreaOffset}px`,
                       top: `${plotAreaTop + chartHeight + 48}px`, // After Time Stamp (48px)
+                      zIndex: 2
+                    }}
+                  >
+                    <div className="flex items-center justify-end px-3 text-xs font-medium border-b border-slate-300 border-r border-slate-300" style={{ height: '28px', backgroundColor: '#e8f5e9' }}>
+                      LH Test
+                    </div>
+                  </div>
+
+                  {/* Grid cells for LH status symbols */}
+                  <div
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: 0,
+                      right: 0,
+                      top: `${plotAreaTop + chartHeight + 48}px`, // After Time Stamp (48px)
+                      zIndex: 1
+                    }}
+                  >
+                    {Array.from({ length: chartData.maxDay - chartData.minDay + 1 }, (_, i) => {
+                      const dayNumber = chartData.minDay + i;
+                      const opkStatus = opkStatusMap.get(dayNumber);
+                      const isHovered = hoveredDayNumber === dayNumber;
+
+                      // Calculate cell position within plot area
+                      const numDays = chartData.maxDay - chartData.minDay + 1;
+                      const cellWidth = plotAreaWidth / numDays;
+                      const leftEdge = plotAreaOffset + (i * cellWidth);
+
+                      // Render symbol based on status
+                      let symbol = null;
+                      if (opkStatus === 'low') {
+                        // Short horizontal dash at bottom
+                        symbol = (
+                          <svg width="20" height="28" viewBox="0 0 20 28">
+                            <line x1="5" y1="24" x2="15" y2="24" stroke="currentColor" strokeWidth="2" />
+                          </svg>
+                        );
+                      } else if (opkStatus === 'rising') {
+                        // Diagonal arrow pointing upper-right
+                        symbol = (
+                          <svg width="20" height="28" viewBox="0 0 20 28">
+                            <line x1="6" y1="20" x2="14" y2="12" stroke="currentColor" strokeWidth="2" />
+                            <line x1="14" y1="12" x2="11" y2="12" stroke="currentColor" strokeWidth="2" />
+                            <line x1="14" y1="12" x2="14" y2="15" stroke="currentColor" strokeWidth="2" />
+                          </svg>
+                        );
+                      } else if (opkStatus === 'peak') {
+                        // Mountain with sparkle at summit
+                        symbol = (
+                          <svg width="24" height="28" viewBox="0 0 24 28">
+                            <path d="M4 20 L12 8 L20 20 Z" fill="currentColor" />
+                            <circle cx="12" cy="8" r="2" fill="#FFD700" />
+                            <line x1="12" y1="4" x2="12" y2="6" stroke="#FFD700" strokeWidth="1" />
+                            <line x1="10" y1="6" x2="14" y2="6" stroke="#FFD700" strokeWidth="1" />
+                          </svg>
+                        );
+                      } else if (opkStatus === 'declining') {
+                        // Diagonal arrow pointing lower-right
+                        symbol = (
+                          <svg width="20" height="28" viewBox="0 0 20 28">
+                            <line x1="6" y1="12" x2="14" y2="20" stroke="currentColor" strokeWidth="2" />
+                            <line x1="14" y1="20" x2="11" y2="20" stroke="currentColor" strokeWidth="2" />
+                            <line x1="14" y1="20" x2="14" y2="17" stroke="currentColor" strokeWidth="2" />
+                          </svg>
+                        );
+                      }
+
+                      return (
+                        <div
+                          key={dayNumber}
+                          className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 transition-colors`}
+                          style={{
+                            left: `${leftEdge}px`,
+                            width: `${cellWidth}px`,
+                            top: 0,
+                            height: '28px',
+                            backgroundColor: isHovered ? '#c8e6c9' : '#e8f5e9'
+                          }}
+                        >
+                          {symbol}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* Intimacy Row - positioned below LH Test */}
+              {chartData && plotAreaWidth > 0 && plotAreaTop > 0 && chartHeight > 0 && (
+                <>
+                  {/* Row Label - positioned in y-axis area */}
+                  <div
+                    className="absolute left-0"
+                    style={{
+                      width: `${plotAreaOffset}px`,
+                      top: `${plotAreaTop + chartHeight + 76}px`, // After Time Stamp (48px) + LH Test (28px)
                       zIndex: 2
                     }}
                   >
@@ -877,7 +1183,7 @@ export default function CycleChartPage() {
                     style={{
                       left: 0,
                       right: 0,
-                      top: `${plotAreaTop + chartHeight + 48}px`, // After Time Stamp (48px)
+                      top: `${plotAreaTop + chartHeight + 76}px`, // After Time Stamp (48px) + LH Test (28px)
                       zIndex: 1
                     }}
                   >
@@ -923,7 +1229,7 @@ export default function CycleChartPage() {
                     className="absolute left-0" 
                     style={{ 
                       width: `${plotAreaOffset}px`, 
-                      top: `${plotAreaTop + chartHeight + 48 + 28}px`, 
+                      top: `${plotAreaTop + chartHeight + 104}px`, // After Time Stamp (48px) + LH Test (28px) + Intimacy (28px)
                       zIndex: 2 
                     }}
                   >
@@ -952,7 +1258,7 @@ export default function CycleChartPage() {
                     style={{
                       left: 0,
                       right: 0,
-                      top: `${plotAreaTop + chartHeight + 48 + 28}px`,
+                      top: `${plotAreaTop + chartHeight + 104}px`, // After Time Stamp (48px) + LH Test (28px) + Intimacy (28px)
                       height: '140px',
                       zIndex: 1
                     }}

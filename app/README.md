@@ -51,6 +51,10 @@ Track multiple fertility indicators for each day:
 - Interactive cycle charts displaying temperature patterns
 - Color-coded fertility indicators
 - Visual representation of cervical fluid and menstrual flow
+- LH test status row on chart with symbols (low, rising, peak, declining)
+- Flower markers on Peak LH days in the temperature graph
+- Green gradient fertile window highlighting for Rising/Peak LH days
+- "Fertile Window" label centered on the fertile period
 - Day-by-day detailed view
 
 ### 📥 CSV Import
@@ -254,7 +258,7 @@ Wasp generates TypeScript types automatically:
 - **[`main.wasp`](main.wasp)** - App configuration, routes, operations, auth setup
 - **[`schema.prisma`](schema.prisma)** - Database models: User, Cycle, CycleDay, UserSettings
 - **[`src/cycle-tracking/operations.ts`](src/cycle-tracking/operations.ts)** - Server-side cycle operations
-- **[`src/cycle-tracking/CycleChartPage.tsx`](src/cycle-tracking/CycleChartPage.tsx)** - Main chart visualization
+- **[`src/cycle-tracking/CycleChartPage.tsx`](src/cycle-tracking/CycleChartPage.tsx)** - Main chart visualization with LH test status row display, Peak LH flower markers with stacking-aware overlays, and fertile window gradient visualization
 - **[`src/cycle-tracking/AddCycleDayPage.tsx`](src/cycle-tracking/AddCycleDayPage.tsx)** - Daily entry form with all fertility indicators
 - **[`src/cycle-tracking/utils.ts`](src/cycle-tracking/utils.ts)** - Temperature conversion and date utilities
 
