@@ -1410,11 +1410,23 @@ export default function CycleChartPage() {
                               }}
                             >
                               {cfData.menstrualFlow === 'SPOTTING' && (
-                                <div className="flex gap-0.5 mb-1">
-                                  <div className="w-1.5 h-2 rounded-full" style={{ backgroundColor: '#d65866' }} />
-                                  <div className="w-1.5 h-2 rounded-full" style={{ backgroundColor: '#d65866' }} />
-                                  <div className="w-1.5 h-2 rounded-full" style={{ backgroundColor: '#d65866' }} />
-                                </div>
+                                <svg 
+                                  width="20" 
+                                  height="20" 
+                                  viewBox="0 0 32 32" 
+                                  fill="none" 
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="mb-1"
+                                >
+                                  <path d="M8 4C8 4 3 10.5 3 14C3 16.7614 5.23858 19 8 19C10.7614 19 13 16.7614 13 14C13 10.5 8 4 8 4Z" fill="#E53935"/>
+                                  <path d="M6 14C6 13 6.5 11.5 7.5 10.5" stroke="white" strokeWidth="1.2" strokeLinecap="round" opacity="0.6"/>
+
+                                  <path d="M24 4C24 4 19 10.5 19 14C19 16.7614 21.2386 19 24 19C26.7614 19 29 16.7614 29 14C29 10.5 24 4 24 4Z" fill="#E53935"/>
+                                  <path d="M22 14C22 13 22.5 11.5 23.5 10.5" stroke="white" strokeWidth="1.2" strokeLinecap="round" opacity="0.6"/>
+
+                                  <path d="M16 13C16 13 11 19.5 11 23C11 25.7614 13.2386 28 16 28C18.7614 28 21 25.7614 21 23C21 19.5 16 13 16 13Z" fill="#E53935"/>
+                                  <path d="M14 23C14 22 14.5 20.5 15.5 19.5" stroke="white" strokeWidth="1.2" strokeLinecap="round" opacity="0.6"/>
+                                </svg>
                               )}
                               {cfData.menstrualFlow === 'LIGHT' && (
                                 <div
