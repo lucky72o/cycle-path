@@ -61,11 +61,13 @@ Track multiple fertility indicators for each day:
 - "Fertile Window" label centered on the fertile period
 - Day-by-day detailed view
 - **Interactive Crosshair & Tooltip System**:
-  - **Vertical Crosshair**: A dashed line spans the entire chart height when hovering over any day with recorded data
-  - **Multi-Source Activation**: Hovering triggers from both the temperature graph plot area and any table cell (date/weekday/cycle day headers, time stamps, LH tests, intimacy markers, cervical fluid, or menstrual flow)
-  - **Smart Hover Detection**: Only days with recorded data (BBT, time, OPK, intimacy, cervical fluid, or menstrual flow) are interactive; days without data remain non-hoverable for a cleaner experience
+  - **Vertical Crosshair**: A dashed line spans the entire chart height when hovering/tapping on any day with recorded data
+  - **Multi-Source Activation**: Triggerable from both the temperature graph plot area and any table cell (date/weekday/cycle day headers, time stamps, LH tests, intimacy markers, cervical fluid, or menstrual flow)
+  - **Smart Hover Detection**: Only days with recorded data (BBT, time, OPK, intimacy, cervical fluid, or menstrual flow) are interactive; days without data remain non-interactive for a cleaner experience
   - **Unified Tooltip**: A single, context-aware tooltip displays comprehensive day information including date, weekday, cycle day number, temperature (if recorded), time stamp, intercourse status, and exclusion flags
-  - **Technical Implementation**: Custom React overlay with native DOM event listeners for reliable hover detection, independent of the charting library's tooltip system
+  - **Mobile Touch Support**: Touch events (`touchstart`, `touchmove`) mirror desktop hover behavior. A tap on a data column activates the crosshair and tooltip; the tooltip persists after lifting the finger and dismisses on a tap outside the chart. Horizontal scroll gestures (>10 px movement) are distinguished from taps and clear the tooltip rather than locking it open
+  - **Tooltip Overflow Guard**: On narrow screens the tooltip automatically flips to the left of the crosshair when there is insufficient space on the right
+  - **Technical Implementation**: Custom React overlay with native DOM event listeners for reliable detection, independent of the charting library's tooltip system
 
 ### 📥 CSV Import
 - Import cycle data from CSV files
@@ -273,6 +275,7 @@ Wasp generates TypeScript types automatically:
   - Peak LH flower markers with stacking-aware overlays
   - Fertile window gradient visualization
   - Inline SVG blood drop icon for spotting indicator
+  - Touch event support for crosshair/tooltip on mobile (touchstart/touchmove on canvas and all table cells; dismiss on tap outside)
 - **[`src/cycle-tracking/AddCycleDayPage.tsx`](src/cycle-tracking/AddCycleDayPage.tsx)** - Daily entry form with all fertility indicators
 - **[`src/cycle-tracking/utils.ts`](src/cycle-tracking/utils.ts)** - Temperature conversion and date utilities
 
