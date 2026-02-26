@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { fahrenheitToCelsius, formatDate, formatDateLong, getDayOfWeekAbbreviation, getDayOfWeek } from './utils';
+import { fahrenheitToCelsius, formatDate, formatDateLong, formatDateDDMMMYYYY, getDayOfWeekAbbreviation, getDayOfWeek } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 
@@ -27,6 +27,20 @@ export default function CycleChartPage() {
   const [chartHeight, setChartHeight] = useState<number>(0);
   const [crosshairX, setCrosshairX] = useState<number | null>(null);
   const touchStartXRef = useRef<number | null>(null);
+  // Last known cursor position relative to the chart container — used for tooltip placement.
+  // Refs (not state) so mousemove doesn't trigger re-renders.
+  const cursorXRef = useRef<number | null>(null);
+  const cursorYRef = useRef<number | null>(null);
+
+  // Pinned tooltip state — set on tap so the tooltip becomes interactive on touch devices
+  const [pinnedDayNumber, setPinnedDayNumber] = useState<number | null>(null);
+  const [pinnedCrosshairX, setPinnedCrosshairX] = useState<number | null>(null);
+  const pinnedDayNumberRef = useRef<number | null>(null);
+  const pinnedCrosshairXRef = useRef<number | null>(null);
+
+  // Hover bridge — delayed close so cursor can travel from trigger to tooltip card
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tooltipHoveredRef = useRef<boolean>(false);
 
   // If no cycleId provided, redirect to active cycle
   useMemo(() => {
@@ -316,9 +330,37 @@ export default function CycleChartPage() {
     return map;
   }, [cycle, chartData, allCycleDaysMap, timeStampsMap, opkStatusMap, cervicalMenstrualMap, displayDayRange]);
 
+  // Cancel any pending delayed close (called when cursor enters a cell or the tooltip card).
+  const cancelClose = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  };
+
+  // Schedule a delayed close (~600 ms). Does nothing if the tooltip card is
+  // hovered or a day is pinned (touch path).
+  const scheduleClose = () => {
+    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    closeTimeoutRef.current = setTimeout(() => {
+      if (!tooltipHoveredRef.current && pinnedDayNumberRef.current === null) {
+        setHoveredDayNumber(null);
+        setCrosshairX(null);
+      }
+    }, 600);
+  };
+
+  // Clear any pending close on unmount to avoid setState on an unmounted component.
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    };
+  }, []);
+
   // Shared hover handler for custom cells
   const handleCellMouseEnter = (dayNumber: number) => {
     if (!chartData || plotAreaWidth === 0) return;
+    cancelClose();
     setHoveredDayNumber(dayNumber);
     const numDays = chartData.maxDay - chartData.minDay + 1;
     const cellWidth = plotAreaWidth / numDays;
@@ -326,8 +368,31 @@ export default function CycleChartPage() {
     setCrosshairX(plotAreaOffset + (dayIndex + 0.5) * cellWidth);
   };
   const handleCellMouseLeave = () => {
-    setHoveredDayNumber(null);
-    setCrosshairX(null);
+    scheduleClose();
+  };
+
+  // Pins or unpins the tooltip for a given day number.
+  // Called on click (canvas and grid cells) and on touch (all rows).
+  const handleCellClick = (dayNumber: number) => {
+    if (!chartData || plotAreaWidth === 0) return;
+    if (!daysWithDataMap.get(dayNumber)) return;
+
+    if (pinnedDayNumberRef.current === dayNumber) {
+      // Same day clicked again — unpin
+      pinnedDayNumberRef.current = null;
+      pinnedCrosshairXRef.current = null;
+      setPinnedDayNumber(null);
+      setPinnedCrosshairX(null);
+    } else {
+      const numDays = chartData.maxDay - chartData.minDay + 1;
+      const cellWidth = plotAreaWidth / numDays;
+      const dayIndex = dayNumber - chartData.minDay;
+      const x = plotAreaOffset + (dayIndex + 0.5) * cellWidth;
+      pinnedDayNumberRef.current = dayNumber;
+      pinnedCrosshairXRef.current = x;
+      setPinnedDayNumber(dayNumber);
+      setPinnedCrosshairX(x);
+    }
   };
 
   // Refs to hold the latest handler functions so ApexCharts stale event
@@ -335,9 +400,15 @@ export default function CycleChartPage() {
   // to the current closures that capture up-to-date plotAreaWidth etc.
   const handleCellMouseEnterRef = useRef(handleCellMouseEnter);
   const handleCellMouseLeaveRef = useRef(handleCellMouseLeave);
+  const handleCellClickRef = useRef(handleCellClick);
+  const scheduleCloseRef = useRef(scheduleClose);
+  const cancelCloseRef = useRef(cancelClose);
   useEffect(() => {
     handleCellMouseEnterRef.current = handleCellMouseEnter;
     handleCellMouseLeaveRef.current = handleCellMouseLeave;
+    handleCellClickRef.current = handleCellClick;
+    scheduleCloseRef.current = scheduleClose;
+    cancelCloseRef.current = cancelClose;
   });
 
   const chartOptions: ApexOptions = useMemo(() => {
@@ -574,7 +645,7 @@ export default function CycleChartPage() {
         mouseY < plotAreaTop || mouseY > plotAreaTop + plotAreaHeight ||
         mouseX < plotAreaOffset || mouseX > plotAreaOffset + plotAreaWidth
       ) {
-        handleCellMouseLeaveRef.current();
+        scheduleCloseRef.current();
         return;
       }
 
@@ -586,17 +657,58 @@ export default function CycleChartPage() {
       if (daysWithDataMap.get(dayNumber)) {
         handleCellMouseEnterRef.current(dayNumber);
       } else {
-        handleCellMouseLeaveRef.current();
+        scheduleCloseRef.current();
       }
     };
 
     const handleMouseMove = (e: MouseEvent) => resolveDay(e.clientX, e.clientY);
-    const handleMouseLeave = () => handleCellMouseLeaveRef.current();
+    const handleMouseLeave = () => scheduleCloseRef.current();
+
+    const handleClick = (e: MouseEvent) => {
+      const containerRect = container.getBoundingClientRect();
+      const mouseX = e.clientX - containerRect.left;
+      const mouseY = e.clientY - containerRect.top;
+
+      if (
+        mouseY < plotAreaTop || mouseY > plotAreaTop + plotAreaHeight ||
+        mouseX < plotAreaOffset || mouseX > plotAreaOffset + plotAreaWidth
+      ) {
+        // Click outside plot area — unpin
+        pinnedDayNumberRef.current = null;
+        pinnedCrosshairXRef.current = null;
+        setPinnedDayNumber(null);
+        setPinnedCrosshairX(null);
+        return;
+      }
+
+      const numDays = chartData.maxDay - chartData.minDay + 1;
+      const cellWidth = plotAreaWidth / numDays;
+      const dayIndex = Math.floor((mouseX - plotAreaOffset) / cellWidth);
+      const dayNumber = chartData.minDay + Math.min(dayIndex, numDays - 1);
+      handleCellClickRef.current(dayNumber);
+    };
 
     const handleTouchStart = (e: TouchEvent) => {
       const touch = e.touches[0];
       touchStartXRef.current = touch.clientX;
       resolveDay(touch.clientX, touch.clientY);
+      // Pin the tapped day so the tooltip becomes interactive immediately
+      const containerRect = container.getBoundingClientRect();
+      const touchX = touch.clientX - containerRect.left;
+      const touchY = touch.clientY - containerRect.top;
+      // Record touch position for cursor-relative tooltip placement
+      cursorXRef.current = touchX;
+      cursorYRef.current = touchY;
+      if (
+        touchY >= plotAreaTop && touchY <= plotAreaTop + plotAreaHeight &&
+        touchX >= plotAreaOffset && touchX <= plotAreaOffset + plotAreaWidth
+      ) {
+        const numDays = chartData.maxDay - chartData.minDay + 1;
+        const cellWidth = plotAreaWidth / numDays;
+        const dayIndex = Math.floor((touchX - plotAreaOffset) / cellWidth);
+        const dayNumber = chartData.minDay + Math.min(dayIndex, numDays - 1);
+        handleCellClickRef.current(dayNumber);
+      }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
@@ -605,8 +717,12 @@ export default function CycleChartPage() {
         touchStartXRef.current !== null &&
         Math.abs(touch.clientX - touchStartXRef.current) > 10
       ) {
-        // Horizontal scroll detected — clear tooltip
-        handleCellMouseLeaveRef.current();
+        // Horizontal scroll detected — clear tooltip and pin
+        pinnedDayNumberRef.current = null;
+        pinnedCrosshairXRef.current = null;
+        setPinnedDayNumber(null);
+        setPinnedCrosshairX(null);
+        scheduleCloseRef.current();
         return;
       }
       resolveDay(touch.clientX, touch.clientY);
@@ -614,11 +730,13 @@ export default function CycleChartPage() {
 
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mouseleave', handleMouseLeave);
+    canvas.addEventListener('click', handleClick);
     canvas.addEventListener('touchstart', handleTouchStart, { passive: true });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: true });
     return () => {
       canvas.removeEventListener('mousemove', handleMouseMove);
       canvas.removeEventListener('mouseleave', handleMouseLeave);
+      canvas.removeEventListener('click', handleClick);
       canvas.removeEventListener('touchstart', handleTouchStart);
       canvas.removeEventListener('touchmove', handleTouchMove);
     };
@@ -631,6 +749,10 @@ export default function CycleChartPage() {
         chartContainerRef.current &&
         !chartContainerRef.current.contains(e.target as Node)
       ) {
+        pinnedDayNumberRef.current = null;
+        pinnedCrosshairXRef.current = null;
+        setPinnedDayNumber(null);
+        setPinnedCrosshairX(null);
         handleCellMouseLeaveRef.current();
       }
     };
@@ -755,7 +877,18 @@ export default function CycleChartPage() {
           `}</style>
           {chartData ? (
             <div className="overflow-x-auto">
-            <div ref={chartContainerRef} className="relative min-w-[800px]" style={{ paddingTop: '108px', paddingBottom: '234px' }}>
+            <div
+              ref={chartContainerRef}
+              className="relative min-w-[800px]"
+              style={{ paddingTop: '108px', paddingBottom: '234px' }}
+              onMouseMove={(e) => {
+                const rect = chartContainerRef.current?.getBoundingClientRect();
+                if (rect) {
+                  cursorXRef.current = e.clientX - rect.left;
+                  cursorYRef.current = e.clientY - rect.top;
+                }
+              }}
+            >
               {/* Custom X-axis rows with labels */}
               {chartData && plotAreaWidth > 0 && (
                 <>
@@ -805,6 +938,7 @@ export default function CycleChartPage() {
                             onMouseEnter={() => handleCellMouseEnter(dayNumber)}
                             onMouseLeave={handleCellMouseLeave}
                             onTouchStart={() => handleCellMouseEnter(dayNumber)}
+                            onClick={() => handleCellClick(dayNumber)}
                           >
                             {dateLabel}
                           </div>
@@ -825,6 +959,7 @@ export default function CycleChartPage() {
                             onMouseEnter={() => handleCellMouseEnter(dayNumber)}
                             onMouseLeave={handleCellMouseLeave}
                             onTouchStart={() => handleCellMouseEnter(dayNumber)}
+                            onClick={() => handleCellClick(dayNumber)}
                           >
                             {weekDay}
                           </div>
@@ -846,6 +981,7 @@ export default function CycleChartPage() {
                             onMouseEnter={() => handleCellMouseEnter(dayNumber)}
                             onMouseLeave={handleCellMouseLeave}
                             onTouchStart={() => handleCellMouseEnter(dayNumber)}
+                            onClick={() => handleCellClick(dayNumber)}
                           >
                             {dayNumber}
                           </div>
@@ -1004,42 +1140,87 @@ export default function CycleChartPage() {
               )}
 
               {/* Custom Tooltip Overlay */}
-              {hoveredDayNumber !== null && chartData && plotAreaTop > 0 && crosshairX !== null && (() => {
-                const day = allCycleDaysMap.get(hoveredDayNumber);
+              {(() => {
+                const tooltipDayNumber = pinnedDayNumber ?? hoveredDayNumber;
+                const tooltipCrosshairX = pinnedDayNumber !== null ? pinnedCrosshairX : crosshairX;
+
+                if (tooltipDayNumber === null || !chartData || plotAreaTop === 0 || tooltipCrosshairX === null) return null;
+
+                const day = allCycleDaysMap.get(tooltipDayNumber);
                 if (!day) return null;
-                const bbtDay = chartData.allDaysMap.get(hoveredDayNumber);
+                const bbtDay = chartData.allDaysMap.get(tooltipDayNumber);
                 const temp = bbtDay?.bbt
                   ? (settings?.temperatureUnit === 'CELSIUS'
                       ? fahrenheitToCelsius(bbtDay.bbt).toFixed(2)
                       : bbtDay.bbt.toFixed(2))
                   : null;
                 const tempUnit = settings?.temperatureUnit === 'CELSIUS' ? '°C' : '°F';
-                // Clamp tooltip so it never overflows the right edge of the container.
-                // Tooltip width is ~160px; 12px gap from crosshair.
-                const TOOLTIP_WIDTH = 160;
+                // Position tooltip at cell-centre so it stays stable while the cursor
+                // travels toward the Edit button (no live-cursor chase effect).
+                const TOOLTIP_WIDTH = 180;
+                const TOOLTIP_OFFSET_X = 16;
+                const TOOLTIP_OFFSET_Y = -15;
+                const TOOLTIP_HEIGHT_ESTIMATE = 200;
+                // SHIELD extends the outer wrapper toward the cursor so that cells
+                // underneath don't fire mouseenter while the user is in transit.
+                const SHIELD = 56;
                 const containerWidth = chartContainerRef.current?.offsetWidth ?? Infinity;
-                const rawLeft = crosshairX + 12;
-                const tooltipLeft = rawLeft + TOOLTIP_WIDTH > containerWidth
-                  ? Math.max(0, crosshairX - TOOLTIP_WIDTH - 12)
+                const containerHeight = chartContainerRef.current?.offsetHeight ?? Infinity;
+
+                // Use cell-centre crosshair (stable per day) instead of live cursor X.
+                const baseX = tooltipCrosshairX;
+                const rawLeft = baseX + TOOLTIP_OFFSET_X;
+                const isFlipped = rawLeft + TOOLTIP_WIDTH > containerWidth;
+                const tooltipLeft = isFlipped
+                  ? Math.max(0, baseX - TOOLTIP_WIDTH - 4)
                   : rawLeft;
+
+                const baseY = cursorYRef.current ?? plotAreaTop + 8;
+                const tooltipTop = Math.max(0, Math.min(baseY + TOOLTIP_OFFSET_Y, containerHeight - TOOLTIP_HEIGHT_ESTIMATE));
+
                 return (
+                  // Outer div acts as an invisible hover shield on the cursor-approach
+                  // side (left for normal, right for flipped). pointer-events-auto here
+                  // blocks cells underneath from re-triggering while in transit.
                   <div
-                    className="absolute pointer-events-none"
+                    className="absolute"
                     style={{
-                      left: `${tooltipLeft}px`,
-                      top: `${plotAreaTop + 8}px`,
+                      left:         `${isFlipped ? tooltipLeft : tooltipLeft - SHIELD}px`,
+                      top:          `${tooltipTop - 10}px`,
+                      paddingTop:   '10px',
+                      paddingLeft:  isFlipped ? 0 : SHIELD,
+                      paddingRight: isFlipped ? SHIELD : 0,
                       zIndex: 10,
                     }}
+                    onMouseEnter={() => cancelClose()}
+                    onMouseLeave={() => scheduleClose()}
                   >
-                    <div className="p-3 bg-white border rounded shadow-lg text-sm min-w-[140px]">
-                      <div className="font-bold mb-1">{formatDate(new Date(day.date))}</div>
-                      <div className="text-xs text-gray-500">{weekDaysMap.get(hoveredDayNumber) || ''}</div>
-                      <div className="text-xs text-gray-500 mb-2">Cycle Day {hoveredDayNumber}</div>
+                    {/* Inner card is always interactive — hover bridge lives here */}
+                    <div
+                      className="pointer-events-auto p-3 bg-white border rounded shadow-lg text-sm min-w-[140px]"
+                      onMouseEnter={() => { tooltipHoveredRef.current = true; cancelClose(); }}
+                      onMouseLeave={() => { tooltipHoveredRef.current = false; scheduleClose(); }}
+                    >
+                      <div className="font-bold mb-1">{formatDateDDMMMYYYY(new Date(day.date))}</div>
+                      <div className="text-xs text-gray-500">{getDayOfWeek(new Date(day.date))}</div>
+                      <div className="text-xs text-gray-500 mb-2">Cycle Day {tooltipDayNumber}</div>
                       {temp && <div className="font-semibold">{temp}{tempUnit}</div>}
                       {bbtDay?.bbtTime && <div className="text-xs">Time: {bbtDay.bbtTime}</div>}
                       {day.hadIntercourse && <div className="text-xs text-pink-600">Intercourse</div>}
                       {day.excludeFromInterpretation && (
                         <div className="text-xs text-gray-500">Excluded from interpretation</div>
+                      )}
+                      {day.id && (
+                        <div className="mt-2 pt-2 border-t border-gray-100 flex">
+                          <Link to={`/cycles/${cycleId}/add-day?dayId=${day.id}`}>
+                            <Button size="sm" variant="ghost" className="hidden md:inline-flex">Edit</Button>
+                            <Button size="sm" variant="outline" aria-label="Edit" className="md:hidden">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                            </Button>
+                          </Link>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1170,6 +1351,7 @@ export default function CycleChartPage() {
                           onMouseEnter={() => handleCellMouseEnter(dayNumber)}
                           onMouseLeave={handleCellMouseLeave}
                           onTouchStart={() => handleCellMouseEnter(dayNumber)}
+                          onClick={() => handleCellClick(dayNumber)}
                         >
                           {timeData && (
                             <>
@@ -1276,6 +1458,7 @@ export default function CycleChartPage() {
                           onMouseEnter={() => handleCellMouseEnter(dayNumber)}
                           onMouseLeave={handleCellMouseLeave}
                           onTouchStart={() => handleCellMouseEnter(dayNumber)}
+                          onClick={() => handleCellClick(dayNumber)}
                         >
                           {symbol}
                         </div>
@@ -1340,6 +1523,7 @@ export default function CycleChartPage() {
                           onMouseEnter={() => handleCellMouseEnter(dayNumber)}
                           onMouseLeave={handleCellMouseLeave}
                           onTouchStart={() => handleCellMouseEnter(dayNumber)}
+                          onClick={() => handleCellClick(dayNumber)}
                         >
                           {hasIntercourse && (
                             <span style={{ color: '#ec4899', fontSize: '18px', lineHeight: 1 }}>❤</span>
@@ -1418,6 +1602,7 @@ export default function CycleChartPage() {
                           onMouseEnter={() => handleCellMouseEnter(dayNumber)}
                           onMouseLeave={handleCellMouseLeave}
                           onTouchStart={() => handleCellMouseEnter(dayNumber)}
+                          onClick={() => handleCellClick(dayNumber)}
                         >
                           {/* 5 background cells - solid fill with rounded corners and white space gaps */}
                           {[0, 1, 2, 3, 4].map((rowIdx) => (

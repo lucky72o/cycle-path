@@ -68,6 +68,13 @@ Track multiple fertility indicators for each day:
   - **Mobile Touch Support**: Touch events (`touchstart`, `touchmove`) mirror desktop hover behavior. A tap on a data column activates the crosshair and tooltip; the tooltip persists after lifting the finger and dismisses on a tap outside the chart. Horizontal scroll gestures (>10 px movement) are distinguished from taps and clear the tooltip rather than locking it open
   - **Tooltip Overflow Guard**: On narrow screens the tooltip automatically flips to the left of the crosshair when there is insufficient space on the right
   - **Technical Implementation**: Custom React overlay with native DOM event listeners for reliable detection, independent of the charting library's tooltip system
+  - **Edit from Chart**: The tooltip card is always interactive and shows a compact **Edit** button at the bottom that navigates directly to the day entry form (`/cycles/:cycleId/add-day?dayId=...`). On desktop the button shows the text "Edit" (ghost style); on mobile it shows a pencil icon (outline style). The Edit button is reachable by moving the cursor from any data cell or temperature node into the tooltip — no click required. This is implemented via several complementary mechanisms:
+    - **Hover bridge**: the tooltip card catches `onMouseEnter` and cancels a 600 ms delayed close, keeping the tooltip open while the cursor travels from the trigger to the card.
+    - **Hover shield**: the outer tooltip wrapper is extended 56 px toward the cursor (left in the normal case, right when flipped). This invisible `pointer-events-auto` zone blocks adjacent cells from firing `mouseenter` while the cursor is in transit, preventing the tooltip from jumping to a new position mid-travel (the "chase effect").
+    - **Stable cell-centre positioning**: the tooltip X position is anchored to the hovered day's column centre (`crosshairX`) rather than the live cursor position. This makes the tooltip appear at a deterministic, predictable location for each day regardless of where within the column the cursor enters.
+    - **Improved overflow flip**: when the tooltip would overflow the right edge of the container it flips to the left, and is now positioned so its right edge sits only 4 px to the left of the cell centre, minimising the travel distance to the Edit button.
+    - On touch devices, tapping any interactive cell or node **pins** the tooltip (making it persistent) so the Edit button can be tapped; the pin clears when tapping the same cell again or tapping outside the chart.
+  - **Date and Weekday Formatting in Tooltip**: The tooltip displays dates in **DD MMM YYYY** format (e.g. "24 Oct 2025") and weekdays as full names (e.g. "Monday") rather than abbreviations
 
 ### 📥 CSV Import
 - Import cycle data from CSV files
@@ -276,8 +283,12 @@ Wasp generates TypeScript types automatically:
   - Fertile window gradient visualization
   - Inline SVG blood drop icon for spotting indicator
   - Touch event support for crosshair/tooltip on mobile (touchstart/touchmove on canvas and all table cells; dismiss on tap outside)
+  - Tooltip hover shield: invisible `pointer-events-auto` extension on the cursor-approach side blocks adjacent cells from re-triggering during transit
+  - Tooltip anchored to cell-centre crosshair for stable, per-day positioning (no live-cursor chase)
+  - 600 ms delayed close with `cancelClose`/`scheduleClose` helpers and `tooltipHoveredRef` hover bridge
+  - Pinned tooltip state (`pinnedDayNumber`/`pinnedCrosshairX`) for persistent touch interaction
 - **[`src/cycle-tracking/AddCycleDayPage.tsx`](src/cycle-tracking/AddCycleDayPage.tsx)** - Daily entry form with all fertility indicators
-- **[`src/cycle-tracking/utils.ts`](src/cycle-tracking/utils.ts)** - Temperature conversion and date utilities
+- **[`src/cycle-tracking/utils.ts`](src/cycle-tracking/utils.ts)** - Temperature conversion and date utilities (`fahrenheitToCelsius`, `formatDate`, `formatDateLong`, `formatDateDDMMMYYYY`, `getDayOfWeek`, `getDayOfWeekAbbreviation`)
 
 ## UI Components
 

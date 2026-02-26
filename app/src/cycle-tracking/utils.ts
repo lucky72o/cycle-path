@@ -46,6 +46,15 @@ export function getDayOfWeek(date: Date): string {
 }
 
 /**
+ * Format date for display as DD MMM YYYY (e.g., "24 Oct 2025")
+ */
+export function formatDateDDMMMYYYY(date: Date): string {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${day} ${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+/**
  * Format date for display (e.g., "Oct 24 2025")
  */
 export function formatDate(date: Date): string {
