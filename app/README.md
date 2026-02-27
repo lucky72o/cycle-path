@@ -18,7 +18,7 @@ CycleMonitor is a comprehensive fertility awareness application designed to help
 ### 🔄 Cycle Management
 - Create and manage multiple menstrual cycles
 - Track cycle start and end dates
-- View current and historical cycles
+- View current and historical cycles with cycle day count displayed in the title (e.g. "Cycle #1: 28 days"); active cycles show the number of recorded entries, past cycles show the total cycle span
 - Delete cycles with cascade deletion of all associated data
 
 ### 📝 Daily Data Entry
@@ -288,7 +288,7 @@ Wasp generates TypeScript types automatically:
   - 600 ms delayed close with `cancelClose`/`scheduleClose` helpers and `tooltipHoveredRef` hover bridge
   - Pinned tooltip state (`pinnedDayNumber`/`pinnedCrosshairX`) for persistent touch interaction
 - **[`src/cycle-tracking/AddCycleDayPage.tsx`](src/cycle-tracking/AddCycleDayPage.tsx)** - Daily entry form with all fertility indicators
-- **[`src/cycle-tracking/utils.ts`](src/cycle-tracking/utils.ts)** - Temperature conversion and date utilities (`fahrenheitToCelsius`, `formatDate`, `formatDateLong`, `formatDateDDMMMYYYY`, `getDayOfWeek`, `getDayOfWeekAbbreviation`)
+- **[`src/cycle-tracking/utils.ts`](src/cycle-tracking/utils.ts)** - Temperature conversion, date utilities, and cycle helpers (`fahrenheitToCelsius`, `formatDate`, `formatDateLong`, `formatDateDDMMMYYYY`, `getDayOfWeek`, `getDayOfWeekAbbreviation`, `getCycleDayCount`)
 
 ## UI Components
 

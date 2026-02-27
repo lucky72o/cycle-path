@@ -4,7 +4,7 @@ import { getUserCycles } from 'wasp/client/operations';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { formatDateForInput } from './utils';
+import { formatDateForInput, getCycleDayCount } from './utils';
 import SideNav from './SideNav';
 
 export default function CyclesPage() {
@@ -156,6 +156,7 @@ export default function CyclesPage() {
             <CardTitle>Current Cycle (#{activeCycle.cycleNumber})</CardTitle>
             <CardDescription>
               Started: {new Date(activeCycle.startDate).toLocaleDateString()}
+              {getCycleDayCount(activeCycle) > 0 && ` · ${getCycleDayCount(activeCycle)} days recorded`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -219,7 +220,9 @@ export default function CyclesPage() {
             {pastCycles.map((cycle) => (
               <Card key={cycle.id}>
                 <CardHeader>
-                  <CardTitle>Cycle #{cycle.cycleNumber}</CardTitle>
+                  <CardTitle>
+                    Cycle #{cycle.cycleNumber}{getCycleDayCount(cycle) > 0 && `: ${getCycleDayCount(cycle)} days`}
+                  </CardTitle>
                   <CardDescription>
                     {new Date(cycle.startDate).toLocaleDateString()} - {' '}
                     {cycle.endDate ? new Date(cycle.endDate).toLocaleDateString() : 'Ongoing'}

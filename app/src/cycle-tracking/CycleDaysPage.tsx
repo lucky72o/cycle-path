@@ -4,7 +4,7 @@ import { getCycleById, getUserSettings, getUserCycles } from 'wasp/client/operat
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader } from '../components/ui/card';
-import { formatTemperature, formatDate } from './utils';
+import { formatTemperature, formatDate, getCycleDayCount } from './utils';
 import SideNav from './SideNav';
 
 export default function CycleDaysPage() {
@@ -59,7 +59,9 @@ export default function CycleDaysPage() {
       <div className="flex-1 p-4 md:p-8 max-w-6xl">
       <div className="mb-4 md:mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-xl md:text-3xl font-bold mb-2">Cycle #{cycle.cycleNumber}: Cycle Days</h1>
+          <h1 className="text-xl md:text-3xl font-bold mb-2">
+            Cycle #{cycle.cycleNumber}{getCycleDayCount(cycle) > 0 && `: ${getCycleDayCount(cycle)} ${cycle.isActive ? 'days recorded' : 'days'}`}
+          </h1>
           <p className="text-muted-foreground">
             Started: {new Date(cycle.startDate).toLocaleDateString()}
             {cycle.endDate && ` - Ended: ${new Date(cycle.endDate).toLocaleDateString()}`}

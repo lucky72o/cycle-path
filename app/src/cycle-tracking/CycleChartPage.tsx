@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { fahrenheitToCelsius, formatDate, formatDateLong, formatDateDDMMMYYYY, getDayOfWeekAbbreviation, getDayOfWeek } from './utils';
+import { fahrenheitToCelsius, formatDate, formatDateLong, formatDateDDMMMYYYY, getDayOfWeekAbbreviation, getDayOfWeek, getCycleDayCount } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 
@@ -793,7 +793,9 @@ export default function CycleChartPage() {
       <div className="flex-1 p-4 md:p-8 max-w-6xl">
       <div className="mb-4 md:mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-xl md:text-3xl font-bold mb-2">Cycle #{cycle.cycleNumber} Chart</h1>
+          <h1 className="text-xl md:text-3xl font-bold mb-2">
+            Cycle #{cycle.cycleNumber}{getCycleDayCount(cycle) > 0 && `: ${getCycleDayCount(cycle)} ${cycle.isActive ? 'days recorded' : 'days'}`}
+          </h1>
           <p className="text-muted-foreground">
             Started: {formatDateLong(new Date(cycle.startDate))}
             {cycle.endDate && ` - Ended: ${formatDateLong(new Date(cycle.endDate))}`}

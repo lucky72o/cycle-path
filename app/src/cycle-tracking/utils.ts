@@ -89,6 +89,17 @@ export function parseDateFromInput(dateString: string): Date {
 }
 
 /**
+ * Returns the day count for a cycle.
+ * Active cycles: count of recorded entries (grows with each new recording).
+ * Past cycles: max day number (total span of the cycle).
+ */
+export function getCycleDayCount(cycle: { days: { dayNumber: number }[]; isActive: boolean }): number {
+  if (cycle.days.length === 0) return 0;
+  if (cycle.isActive) return cycle.days.length;
+  return cycle.days[cycle.days.length - 1].dayNumber;
+}
+
+/**
  * Convert full day name to abbreviation (M, T, W, Th, F, Sat, Sun)
  */
 export function getDayOfWeekAbbreviation(dayName: string): string {
