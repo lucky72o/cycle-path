@@ -20,6 +20,7 @@ CycleMonitor is a comprehensive fertility awareness application designed to help
 - Track cycle start and end dates
 - View current and historical cycles with cycle day count displayed in the title (e.g. "Cycle #1: 28 days"); active cycles show the number of recorded entries, past cycles show the total cycle span
 - Delete cycles with cascade deletion of all associated data
+- Chronological cycle navigation on the days page: **Previous Cycle** always links to the cycle that started before the current one, **Next Cycle** to the one that started after
 
 ### 📝 Daily Data Entry
 Track multiple fertility indicators for each day:
@@ -214,7 +215,7 @@ app/
 │   │   ├── operations.ts     # Server-side queries and actions
 │   │   ├── CyclesPage.tsx    # Cycle list and management
 │   │   ├── AddCycleDayPage.tsx # Daily entry form
-│   │   ├── CycleDaysPage.tsx # Day list view
+│   │   ├── CycleDaysPage.tsx # Day list view with chronological cycle navigation
 │   │   ├── CycleChartPage.tsx # Visual chart display
 │   │   ├── NewCyclePage.tsx  # Create new cycle
 │   │   ├── SettingsPage.tsx  # User settings

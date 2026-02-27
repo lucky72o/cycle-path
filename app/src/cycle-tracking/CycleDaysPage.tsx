@@ -17,13 +17,13 @@ export default function CycleDaysPage() {
   const prevCycle = useMemo(() => {
     if (!cycle || !allCycles) return null;
     const currentIndex = allCycles.findIndex(c => c.id === cycle.id);
-    return currentIndex < allCycles.length - 1 ? allCycles[currentIndex + 1] : null;
+    return currentIndex > 0 ? allCycles[currentIndex - 1] : null;
   }, [cycle, allCycles]);
 
   const nextCycle = useMemo(() => {
     if (!cycle || !allCycles) return null;
     const currentIndex = allCycles.findIndex(c => c.id === cycle.id);
-    return currentIndex > 0 ? allCycles[currentIndex - 1] : null;
+    return currentIndex < allCycles.length - 1 ? allCycles[currentIndex + 1] : null;
   }, [cycle, allCycles]);
 
   if (cycleLoading || settingsLoading) {
