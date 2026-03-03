@@ -1,20 +1,20 @@
-app CycleMonitor {
+app CyclePath {
   wasp: {
     version: "^0.18.0"
   },
 
-  title: "CycleMonitor - Natural Fertility Tracking",
+  title: "CyclePath - Natural Fertility Tracking",
 
   head: [
     "<link rel='icon' href='/favicon.ico' />",
     "<meta charset='utf-8' />",
     "<meta name='description' content='Your apps main description and features.' />",
-    "<meta name='author' content='Fertility cycle monitor' />",
+    "<meta name='author' content='Cycle Path' />",
     "<meta name='keywords' content='menstrual, cycle, ovarian, graph, tracking' />",
     
     "<meta property='og:type' content='website' />",
-    "<meta property='og:title' content='Fertility cycle monitor' />",
-    "<meta property='og:site_name' content='Fertility cycle monitor' />",
+    "<meta property='og:title' content='Cycle Path' />",
+    "<meta property='og:site_name' content='Cycle Path' />",
     "<meta property='og:url' content='https://your-saas-app.com' />",
     "<meta property='og:description' content='Your apps main description and features.' />",
     "<meta property='og:image' content='https://your-saas-app.com/public-banner.webp' />",
