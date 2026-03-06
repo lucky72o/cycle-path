@@ -45,6 +45,15 @@ Track multiple fertility indicators for each day:
   - Track LH hormone levels: Low, Rising, Peak, Declining
   - Detailed descriptions for interpreting test results
 
+- **Disturbance Factor Tracking**
+  - Multi-select section for logging factors that may affect BBT reliability
+  - Eight factors: Poor Sleep, Travel, Stress, Illness/Fever, Different Wake Time, Alcohol the Evening Before, Medication, Hot/Cold Room
+  - Displayed in a two-column responsive grid (single column on mobile)
+  - Each factor includes an info icon with an explanatory tooltip on hover
+  - The section title itself has a hover tooltip explaining what a disturbance factor is
+  - Selecting **Travel** reveals an optional time-difference stepper (–12 to +12 hours) to record timezone or schedule changes
+  - All selected factors and the travel time difference are persisted with the day entry and restored when editing
+
 - **Additional Tracking**
   - Intercourse tracking
   - Custom notes and observations
@@ -62,19 +71,21 @@ Track multiple fertility indicators for each day:
 - "Fertile Window" label centered on the fertile period
 - Day-by-day detailed view
 - **Interactive Crosshair & Tooltip System**:
-  - **Vertical Crosshair**: A dashed line spans the entire chart height when hovering/tapping on any day with recorded data
-  - **Multi-Source Activation**: Triggerable from both the temperature graph plot area and any table cell (date/weekday/cycle day headers, time stamps, LH tests, intimacy markers, cervical fluid, or menstrual flow)
-  - **Smart Hover Detection**: Only days with recorded data (BBT, time, OPK, intimacy, cervical fluid, or menstrual flow) are interactive; days without data remain non-interactive for a cleaner experience
-  - **Unified Tooltip**: A single, context-aware tooltip displays comprehensive day information including date, weekday, cycle day number, temperature (if recorded), time stamp, intercourse status, and exclusion flags
-  - **Mobile Touch Support**: Touch events (`touchstart`, `touchmove`) mirror desktop hover behavior. A tap on a data column activates the crosshair and tooltip; the tooltip persists after lifting the finger and dismisses on a tap outside the chart. Horizontal scroll gestures (>10 px movement) are distinguished from taps and clear the tooltip rather than locking it open
+  - **Vertical Crosshair**: A dashed line spans the entire chart height when hovering/tapping anywhere in the graph plot area over a column with recorded data
+  - **Graph-Only Activation**: The crosshair and tooltip are triggered exclusively by hovering (or tapping on mobile) within the temperature graph section. The table rows below the graph respond visually (column highlight) but do not independently trigger the tooltip
+  - **Smart Hover Detection**: Only columns with recorded data (BBT, time, OPK, intimacy, cervical fluid, menstrual flow, or disturbance factors) are interactive; columns without any data remain non-interactive
+  - **No-Temperature Days**: Days that have recorded data but no temperature reading still activate the crosshair and tooltip when hovering over the corresponding vertical column in the graph area. The tooltip shows the date, cycle day number, and any disturbance factor symbols
+  - **Unified Tooltip**: A single, context-aware tooltip displays comprehensive day information including date, weekday, cycle day number, temperature (if recorded), time stamp, intercourse status, exclusion flags, and disturbance factors as emoji symbols
+  - **Disturbance Factor Symbols in Tooltip**: If disturbance factors were recorded, they appear as a row of emoji symbols: 🌙 Poor sleep · ✈️ Travel · 😵 Stress · 🤒 Illness/Fever · ⏰ Different wake time · 🍷 Alcohol · 💊 Medication · 🌡️ Hot/Cold room
+  - **Mobile Touch Support**: Touch events (`touchstart`, `touchmove`, `touchend`) mirror desktop hover behavior. Touching a column in the graph activates the crosshair and tooltip; moving to a new column updates the tooltip to that column. Lifting the finger dismisses the tooltip after a short delay. Horizontal scroll gestures (>10 px movement) are distinguished from taps and dismiss the tooltip immediately
   - **Tooltip Overflow Guard**: On narrow screens the tooltip automatically flips to the left of the crosshair when there is insufficient space on the right
-  - **Technical Implementation**: Custom React overlay with native DOM event listeners for reliable detection, independent of the charting library's tooltip system
-  - **Edit from Chart**: The tooltip card is always interactive and shows a compact **Edit** button at the bottom that navigates directly to the day entry form (`/cycles/:cycleId/add-day?dayId=...`). On desktop the button shows the text "Edit" (ghost style); on mobile it shows a pencil icon (outline style). The Edit button is reachable by moving the cursor from any data cell or temperature node into the tooltip — no click required. This is implemented via several complementary mechanisms:
+  - **Technical Implementation**: Custom React overlay with native DOM event listeners on the ApexCharts canvas for reliable detection, independent of the charting library's tooltip system
+  - **Edit from Chart**: The tooltip card is always interactive and shows a compact **Edit** button at the bottom that navigates directly to the day entry form (`/cycles/:cycleId/add-day?dayId=...`). On desktop the button shows the text "Edit" (ghost style); on mobile it shows a pencil icon (outline style). The Edit button is reachable by moving the cursor from any temperature node into the tooltip — no click required. This is implemented via several complementary mechanisms:
     - **Hover bridge**: the tooltip card catches `onMouseEnter` and cancels a 600 ms delayed close, keeping the tooltip open while the cursor travels from the trigger to the card.
-    - **Hover shield**: the outer tooltip wrapper is extended 56 px toward the cursor (left in the normal case, right when flipped). This invisible `pointer-events-auto` zone blocks adjacent cells from firing `mouseenter` while the cursor is in transit, preventing the tooltip from jumping to a new position mid-travel (the "chase effect").
+    - **Hover shield**: the outer tooltip wrapper is extended 56 px toward the cursor (left in the normal case, right when flipped). This invisible `pointer-events-auto` zone prevents the tooltip from dismissing while the cursor is in transit to the Edit button.
     - **Stable cell-centre positioning**: the tooltip X position is anchored to the hovered day's column centre (`crosshairX`) rather than the live cursor position. This makes the tooltip appear at a deterministic, predictable location for each day regardless of where within the column the cursor enters.
-    - **Improved overflow flip**: when the tooltip would overflow the right edge of the container it flips to the left, and is now positioned so its right edge sits only 4 px to the left of the cell centre, minimising the travel distance to the Edit button.
-    - On touch devices, tapping any interactive cell or node **pins** the tooltip (making it persistent) so the Edit button can be tapped; the pin clears when tapping the same cell again or tapping outside the chart.
+    - **Improved overflow flip**: when the tooltip would overflow the right edge of the container it flips to the left, and is positioned so its right edge sits only 4 px to the left of the cell centre, minimising the travel distance to the Edit button.
+    - On desktop, clicking a graph column **pins** the tooltip (making it persistent) so the Edit button can be clicked; the pin clears when clicking the same column again or clicking outside the plot area.
   - **Date and Weekday Formatting in Tooltip**: The tooltip displays dates in **DD MMM YYYY** format (e.g. "24 Oct 2025") and weekdays as full names (e.g. "Monday") rather than abbreviations
 
 ### 📥 CSV Import
