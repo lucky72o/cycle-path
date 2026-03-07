@@ -194,6 +194,8 @@ model CycleDay {
   cervicalSensation           CervicalSensation?
   opkStatus                   OpkStatus?
   menstrualFlow               MenstrualFlow?
+  disturbanceFactors          String[]
+  travelTimeDiff              Int?
   
   @@unique([cycleId, dayNumber])
   @@index([cycleId, date])

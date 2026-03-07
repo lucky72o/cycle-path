@@ -283,6 +283,8 @@ type CreateOrUpdateCycleDayArgs = {
   cervicalSensation?: 'DRY' | 'DAMP' | 'WET' | 'SLIPPERY' | null;
   opkStatus?: 'low' | 'rising' | 'peak' | 'declining' | null;
   menstrualFlow?: 'SPOTTING' | 'LIGHT' | 'MEDIUM' | 'HEAVY' | 'VERY_HEAVY' | null;
+  disturbanceFactors?: string[];
+  travelTimeDiff?: number | null;
 };
 
 export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleDayArgs, CycleDay> = async (args, context) => {
@@ -344,7 +346,9 @@ export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleD
         cervicalAppearance: args.cervicalAppearance,
         cervicalSensation: args.cervicalSensation,
         opkStatus: args.opkStatus,
-        menstrualFlow: args.menstrualFlow
+        menstrualFlow: args.menstrualFlow,
+        disturbanceFactors: args.disturbanceFactors ?? [],
+        travelTimeDiff: args.travelTimeDiff ?? null
       }
     });
   } else {
@@ -362,7 +366,9 @@ export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleD
         cervicalAppearance: args.cervicalAppearance,
         cervicalSensation: args.cervicalSensation,
         opkStatus: args.opkStatus,
-        menstrualFlow: args.menstrualFlow
+        menstrualFlow: args.menstrualFlow,
+        disturbanceFactors: args.disturbanceFactors ?? [],
+        travelTimeDiff: args.travelTimeDiff ?? null
       }
     });
   }

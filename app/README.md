@@ -47,12 +47,13 @@ Track multiple fertility indicators for each day:
 
 - **Disturbance Factor Tracking**
   - Multi-select section for logging factors that may affect BBT reliability
-  - Eight factors: Poor Sleep, Travel, Stress, Illness/Fever, Different Wake Time, Alcohol the Evening Before, Medication, Hot/Cold Room
+  - Eight factors, each with a dedicated emoji and explanatory tooltip:
+    - 🌙 Poor Sleep · ✈️ Travel · 😵 Stress · 🤒 Illness/Fever · ⏰ Different Wake Time · 🍷 Alcohol the Evening Before · 💊 Medication · 🌡️ Hot/Cold Room
   - Displayed in a two-column responsive grid (single column on mobile)
-  - Each factor includes an info icon with an explanatory tooltip on hover
-  - The section title itself has a hover tooltip explaining what a disturbance factor is
-  - Selecting **Travel** reveals an optional time-difference stepper (–12 to +12 hours) to record timezone or schedule changes
-  - All selected factors and the travel time difference are persisted with the day entry and restored when editing
+  - Each factor has an info (ℹ) icon; hovering reveals a detailed explanation
+  - The section title itself has a hover tooltip: "Something that may cause your basal body temperature rise or drop, making the reading less reliable"
+  - Selecting ✈️ **Travel** reveals an optional time-difference stepper (–12 to +12 hours) to record timezone or schedule changes
+  - All selected factors and the travel time difference are persisted with the day entry and pre-populated when editing
 
 - **Additional Tracking**
   - Intercourse tracking
@@ -76,7 +77,7 @@ Track multiple fertility indicators for each day:
   - **Smart Hover Detection**: Only columns with recorded data (BBT, time, OPK, intimacy, cervical fluid, menstrual flow, or disturbance factors) are interactive; columns without any data remain non-interactive
   - **No-Temperature Days**: Days that have recorded data but no temperature reading still activate the crosshair and tooltip when hovering over the corresponding vertical column in the graph area. The tooltip shows the date, cycle day number, and any disturbance factor symbols
   - **Unified Tooltip**: A single, context-aware tooltip displays comprehensive day information including date, weekday, cycle day number, temperature (if recorded), time stamp, intercourse status, exclusion flags, and disturbance factors as emoji symbols
-  - **Disturbance Factor Symbols in Tooltip**: If disturbance factors were recorded, they appear as a row of emoji symbols: 🌙 Poor sleep · ✈️ Travel · 😵 Stress · 🤒 Illness/Fever · ⏰ Different wake time · 🍷 Alcohol · 💊 Medication · 🌡️ Hot/Cold room
+  - **Disturbance Factor Symbols in Tooltip**: If disturbance factors were recorded, they appear as individual emoji symbols. For the Travel factor, the time difference is always shown before the emoji (e.g. `+3h ✈️` or `-1h ✈️`). A negative time change flips the plane emoji horizontally via CSS `scaleX(-1)` to indicate westward/behind-schedule travel. Full symbol legend: 🌙 Poor sleep · ✈️ Travel · 😵 Stress · 🤒 Illness/Fever · ⏰ Different wake time · 🍷 Alcohol · 💊 Medication · 🌡️ Hot/Cold room
   - **Mobile Touch Support**: Touch events (`touchstart`, `touchmove`, `touchend`) mirror desktop hover behavior. Touching a column in the graph activates the crosshair and tooltip; moving to a new column updates the tooltip to that column. Lifting the finger dismisses the tooltip after a short delay. Horizontal scroll gestures (>10 px movement) are distinguished from taps and dismiss the tooltip immediately
   - **Tooltip Overflow Guard**: On narrow screens the tooltip automatically flips to the left of the crosshair when there is insufficient space on the right
   - **Technical Implementation**: Custom React overlay with native DOM event listeners on the ApexCharts canvas for reliable detection, independent of the charting library's tooltip system
@@ -87,6 +88,11 @@ Track multiple fertility indicators for each day:
     - **Improved overflow flip**: when the tooltip would overflow the right edge of the container it flips to the left, and is positioned so its right edge sits only 4 px to the left of the cell centre, minimising the travel distance to the Edit button.
     - On desktop, clicking a graph column **pins** the tooltip (making it persistent) so the Edit button can be clicked; the pin clears when clicking the same column again or clicking outside the plot area.
   - **Date and Weekday Formatting in Tooltip**: The tooltip displays dates in **DD MMM YYYY** format (e.g. "24 Oct 2025") and weekdays as full names (e.g. "Monday") rather than abbreviations
+- **Disturbance Row in Chart Table**: A dedicated "Disturbance" row appears below the "Dry" cervical fluid row in the lower chart table, styled with a light violet (`#f3e8ff`) background using the same rounded-square cell pattern as the cervical fluid rows (0.5 px white gap on all sides, `borderRadius: 2px`). Each cell shows the disturbance recorded for that day:
+  - Single disturbance: the corresponding emoji (🌙 😵 🤒 ⏰ 🍷 💊 🌡️)
+  - Travel with a positive time difference: ✈️ (normal orientation)
+  - Travel with a negative time difference: ✈️ horizontally flipped via CSS `scaleX(-1)` to indicate westward/behind-schedule travel
+  - Two or more disturbances on the same day: a count followed by a warning symbol (e.g. `3⚠️`)
 
 ### 📥 CSV Import
 - Import cycle data from CSV files
@@ -294,6 +300,8 @@ Wasp generates TypeScript types automatically:
   - Peak LH flower markers with stacking-aware overlays
   - Fertile window gradient visualization
   - Inline SVG blood drop icon for spotting indicator
+  - Disturbance row below "Dry": light violet CF-style cells; ✈️ normal for positive travel time diff, ✈️ flipped (`scaleX(-1)`) for negative; `N⚠️` for multiple factors
+  - Tooltip travel display: `+Xh ✈️` / `-Xh ✈️flipped` with hour offset always shown when a time diff is recorded
   - Touch event support for crosshair/tooltip on mobile (touchstart/touchmove on canvas and all table cells; dismiss on tap outside)
   - Tooltip hover shield: invisible `pointer-events-auto` extension on the cursor-approach side blocks adjacent cells from re-triggering during transit
   - Tooltip anchored to cell-centre crosshair for stable, per-day positioning (no live-cursor chase)

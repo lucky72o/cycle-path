@@ -45,6 +45,8 @@ export default function AddCycleDayPage() {
   const [cervicalSensation, setCervicalSensation] = useState<SensationOption | ''>('');
   const [opkStatus, setOpkStatus] = useState<OpkStatusOption | ''>('');
   const [menstrualFlow, setMenstrualFlow] = useState<MenstrualFlowOption | ''>('');
+  const [disturbanceFactors, setDisturbanceFactors] = useState<string[]>([]);
+  const [travelTimeDiff, setTravelTimeDiff] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Find the existing day if we're editing
@@ -72,6 +74,8 @@ export default function AddCycleDayPage() {
       setCervicalSensation(existingDay.cervicalSensation || '');
       setOpkStatus((existingDay.opkStatus as OpkStatusOption | undefined) || '');
       setMenstrualFlow((existingDay.menstrualFlow as MenstrualFlowOption | undefined) || '');
+      setDisturbanceFactors(existingDay.disturbanceFactors ?? []);
+      setTravelTimeDiff(existingDay.travelTimeDiff ?? 0);
     }
   }, [existingDay, settings]);
 
@@ -104,7 +108,9 @@ export default function AddCycleDayPage() {
         cervicalAppearance: cervicalAppearance || null,
         cervicalSensation: cervicalSensation || null,
         opkStatus: opkStatus || null,
-        menstrualFlow: menstrualFlow || null
+        menstrualFlow: menstrualFlow || null,
+        disturbanceFactors,
+        travelTimeDiff: disturbanceFactors.includes('TRAVEL') ? travelTimeDiff : null
       });
 
       // Reset form (only if adding, not editing)
@@ -117,6 +123,8 @@ export default function AddCycleDayPage() {
         setCervicalSensation('');
         setOpkStatus('');
         setMenstrualFlow('');
+        setDisturbanceFactors([]);
+        setTravelTimeDiff(0);
       }
       
       // Redirect to days page
@@ -195,6 +203,63 @@ export default function AddCycleDayPage() {
 
   const handleMenstrualFlowToggle = (value: MenstrualFlowOption) => {
     setMenstrualFlow((prev) => (prev === value ? '' : value));
+  };
+
+  const disturbanceOptions: { key: string; label: string; tooltip: string }[] = [
+    {
+      key: 'POOR_SLEEP',
+      label: '🌙 Poor Sleep',
+      tooltip:
+        'Sleep that is shorter or more disrupted than usual (e.g., less than 3–4 hours of continuous sleep). This may cause your basal temperature to rise or fluctuate.'
+    },
+    {
+      key: 'TRAVEL',
+      label: '✈️ Travel',
+      tooltip:
+        'Travel or sleeping in a new environment (hotel, flight, different bed). Changes in sleep, stress, or routine may affect your temperature.'
+    },
+    {
+      key: 'STRESS',
+      label: '😵 Stress',
+      tooltip:
+        'Unusual emotional or physical stress (e.g., work pressure, anxiety, major events). Stress hormones can slightly raise or disturb basal temperature.'
+    },
+    {
+      key: 'ILLNESS_FEVER',
+      label: '🤒 Illness / Fever',
+      tooltip:
+        'Being sick or having a fever. Illness usually raises body temperature and may make the reading unreliable for fertility interpretation.'
+    },
+    {
+      key: 'DIFFERENT_WAKE_TIME',
+      label: '⏰ Different Wake Time',
+      tooltip:
+        'Measuring your temperature much earlier or later than usual. Later measurements often produce higher temperatures.'
+    },
+    {
+      key: 'ALCOHOL',
+      label: '🍷 Alcohol the Evening Before',
+      tooltip:
+        'Alcohol consumed the night before measuring. Alcohol may increase body temperature during sleep and lead to higher readings.'
+    },
+    {
+      key: 'MEDICATION',
+      label: '💊 Medication',
+      tooltip:
+        'Some medications affect body temperature or sleep patterns. This may raise or lower your basal temperature.'
+    },
+    {
+      key: 'HOT_COLD_ROOM',
+      label: '🌡️ Hot / Cold Room',
+      tooltip:
+        'Sleeping in a room that is unusually hot or cold, or using heating blankets or strong air conditioning. Extreme temperatures may affect your reading.'
+    }
+  ];
+
+  const toggleDisturbance = (key: string) => {
+    setDisturbanceFactors((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
   };
 
   const opkOptions: { value: OpkStatusOption; label: string; description: string }[] = [
@@ -407,6 +472,63 @@ export default function AddCycleDayPage() {
                       <InfoTooltip text={option.description} />
                     </Label>
                   </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="relative inline-flex items-center group">
+                  <h3 className="text-lg font-semibold cursor-default">Disturbance Factor</h3>
+                  <span className="pointer-events-none absolute left-0 top-full z-10 mt-1 whitespace-normal text-left w-72 rounded bg-popover px-3 py-2 text-xs leading-relaxed text-popover-foreground opacity-0 shadow group-hover:opacity-100 transition-opacity duration-100">
+                    Something that may cause your basal body temperature rise or drop, making the reading less reliable.
+                  </span>
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {disturbanceOptions.map((option) => (
+                  <React.Fragment key={option.key}>
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        id={`disturbance-${option.key}`}
+                        checked={disturbanceFactors.includes(option.key)}
+                        onCheckedChange={() => toggleDisturbance(option.key)}
+                        className="mt-0.5"
+                      />
+                      <Label
+                        htmlFor={`disturbance-${option.key}`}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <span>{option.label}</span>
+                        <InfoTooltip text={option.tooltip} />
+                      </Label>
+                    </div>
+                    {option.key === 'TRAVEL' && disturbanceFactors.includes('TRAVEL') && (
+                      <div className="col-span-1 sm:col-span-2 flex flex-wrap items-center gap-2 pl-6 mt-1 mb-1">
+                        <span className="text-sm text-muted-foreground">Time difference (optional):</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setTravelTimeDiff((v) => Math.max(-12, v - 1))}
+                            className="inline-flex items-center justify-center h-7 w-7 rounded border border-input bg-background text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                            aria-label="Decrease time difference"
+                          >
+                            –
+                          </button>
+                          <span className="w-8 text-center text-sm tabular-nums">{travelTimeDiff}</span>
+                          <button
+                            type="button"
+                            onClick={() => setTravelTimeDiff((v) => Math.min(12, v + 1))}
+                            className="inline-flex items-center justify-center h-7 w-7 rounded border border-input bg-background text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                            aria-label="Increase time difference"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <span className="text-sm text-muted-foreground">hours</span>
+                      </div>
+                    )}
+                  </React.Fragment>
                 ))}
               </div>
             </div>

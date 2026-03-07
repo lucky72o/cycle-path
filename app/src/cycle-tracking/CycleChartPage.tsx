@@ -289,6 +289,23 @@ export default function CycleChartPage() {
     }
   };
 
+  // Create a map of day numbers to disturbance factors
+  const disturbanceMap = useMemo(() => {
+    if (!cycle) return new Map<number, { factors: string[]; travelTimeDiff: number | null }>();
+
+    const map = new Map<number, { factors: string[]; travelTimeDiff: number | null }>();
+
+    for (let dayNumber = displayDayRange.minDay; dayNumber <= displayDayRange.maxDay; dayNumber++) {
+      const day = allCycleDaysMap.get(dayNumber);
+      map.set(dayNumber, {
+        factors: day?.disturbanceFactors ?? [],
+        travelTimeDiff: day?.travelTimeDiff ?? null,
+      });
+    }
+
+    return map;
+  }, [cycle, allCycleDaysMap, displayDayRange]);
+
   // Create a map of day numbers to cervical fluid and menstrual data
   const cervicalMenstrualMap = useMemo(() => {
     if (!cycle) return new Map();
@@ -866,7 +883,7 @@ export default function CycleChartPage() {
             <div
               ref={chartContainerRef}
               className="relative min-w-[800px]"
-              style={{ paddingTop: '108px', paddingBottom: '234px' }}
+              style={{ paddingTop: '108px', paddingBottom: '262px' }}
               onMouseMove={(e) => {
                 const rect = chartContainerRef.current?.getBoundingClientRect();
                 if (rect) {
@@ -1182,8 +1199,24 @@ export default function CycleChartPage() {
                         <div className="text-xs text-gray-500">Excluded from interpretation</div>
                       )}
                       {day.disturbanceFactors?.length > 0 && (
-                        <div className="text-sm mt-1">
-                          {day.disturbanceFactors.map((f: string) => DISTURBANCE_EMOJI[f] || '').filter(Boolean).join(' ')}
+                        <div className="text-sm mt-1 flex flex-wrap gap-x-1">
+                          {day.disturbanceFactors.map((f: string) => {
+                            if (f === 'TRAVEL') {
+                              const diff = day.travelTimeDiff ?? null;
+                              const prefix = diff !== null && diff !== 0
+                                ? (diff > 0 ? `+${diff}h` : `${diff}h`)
+                                : null;
+                              const flipped = diff !== null && diff < 0;
+                              return (
+                                <span key={f} className="inline-flex items-center gap-0.5">
+                                  {prefix && <span>{prefix}</span>}
+                                  <span style={flipped ? { display: 'inline-block', transform: 'scaleX(-1)' } : undefined}>✈️</span>
+                                </span>
+                              );
+                            }
+                            const emoji = DISTURBANCE_EMOJI[f];
+                            return emoji ? <span key={f}>{emoji}</span> : null;
+                          })}
                         </div>
                       )}
                       {day.id && (
@@ -1661,6 +1694,93 @@ export default function CycleChartPage() {
                               )}
                             </div>
                           )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Disturbance Row Label - positioned below Dry (+234px) */}
+                  <div
+                    className="absolute left-0"
+                    style={{
+                      width: `${plotAreaOffset}px`,
+                      top: `${plotAreaTop + chartHeight + 234}px`,
+                      zIndex: 2
+                    }}
+                  >
+                    <div
+                      className="flex items-center justify-end px-3 text-xs font-medium border-b border-slate-300 border-r border-slate-300"
+                      style={{ height: '28px', backgroundColor: '#f5f3ff' }}
+                    >
+                      Disturbance
+                    </div>
+                  </div>
+
+                  {/* Disturbance Grid Row */}
+                  <div
+                    className="absolute"
+                    style={{
+                      left: 0,
+                      right: 0,
+                      top: `${plotAreaTop + chartHeight + 234}px`,
+                      height: '28px',
+                      zIndex: 1
+                    }}
+                  >
+                    {Array.from({ length: chartData.maxDay - chartData.minDay + 1 }, (_, i) => {
+                      const dayNumber = chartData.minDay + i;
+                      const distData = disturbanceMap.get(dayNumber);
+                      const factors = distData?.factors ?? [];
+                      const travelTimeDiff = distData?.travelTimeDiff ?? null;
+
+                      const numDays = chartData.maxDay - chartData.minDay + 1;
+                      const cellWidth = plotAreaWidth / numDays;
+                      const leftEdge = plotAreaOffset + (i * cellWidth);
+                      const isHovered = hoveredDayNumber === dayNumber;
+
+                      let cellContent: React.ReactNode = null;
+                      if (factors.length === 1) {
+                        const factor = factors[0];
+                        if (factor === 'TRAVEL') {
+                          const flipped = travelTimeDiff !== null && travelTimeDiff < 0;
+                          cellContent = (
+                            <span style={flipped ? { display: 'inline-block', transform: 'scaleX(-1)' } : undefined}>✈️</span>
+                          );
+                        } else {
+                          cellContent = <span>{DISTURBANCE_EMOJI[factor] ?? ''}</span>;
+                        }
+                      } else if (factors.length > 1) {
+                        cellContent = <span>{factors.length}⚠️</span>;
+                      }
+
+                      return (
+                        <div
+                          key={dayNumber}
+                          className="absolute flex items-center justify-center text-sm"
+                          style={{
+                            left: `${leftEdge}px`,
+                            width: `${cellWidth}px`,
+                            top: 0,
+                            height: '28px',
+                            backgroundColor: 'white',
+                            pointerEvents: 'none'
+                          }}
+                        >
+                          {/* Violet background square matching CF cell style */}
+                          <div
+                            className="absolute transition-opacity"
+                            style={{
+                              top: '0.5px',
+                              left: '0.5px',
+                              width: 'calc(100% - 1px)',
+                              height: '27px',
+                              backgroundColor: '#f3e8ff',
+                              borderRadius: '2px',
+                              opacity: isHovered ? 0.7 : 1
+                            }}
+                          />
+                          {/* Emoji/count on top */}
+                          <span className="relative z-10">{cellContent}</span>
                         </div>
                       );
                     })}
