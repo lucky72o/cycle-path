@@ -43,15 +43,16 @@ export default function CycleChartPage() {
   const cursorXRef = useRef<number | null>(null);
   const cursorYRef = useRef<number | null>(null);
 
-  // Pinned tooltip state — set on tap so the tooltip becomes interactive on touch devices
+  // Pinned tooltip state — set on tap/click so the tooltip becomes interactive
   const [pinnedDayNumber, setPinnedDayNumber] = useState<number | null>(null);
   const [pinnedCrosshairX, setPinnedCrosshairX] = useState<number | null>(null);
   const pinnedDayNumberRef = useRef<number | null>(null);
   const pinnedCrosshairXRef = useRef<number | null>(null);
 
-  // Hover bridge — delayed close so cursor can travel from trigger to tooltip card
-  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const tooltipHoveredRef = useRef<boolean>(false);
+  // Touch gesture tracking
+  const isTouchScrollingRef = useRef<boolean>(false);
+  const lastTouchedDayRef = useRef<number | null>(null);
+  const lastTouchEndTimeRef = useRef<number>(0);
 
   // If no cycleId provided, redirect to active cycle
   useMemo(() => {
@@ -212,6 +213,36 @@ export default function CycleChartPage() {
     return { min, max };
   }, [chartData, settings]);
 
+  // Compute days with no BBT recording that fall between two consecutive included BBT points.
+  // Used to render a small × on the connecting line at the interpolated temperature position.
+  const missingBBTDaysOnLine = useMemo(() => {
+    if (!chartData || !settings) return [];
+
+    const included = Array.from(chartData.allDaysMap.values())
+      .filter((d: any) => !d.excludeFromInterpretation)
+      .sort((a: any, b: any) => a.dayNumber - b.dayNumber);
+
+    if (included.length < 2) return [];
+
+    const result: Array<{ dayNumber: number; interpolatedTemp: number }> = [];
+
+    for (let i = 0; i < included.length - 1; i++) {
+      const p1 = included[i];
+      const p2 = included[i + 1];
+      for (let day = p1.dayNumber + 1; day < p2.dayNumber; day++) {
+        const existing = chartData.allDaysMap.get(day);
+        // Only mark days with no BBT at all; excluded days already show a grey dot
+        if (!existing || existing.bbt === null) {
+          const t = (day - p1.dayNumber) / (p2.dayNumber - p1.dayNumber);
+          const t1 = settings.temperatureUnit === 'CELSIUS' ? fahrenheitToCelsius(p1.bbt) : p1.bbt;
+          const t2 = settings.temperatureUnit === 'CELSIUS' ? fahrenheitToCelsius(p2.bbt) : p2.bbt;
+          result.push({ dayNumber: day, interpolatedTemp: t1 + (t2 - t1) * t });
+        }
+      }
+    }
+    return result;
+  }, [chartData, settings]);
+
   // Build labels for dates and weekdays for the full displayed range using the cycle start date.
   const datesMap = useMemo(() => {
     if (!cycle) return new Map<number, string>();
@@ -359,46 +390,27 @@ export default function CycleChartPage() {
     return map;
   }, [cycle, chartData, allCycleDaysMap, timeStampsMap, opkStatusMap, cervicalMenstrualMap, displayDayRange]);
 
-  // Cancel any pending delayed close (called when cursor enters a cell or the tooltip card).
-  const cancelClose = () => {
-    if (closeTimeoutRef.current) {
-      clearTimeout(closeTimeoutRef.current);
-      closeTimeoutRef.current = null;
-    }
+  // Immediately dismiss tooltip and crosshair — all state cleared synchronously.
+  const dismissTooltip = () => {
+    setHoveredDayNumber(null);
+    setCrosshairX(null);
+    pinnedDayNumberRef.current = null;
+    pinnedCrosshairXRef.current = null;
+    setPinnedDayNumber(null);
+    setPinnedCrosshairX(null);
   };
-
-  // Schedule a delayed close (~600 ms). Does nothing if the tooltip card is
-  // hovered or a day is pinned (touch path).
-  const scheduleClose = () => {
-    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
-    closeTimeoutRef.current = setTimeout(() => {
-      if (!tooltipHoveredRef.current && pinnedDayNumberRef.current === null) {
-        setHoveredDayNumber(null);
-        setCrosshairX(null);
-      }
-    }, 600);
-  };
-
-  // Clear any pending close on unmount to avoid setState on an unmounted component.
-  useEffect(() => {
-    return () => {
-      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
-    };
-  }, []);
 
   // Shared hover handler for custom cells
   const handleCellMouseEnter = (dayNumber: number) => {
     if (!chartData || plotAreaWidth === 0) return;
-    cancelClose();
     setHoveredDayNumber(dayNumber);
     const numDays = chartData.maxDay - chartData.minDay + 1;
     const cellWidth = plotAreaWidth / numDays;
     const dayIndex = dayNumber - chartData.minDay;
     setCrosshairX(plotAreaOffset + (dayIndex + 0.5) * cellWidth);
   };
-  const handleCellMouseLeave = () => {
-    scheduleClose();
-  };
+  // No-op: tooltip persists until an explicit user action (click away / tap outside).
+  const handleCellMouseLeave = () => {};
 
   // Pins or unpins the tooltip for a given day number.
   // Called on click (canvas and grid cells) and on touch (all rows).
@@ -424,20 +436,15 @@ export default function CycleChartPage() {
     }
   };
 
-  // Refs to hold the latest handler functions so ApexCharts stale event
-  // callbacks (registered only once at chart creation) always call through
-  // to the current closures that capture up-to-date plotAreaWidth etc.
+  // Refs to hold the latest handler functions so the canvas useEffect (registered
+  // only when dependencies change) always calls through to up-to-date closures.
   const handleCellMouseEnterRef = useRef(handleCellMouseEnter);
-  const handleCellMouseLeaveRef = useRef(handleCellMouseLeave);
   const handleCellClickRef = useRef(handleCellClick);
-  const scheduleCloseRef = useRef(scheduleClose);
-  const cancelCloseRef = useRef(cancelClose);
+  const dismissTooltipRef = useRef(dismissTooltip);
   useEffect(() => {
     handleCellMouseEnterRef.current = handleCellMouseEnter;
-    handleCellMouseLeaveRef.current = handleCellMouseLeave;
     handleCellClickRef.current = handleCellClick;
-    scheduleCloseRef.current = scheduleClose;
-    cancelCloseRef.current = cancelClose;
+    dismissTooltipRef.current = dismissTooltip;
   });
 
   const chartOptions: ApexOptions = useMemo(() => {
@@ -470,7 +477,7 @@ export default function CycleChartPage() {
           show: false // Hide toolbar, we've moved controls to the header
         },
         zoom: {
-          enabled: true
+          enabled: false
         },
         animations: {
           enabled: true,
@@ -665,6 +672,9 @@ export default function CycleChartPage() {
     const canvas = container.querySelector('.apexcharts-canvas') as HTMLElement | null;
     if (!canvas) return;
 
+    // Resolves a pointer/touch coordinate to the corresponding day and shows
+    // the tooltip. Also updates lastTouchedDayRef for touch pin logic.
+    // Out-of-bounds coordinates are silently ignored — tooltip stays visible.
     const resolveDay = (clientX: number, clientY: number) => {
       const containerRect = container.getBoundingClientRect();
       const mouseX = clientX - containerRect.left;
@@ -674,7 +684,8 @@ export default function CycleChartPage() {
         mouseY < plotAreaTop || mouseY > plotAreaTop + plotAreaHeight ||
         mouseX < plotAreaOffset || mouseX > plotAreaOffset + plotAreaWidth
       ) {
-        scheduleCloseRef.current();
+        // Out of bounds — keep tooltip showing at the last day, reset touch day.
+        lastTouchedDayRef.current = null;
         return;
       }
 
@@ -684,16 +695,22 @@ export default function CycleChartPage() {
       const dayNumber = chartData.minDay + Math.min(dayIndex, numDays - 1);
 
       if (daysWithDataMap.get(dayNumber)) {
+        lastTouchedDayRef.current = dayNumber;
         handleCellMouseEnterRef.current(dayNumber);
       } else {
-        scheduleCloseRef.current();
+        lastTouchedDayRef.current = null;
+        dismissTooltipRef.current();
       }
     };
 
     const handleMouseMove = (e: MouseEvent) => resolveDay(e.clientX, e.clientY);
-    const handleMouseLeave = () => scheduleCloseRef.current();
+    // Mouse leaving the canvas does not dismiss — tooltip stays until click away.
+    const handleMouseLeave = () => {};
 
     const handleClick = (e: MouseEvent) => {
+      // Discard the synthetic click that mobile browsers fire after touchend.
+      if (Date.now() - lastTouchEndTimeRef.current < 600) return;
+
       const containerRect = container.getBoundingClientRect();
       const mouseX = e.clientX - containerRect.left;
       const mouseY = e.clientY - containerRect.top;
@@ -702,11 +719,8 @@ export default function CycleChartPage() {
         mouseY < plotAreaTop || mouseY > plotAreaTop + plotAreaHeight ||
         mouseX < plotAreaOffset || mouseX > plotAreaOffset + plotAreaWidth
       ) {
-        // Click outside plot area — unpin
-        pinnedDayNumberRef.current = null;
-        pinnedCrosshairXRef.current = null;
-        setPinnedDayNumber(null);
-        setPinnedCrosshairX(null);
+        // Click within canvas but outside the plot area — dismiss everything.
+        dismissTooltipRef.current();
         return;
       }
 
@@ -720,7 +734,8 @@ export default function CycleChartPage() {
     const handleTouchStart = (e: TouchEvent) => {
       const touch = e.touches[0];
       touchStartXRef.current = touch.clientX;
-      // Record touch position for cursor-relative tooltip placement
+      isTouchScrollingRef.current = false;
+      lastTouchedDayRef.current = null;
       const containerRect = container.getBoundingClientRect();
       cursorXRef.current = touch.clientX - containerRect.left;
       cursorYRef.current = touch.clientY - containerRect.top;
@@ -733,15 +748,48 @@ export default function CycleChartPage() {
         touchStartXRef.current !== null &&
         Math.abs(touch.clientX - touchStartXRef.current) > 10
       ) {
-        // Horizontal scroll detected — dismiss tooltip
-        scheduleCloseRef.current();
+        // Horizontal scroll detected — dismiss tooltip immediately.
+        isTouchScrollingRef.current = true;
+        dismissTooltipRef.current();
         return;
       }
       resolveDay(touch.clientX, touch.clientY);
     };
 
     const handleTouchEnd = () => {
-      scheduleCloseRef.current();
+      // Record time so the subsequent synthetic click can be suppressed.
+      lastTouchEndTimeRef.current = Date.now();
+
+      if (isTouchScrollingRef.current) {
+        // Already dismissed in touchmove — just reset state.
+        isTouchScrollingRef.current = false;
+        lastTouchedDayRef.current = null;
+        touchStartXRef.current = null;
+        return;
+      }
+
+      // Pin the tooltip on the tapped day directly, without waiting for the
+      // synthetic click that follows (which would otherwise toggle the pin off).
+      const day = lastTouchedDayRef.current;
+      if (day !== null) {
+        handleCellClickRef.current(day);
+      } else {
+        dismissTooltipRef.current();
+      }
+
+      isTouchScrollingRef.current = false;
+      lastTouchedDayRef.current = null;
+      touchStartXRef.current = null;
+    };
+
+    // Dismiss when the user clicks/taps anywhere outside the chart container.
+    const handleDocumentPointerDown = (e: PointerEvent) => {
+      if (
+        chartContainerRef.current &&
+        !chartContainerRef.current.contains(e.target as Node)
+      ) {
+        dismissTooltipRef.current();
+      }
     };
 
     canvas.addEventListener('mousemove', handleMouseMove);
@@ -750,6 +798,7 @@ export default function CycleChartPage() {
     canvas.addEventListener('touchstart', handleTouchStart, { passive: true });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: true });
     canvas.addEventListener('touchend', handleTouchEnd, { passive: true });
+    document.addEventListener('pointerdown', handleDocumentPointerDown);
     return () => {
       canvas.removeEventListener('mousemove', handleMouseMove);
       canvas.removeEventListener('mouseleave', handleMouseLeave);
@@ -757,6 +806,7 @@ export default function CycleChartPage() {
       canvas.removeEventListener('touchstart', handleTouchStart);
       canvas.removeEventListener('touchmove', handleTouchMove);
       canvas.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('pointerdown', handleDocumentPointerDown);
     };
   }, [chartData, plotAreaWidth, plotAreaOffset, plotAreaTop, plotAreaHeight, daysWithDataMap]);
 
@@ -1167,27 +1217,19 @@ export default function CycleChartPage() {
                 const tooltipTop = Math.max(0, Math.min(baseY + TOOLTIP_OFFSET_Y, containerHeight - TOOLTIP_HEIGHT_ESTIMATE));
 
                 return (
-                  // Outer div acts as an invisible hover shield on the cursor-approach
-                  // side (left for normal, right for flipped). pointer-events-auto here
-                  // blocks cells underneath from re-triggering while in transit.
                   <div
                     className="absolute"
                     style={{
-                      left:         `${isFlipped ? tooltipLeft : tooltipLeft - SHIELD}px`,
-                      top:          `${tooltipTop - 10}px`,
+                      left:   `${isFlipped ? tooltipLeft : tooltipLeft - SHIELD}px`,
+                      top:    `${tooltipTop - 10}px`,
                       paddingTop:   '10px',
                       paddingLeft:  isFlipped ? 0 : SHIELD,
                       paddingRight: isFlipped ? SHIELD : 0,
                       zIndex: 10,
                     }}
-                    onMouseEnter={() => cancelClose()}
-                    onMouseLeave={() => scheduleClose()}
                   >
-                    {/* Inner card is always interactive — hover bridge lives here */}
                     <div
                       className="pointer-events-auto p-3 bg-white border rounded shadow-lg text-sm min-w-[140px]"
-                      onMouseEnter={() => { tooltipHoveredRef.current = true; cancelClose(); }}
-                      onMouseLeave={() => { tooltipHoveredRef.current = false; scheduleClose(); }}
                     >
                       <div className="font-bold mb-1">{formatDateDDMMMYYYY(new Date(day.date))}</div>
                       <div className="text-xs text-gray-500">{getDayOfWeek(new Date(day.date))}</div>
@@ -1299,6 +1341,34 @@ export default function CycleChartPage() {
                           {/* Carpel center */}
                           <circle cx="12" cy="12" r="4" fill="#FFD700" />
                           <circle cx="12" cy="12" r="2.5" fill="#FFA500" />
+                        </svg>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* Missing BBT day markers — small × on the connecting line */}
+              {chartData && plotAreaWidth > 0 && plotAreaTop > 0 && plotAreaHeight > 0 && yAxisRange && (
+                <>
+                  {missingBBTDaysOnLine.map(({ dayNumber, interpolatedTemp }) => {
+                    const numDays = chartData.maxDay - chartData.minDay + 1;
+                    const cellWidth = plotAreaWidth / numDays;
+                    const xPos = plotAreaOffset + ((dayNumber - chartData.minDay) + 0.5) * cellWidth;
+                    const yPos = plotAreaTop + ((yAxisRange.max - interpolatedTemp) / (yAxisRange.max - yAxisRange.min)) * plotAreaHeight;
+
+                    return (
+                      <div
+                        key={`missing-bbt-${dayNumber}`}
+                        className="absolute pointer-events-none"
+                        style={{ left: `${xPos}px`, top: `${yPos}px`, transform: 'translate(-50%, -50%)', zIndex: 4 }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 14 14">
+                          {/* Hollow circle matching BBT dot size (r=5, strokeWidth=2) */}
+                          <circle cx="7" cy="7" r="5" fill="#d9d9d9" stroke="white" strokeWidth="2" />
+                          {/* ✕ cross inside */}
+                          <line x1="4.5" y1="4.5" x2="9.5" y2="9.5" stroke="#FF6B6B" strokeWidth="1.5" strokeLinecap="round" />
+                          <line x1="9.5" y1="4.5" x2="4.5" y2="9.5" stroke="#FF6B6B" strokeWidth="1.5" strokeLinecap="round" />
                         </svg>
                       </div>
                     );

@@ -68,6 +68,7 @@ Track multiple fertility indicators for each day:
   - **Light/Medium/Heavy/Very Heavy**: Graduated bar heights with color intensity
 - LH test status row on chart with symbols (low, rising, peak, declining)
 - Flower markers on Peak LH days in the temperature graph
+- **Missing-day markers** on the BBT line: a hollow circle (`#d9d9d9` fill, white border matching regular BBT nodes, same radius as a normal BBT dot) with a coral ✕ (`#FF6B6B`) inside, centered at the interpolated temperature position for each day with no recorded BBT between two consecutive included readings
 - Green gradient fertile window highlighting for Rising/Peak LH days
 - "Fertile Window" label centered on the fertile period
 - Day-by-day detailed view
@@ -78,15 +79,14 @@ Track multiple fertility indicators for each day:
   - **No-Temperature Days**: Days that have recorded data but no temperature reading still activate the crosshair and tooltip when hovering over the corresponding vertical column in the graph area. The tooltip shows the date, cycle day number, and any disturbance factor symbols
   - **Unified Tooltip**: A single, context-aware tooltip displays comprehensive day information including date, weekday, cycle day number, temperature (if recorded), time stamp, intercourse status, exclusion flags, and disturbance factors as emoji symbols
   - **Disturbance Factor Symbols in Tooltip**: If disturbance factors were recorded, they appear as individual emoji symbols. For the Travel factor, the time difference is always shown before the emoji (e.g. `+3h ✈️` or `-1h ✈️`). A negative time change flips the plane emoji horizontally via CSS `scaleX(-1)` to indicate westward/behind-schedule travel. Full symbol legend: 🌙 Poor sleep · ✈️ Travel · 😵 Stress · 🤒 Illness/Fever · ⏰ Different wake time · 🍷 Alcohol · 💊 Medication · 🌡️ Hot/Cold room
-  - **Mobile Touch Support**: Touch events (`touchstart`, `touchmove`, `touchend`) mirror desktop hover behavior. Touching a column in the graph activates the crosshair and tooltip; moving to a new column updates the tooltip to that column. Lifting the finger dismisses the tooltip after a short delay. Horizontal scroll gestures (>10 px movement) are distinguished from taps and dismiss the tooltip immediately
+  - **Mobile Touch Support**: Touch events (`touchstart`, `touchmove`, `touchend`) are handled natively on the ApexCharts canvas. Touching a column activates the crosshair and tooltip; the tooltip is **pinned** immediately on finger-lift (`touchend`) and stays visible until the user taps another column or taps anywhere outside the chart. Moving to a different column while holding updates the tooltip to that column. Horizontal scroll gestures (>10 px movement) dismiss the tooltip immediately and do not pin. ApexCharts zoom is disabled to prevent its internal touch handlers from interfering with the custom touch logic. A synthetic `click` fired by the browser after `touchend` is suppressed (600 ms guard) so it cannot toggle the pin off
   - **Tooltip Overflow Guard**: On narrow screens the tooltip automatically flips to the left of the crosshair when there is insufficient space on the right
   - **Technical Implementation**: Custom React overlay with native DOM event listeners on the ApexCharts canvas for reliable detection, independent of the charting library's tooltip system
-  - **Edit from Chart**: The tooltip card is always interactive and shows a compact **Edit** button at the bottom that navigates directly to the day entry form (`/cycles/:cycleId/add-day?dayId=...`). On desktop the button shows the text "Edit" (ghost style); on mobile it shows a pencil icon (outline style). The Edit button is reachable by moving the cursor from any temperature node into the tooltip — no click required. This is implemented via several complementary mechanisms:
-    - **Hover bridge**: the tooltip card catches `onMouseEnter` and cancels a 600 ms delayed close, keeping the tooltip open while the cursor travels from the trigger to the card.
-    - **Hover shield**: the outer tooltip wrapper is extended 56 px toward the cursor (left in the normal case, right when flipped). This invisible `pointer-events-auto` zone prevents the tooltip from dismissing while the cursor is in transit to the Edit button.
-    - **Stable cell-centre positioning**: the tooltip X position is anchored to the hovered day's column centre (`crosshairX`) rather than the live cursor position. This makes the tooltip appear at a deterministic, predictable location for each day regardless of where within the column the cursor enters.
-    - **Improved overflow flip**: when the tooltip would overflow the right edge of the container it flips to the left, and is positioned so its right edge sits only 4 px to the left of the cell centre, minimising the travel distance to the Edit button.
-    - On desktop, clicking a graph column **pins** the tooltip (making it persistent) so the Edit button can be clicked; the pin clears when clicking the same column again or clicking outside the plot area.
+  - **Edit from Chart**: The tooltip card shows a compact **Edit** button at the bottom that navigates directly to the day entry form (`/cycles/:cycleId/add-day?dayId=...`). On desktop the button shows the text "Edit" (ghost style); on mobile it shows a pencil icon (outline style). The tooltip **persists unconditionally** — it does not auto-dismiss when the cursor moves away — so the Edit button is always reachable. Explicit dismissal paths:
+    - **Desktop**: hovering a different column switches the tooltip to that day; clicking a column pins/unpins it; clicking anywhere outside the chart container or within the canvas but outside the plot area dismisses the tooltip entirely.
+    - **Mobile**: lifting the finger pins the tooltip; tapping another column switches and repins; tapping outside the chart dismisses.
+    - **Stable cell-centre positioning**: the tooltip X position is anchored to the hovered day's column centre (`crosshairX`) rather than the live cursor position, giving a deterministic location for each day.
+    - **Overflow flip**: when the tooltip would overflow the right edge of the container it flips to the left, positioned so its right edge sits 4 px to the left of the cell centre.
   - **Date and Weekday Formatting in Tooltip**: The tooltip displays dates in **DD MMM YYYY** format (e.g. "24 Oct 2025") and weekdays as full names (e.g. "Monday") rather than abbreviations
 - **Disturbance Row in Chart Table**: A dedicated "Disturbance" row appears below the "Dry" cervical fluid row in the lower chart table, styled with a light violet (`#f3e8ff`) background using the same rounded-square cell pattern as the cervical fluid rows (0.5 px white gap on all sides, `borderRadius: 2px`). Each cell shows the disturbance recorded for that day:
   - Single disturbance: the corresponding emoji (🌙 😵 🤒 ⏰ 🍷 💊 🌡️)
@@ -103,7 +103,7 @@ Track multiple fertility indicators for each day:
 ### ⚙️ User Settings
 - Temperature unit preference (Fahrenheit/Celsius)
 - Persistent settings across sessions
-- Automatic temperature conversion in all views
+- Automatic temperature conversion in all views, including the Recent Entries list on the Add/Edit Day page
 
 ### 🔐 Authentication & Account Management
 - Email-based signup and login
@@ -299,15 +299,18 @@ Wasp generates TypeScript types automatically:
   - LH test status row display
   - Peak LH flower markers with stacking-aware overlays
   - Fertile window gradient visualization
+  - Missing BBT day markers: 14×14 px SVG overlay per null-BBT day between two consecutive included readings; hollow circle (r=5, `#d9d9d9` fill, white stroke, strokeWidth=2 — matching normal BBT dot border) with a coral ✕ (`#FF6B6B`, strokeWidth=1.5) inside; positioned at the linearly-interpolated temperature y-coordinate
   - Inline SVG blood drop icon for spotting indicator
   - Disturbance row below "Dry": light violet CF-style cells; ✈️ normal for positive travel time diff, ✈️ flipped (`scaleX(-1)`) for negative; `N⚠️` for multiple factors
   - Tooltip travel display: `+Xh ✈️` / `-Xh ✈️flipped` with hour offset always shown when a time diff is recorded
-  - Touch event support for crosshair/tooltip on mobile (touchstart/touchmove on canvas and all table cells; dismiss on tap outside)
-  - Tooltip hover shield: invisible `pointer-events-auto` extension on the cursor-approach side blocks adjacent cells from re-triggering during transit
+  - Touch event support for crosshair/tooltip on mobile (touchstart/touchmove/touchend on ApexCharts canvas; tap-to-pin; dismiss on tap outside)
+  - Tooltip persists until explicit dismissal: `dismissTooltip()` called only by document-level `pointerdown` outside the chart container, canvas click outside the plot area, or horizontal scroll gesture on touch
+  - Synthetic `click` after `touchend` suppressed via `lastTouchEndTimeRef` (600 ms guard) to prevent immediate unpin
+  - ApexCharts zoom disabled (`zoom: { enabled: false }`) to prevent internal touch handler interference
+  - Tooltip hover shield: invisible `pointer-events-auto` extension on the cursor-approach side
   - Tooltip anchored to cell-centre crosshair for stable, per-day positioning (no live-cursor chase)
-  - 600 ms delayed close with `cancelClose`/`scheduleClose` helpers and `tooltipHoveredRef` hover bridge
-  - Pinned tooltip state (`pinnedDayNumber`/`pinnedCrosshairX`) for persistent touch interaction
-- **[`src/cycle-tracking/AddCycleDayPage.tsx`](src/cycle-tracking/AddCycleDayPage.tsx)** - Daily entry form with all fertility indicators
+  - Pinned tooltip state (`pinnedDayNumber`/`pinnedCrosshairX`) shared by both desktop click and mobile tap
+- **[`src/cycle-tracking/AddCycleDayPage.tsx`](src/cycle-tracking/AddCycleDayPage.tsx)** - Daily entry form with all fertility indicators; the Recent Entries list at the bottom of the page displays BBT in the user's chosen temperature unit via `formatTemperature`
 - **[`src/cycle-tracking/utils.ts`](src/cycle-tracking/utils.ts)** - Temperature conversion, date utilities, and cycle helpers (`fahrenheitToCelsius`, `formatDate`, `formatDateLong`, `formatDateDDMMMYYYY`, `getDayOfWeek`, `getDayOfWeekAbbreviation`, `getCycleDayCount`)
 
 ## UI Components
