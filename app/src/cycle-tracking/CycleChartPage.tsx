@@ -675,13 +675,17 @@ export default function CycleChartPage() {
     // Resolves a pointer/touch coordinate to the corresponding day and shows
     // the tooltip. Also updates lastTouchedDayRef for touch pin logic.
     // Out-of-bounds coordinates are silently ignored — tooltip stays visible.
-    const resolveDay = (clientX: number, clientY: number) => {
+    // When `tolerant` is true, Y-bounds are expanded to make touch targeting
+    // more forgiving (fingers are imprecise).
+    const resolveDay = (clientX: number, clientY: number, tolerant = false) => {
       const containerRect = container.getBoundingClientRect();
       const mouseX = clientX - containerRect.left;
       const mouseY = clientY - containerRect.top;
 
+      // Allow 30px tolerance above/below the plot area for touch interactions
+      const yPad = tolerant ? 30 : 0;
       if (
-        mouseY < plotAreaTop || mouseY > plotAreaTop + plotAreaHeight ||
+        mouseY < plotAreaTop - yPad || mouseY > plotAreaTop + plotAreaHeight + yPad ||
         mouseX < plotAreaOffset || mouseX > plotAreaOffset + plotAreaWidth
       ) {
         // Out of bounds — keep tooltip showing at the last day, reset touch day.
@@ -739,11 +743,16 @@ export default function CycleChartPage() {
       const containerRect = container.getBoundingClientRect();
       cursorXRef.current = touch.clientX - containerRect.left;
       cursorYRef.current = touch.clientY - containerRect.top;
-      resolveDay(touch.clientX, touch.clientY);
+      // Use tolerant=true for touch to expand Y hit area for imprecise fingers
+      resolveDay(touch.clientX, touch.clientY, true);
     };
 
     const handleTouchMove = (e: TouchEvent) => {
       const touch = e.touches[0];
+      // Update cursor position for tooltip placement
+      const containerRect = container.getBoundingClientRect();
+      cursorXRef.current = touch.clientX - containerRect.left;
+      cursorYRef.current = touch.clientY - containerRect.top;
       if (
         touchStartXRef.current !== null &&
         Math.abs(touch.clientX - touchStartXRef.current) > 10
@@ -753,7 +762,7 @@ export default function CycleChartPage() {
         dismissTooltipRef.current();
         return;
       }
-      resolveDay(touch.clientX, touch.clientY);
+      resolveDay(touch.clientX, touch.clientY, true);
     };
 
     const handleTouchEnd = () => {
@@ -768,11 +777,20 @@ export default function CycleChartPage() {
         return;
       }
 
-      // Pin the tooltip on the tapped day directly, without waiting for the
-      // synthetic click that follows (which would otherwise toggle the pin off).
+      // Pin the tooltip on the tapped day. On touch, always pin (don't toggle
+      // off) — tapping the same day should keep the tooltip visible so the user
+      // can interact with the Edit button. Tapping outside dismisses instead.
       const day = lastTouchedDayRef.current;
       if (day !== null) {
-        handleCellClickRef.current(day);
+        // Always pin (no toggle) — force-set pinned state directly
+        const numDays = chartData.maxDay - chartData.minDay + 1;
+        const cellWidth = plotAreaWidth / numDays;
+        const dayIndex = day - chartData.minDay;
+        const x = plotAreaOffset + (dayIndex + 0.5) * cellWidth;
+        pinnedDayNumberRef.current = day;
+        pinnedCrosshairXRef.current = x;
+        setPinnedDayNumber(day);
+        setPinnedCrosshairX(x);
       } else {
         dismissTooltipRef.current();
       }
@@ -783,7 +801,20 @@ export default function CycleChartPage() {
     };
 
     // Dismiss when the user clicks/taps anywhere outside the chart container.
+    // Use touchstart for mobile so it fires at the right time in the event
+    // sequence and doesn't race with the canvas touch handlers.
     const handleDocumentPointerDown = (e: PointerEvent) => {
+      // Ignore touch-originated pointer events — handled by touchstart below
+      if (e.pointerType === 'touch') return;
+      if (
+        chartContainerRef.current &&
+        !chartContainerRef.current.contains(e.target as Node)
+      ) {
+        dismissTooltipRef.current();
+      }
+    };
+
+    const handleDocumentTouchStart = (e: TouchEvent) => {
       if (
         chartContainerRef.current &&
         !chartContainerRef.current.contains(e.target as Node)
@@ -799,6 +830,7 @@ export default function CycleChartPage() {
     canvas.addEventListener('touchmove', handleTouchMove, { passive: true });
     canvas.addEventListener('touchend', handleTouchEnd, { passive: true });
     document.addEventListener('pointerdown', handleDocumentPointerDown);
+    document.addEventListener('touchstart', handleDocumentTouchStart, { passive: true });
     return () => {
       canvas.removeEventListener('mousemove', handleMouseMove);
       canvas.removeEventListener('mouseleave', handleMouseLeave);
@@ -807,6 +839,7 @@ export default function CycleChartPage() {
       canvas.removeEventListener('touchmove', handleTouchMove);
       canvas.removeEventListener('touchend', handleTouchEnd);
       document.removeEventListener('pointerdown', handleDocumentPointerDown);
+      document.removeEventListener('touchstart', handleDocumentTouchStart);
     };
   }, [chartData, plotAreaWidth, plotAreaOffset, plotAreaTop, plotAreaHeight, daysWithDataMap]);
 
@@ -889,6 +922,15 @@ export default function CycleChartPage() {
             .apexcharts-yaxis-label,
             .apexcharts-yaxis-title-text {
               fill: #002142 !important;
+            }
+            /* Prevent ApexCharts internal elements from intercepting touch/pointer
+               events — our custom canvas-level listeners handle everything. */
+            .apexcharts-series-markers,
+            .apexcharts-marker,
+            .apexcharts-data-labels,
+            .apexcharts-grid,
+            .apexcharts-plot-area {
+              pointer-events: none !important;
             }
             .cf-cell-pattern {
               background-color: white;
@@ -1218,7 +1260,7 @@ export default function CycleChartPage() {
 
                 return (
                   <div
-                    className="absolute"
+                    className="absolute pointer-events-none md:pointer-events-auto"
                     style={{
                       left:   `${isFlipped ? tooltipLeft : tooltipLeft - SHIELD}px`,
                       top:    `${tooltipTop - 10}px`,
@@ -1229,7 +1271,7 @@ export default function CycleChartPage() {
                     }}
                   >
                     <div
-                      className="pointer-events-auto p-3 bg-white border rounded shadow-lg text-sm min-w-[140px]"
+                      className="p-3 bg-white border rounded shadow-lg text-sm min-w-[140px] md:pointer-events-auto"
                     >
                       <div className="font-bold mb-1">{formatDateDDMMMYYYY(new Date(day.date))}</div>
                       <div className="text-xs text-gray-500">{getDayOfWeek(new Date(day.date))}</div>
@@ -1262,7 +1304,7 @@ export default function CycleChartPage() {
                         </div>
                       )}
                       {day.id && (
-                        <div className="mt-2 pt-2 border-t border-gray-100 flex">
+                        <div className="mt-2 pt-2 border-t border-gray-100 flex pointer-events-auto">
                           <Link to={`/cycles/${cycleId}/add-day?dayId=${day.id}`}>
                             <Button size="sm" variant="ghost" className="hidden md:inline-flex">Edit</Button>
                             <Button size="sm" variant="outline" aria-label="Edit" className="md:hidden">
