@@ -38,6 +38,7 @@ export default function CycleChartPage() {
   const [chartHeight, setChartHeight] = useState<number>(0);
   const [crosshairX, setCrosshairX] = useState<number | null>(null);
   const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
   // Last known cursor position relative to the chart container — used for tooltip placement.
   // Refs (not state) so mousemove doesn't trigger re-renders.
   const cursorXRef = useRef<number | null>(null);
@@ -669,8 +670,10 @@ export default function CycleChartPage() {
     const container = chartContainerRef.current;
     if (!container || !chartData || plotAreaWidth === 0) return;
 
-    const canvas = container.querySelector('.apexcharts-canvas') as HTMLElement | null;
-    if (!canvas) return;
+    // Track the current canvas and a MutationObserver so we can re-attach
+    // listeners if ApexCharts replaces its DOM (e.g. after a React Query refetch).
+    let currentCanvas: HTMLElement | null = null;
+    let canvasCleanup: (() => void) | null = null;
 
     // Resolves a pointer/touch coordinate to the corresponding day and shows
     // the tooltip. Also updates lastTouchedDayRef for touch pin logic.
@@ -738,6 +741,7 @@ export default function CycleChartPage() {
     const handleTouchStart = (e: TouchEvent) => {
       const touch = e.touches[0];
       touchStartXRef.current = touch.clientX;
+      touchStartYRef.current = touch.clientY;
       isTouchScrollingRef.current = false;
       lastTouchedDayRef.current = null;
       const containerRect = container.getBoundingClientRect();
@@ -753,11 +757,14 @@ export default function CycleChartPage() {
       const containerRect = container.getBoundingClientRect();
       cursorXRef.current = touch.clientX - containerRect.left;
       cursorYRef.current = touch.clientY - containerRect.top;
-      if (
-        touchStartXRef.current !== null &&
-        Math.abs(touch.clientX - touchStartXRef.current) > 10
-      ) {
-        // Horizontal scroll detected — dismiss tooltip immediately.
+
+      const dxScrolling = touchStartXRef.current !== null &&
+        Math.abs(touch.clientX - touchStartXRef.current) > 10;
+      const dyScrolling = touchStartYRef.current !== null &&
+        Math.abs(touch.clientY - touchStartYRef.current) > 10;
+
+      if (dxScrolling || dyScrolling) {
+        // Scroll detected (horizontal or vertical) — dismiss tooltip immediately.
         isTouchScrollingRef.current = true;
         dismissTooltipRef.current();
         return;
@@ -774,6 +781,7 @@ export default function CycleChartPage() {
         isTouchScrollingRef.current = false;
         lastTouchedDayRef.current = null;
         touchStartXRef.current = null;
+        touchStartYRef.current = null;
         return;
       }
 
@@ -798,6 +806,7 @@ export default function CycleChartPage() {
       isTouchScrollingRef.current = false;
       lastTouchedDayRef.current = null;
       touchStartXRef.current = null;
+      touchStartYRef.current = null;
     };
 
     // Dismiss when the user clicks/taps anywhere outside the chart container.
@@ -823,21 +832,49 @@ export default function CycleChartPage() {
       }
     };
 
-    canvas.addEventListener('mousemove', handleMouseMove);
-    canvas.addEventListener('mouseleave', handleMouseLeave);
-    canvas.addEventListener('click', handleClick);
-    canvas.addEventListener('touchstart', handleTouchStart, { passive: true });
-    canvas.addEventListener('touchmove', handleTouchMove, { passive: true });
-    canvas.addEventListener('touchend', handleTouchEnd, { passive: true });
+    // Attach all canvas-level listeners to the given element and return a
+    // cleanup function that removes them.
+    const attachToCanvas = (canvas: HTMLElement) => {
+      canvas.addEventListener('mousemove', handleMouseMove);
+      canvas.addEventListener('mouseleave', handleMouseLeave);
+      canvas.addEventListener('click', handleClick);
+      canvas.addEventListener('touchstart', handleTouchStart, { passive: true });
+      canvas.addEventListener('touchmove', handleTouchMove, { passive: true });
+      canvas.addEventListener('touchend', handleTouchEnd, { passive: true });
+      return () => {
+        canvas.removeEventListener('mousemove', handleMouseMove);
+        canvas.removeEventListener('mouseleave', handleMouseLeave);
+        canvas.removeEventListener('click', handleClick);
+        canvas.removeEventListener('touchstart', handleTouchStart);
+        canvas.removeEventListener('touchmove', handleTouchMove);
+        canvas.removeEventListener('touchend', handleTouchEnd);
+      };
+    };
+
+    // Try to find the canvas and attach listeners.  If ApexCharts hasn't
+    // rendered yet (or replaced its DOM after a refetch) we watch for it via
+    // a MutationObserver so listeners are always attached.
+    const tryAttach = () => {
+      const canvas = container.querySelector('.apexcharts-canvas') as HTMLElement | null;
+      if (!canvas || canvas === currentCanvas) return;
+      // Detach from the old canvas if it was replaced
+      canvasCleanup?.();
+      currentCanvas = canvas;
+      canvasCleanup = attachToCanvas(canvas);
+    };
+
+    tryAttach();
+
+    // Watch for child-list changes so we can re-attach when ApexCharts
+    // rebuilds its DOM (e.g. after a React Query background refetch).
+    const observer = new MutationObserver(tryAttach);
+    observer.observe(container, { childList: true, subtree: true });
+
     document.addEventListener('pointerdown', handleDocumentPointerDown);
     document.addEventListener('touchstart', handleDocumentTouchStart, { passive: true });
     return () => {
-      canvas.removeEventListener('mousemove', handleMouseMove);
-      canvas.removeEventListener('mouseleave', handleMouseLeave);
-      canvas.removeEventListener('click', handleClick);
-      canvas.removeEventListener('touchstart', handleTouchStart);
-      canvas.removeEventListener('touchmove', handleTouchMove);
-      canvas.removeEventListener('touchend', handleTouchEnd);
+      observer.disconnect();
+      canvasCleanup?.();
       document.removeEventListener('pointerdown', handleDocumentPointerDown);
       document.removeEventListener('touchstart', handleDocumentTouchStart);
     };
