@@ -3,6 +3,32 @@
 export type TemperatureUnit = 'FAHRENHEIT' | 'CELSIUS';
 
 /**
+ * Round a number to 1 decimal place using standard half-up rounding.
+ * Uses exponential notation to avoid floating-point multiplication errors.
+ */
+export function roundTo1Decimal(value: number): number {
+  return +(Math.round(+(value + 'e1')) + 'e-1');
+}
+
+/**
+ * Derive the compact label shown inside a BBT temperature node.
+ *
+ * Takes the already-converted display temperature (in the active unit).
+ * - If the value rounded to 1 decimal ends in .0, returns the integer part (e.g. 98.0 -> "98").
+ * - Otherwise returns only the tenths digit (e.g. 98.3 -> "3").
+ * - Returns null for null / undefined / NaN (no label rendered).
+ */
+export function getTempNodeLabel(displayTemp: number | null | undefined): string | null {
+  if (displayTemp == null || isNaN(displayTemp)) return null;
+  const rounded = roundTo1Decimal(displayTemp);
+  const tenths = rounded % 1;
+  if (Math.abs(tenths) < 0.01) {
+    return Math.round(rounded).toString();
+  }
+  return Math.round(Math.abs(tenths) * 10).toString();
+}
+
+/**
  * Convert Fahrenheit to Celsius
  */
 export function fahrenheitToCelsius(fahrenheit: number): number {

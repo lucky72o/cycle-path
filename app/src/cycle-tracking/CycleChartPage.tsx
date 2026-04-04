@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { fahrenheitToCelsius, formatDate, formatDateLong, formatDateDDMMMYYYY, getDayOfWeekAbbreviation, getDayOfWeek, getCycleDayCount } from './utils';
+import { fahrenheitToCelsius, formatDate, formatDateLong, formatDateDDMMMYYYY, getDayOfWeekAbbreviation, getDayOfWeek, getCycleDayCount, getTempNodeLabel } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 
@@ -513,12 +513,12 @@ export default function CycleChartPage() {
       },
       colors: [
         ...Array(chartData.numSolidSegments).fill('#3b82f6'), // Blue for solid segments
-        ...(chartData.hasExcludedSeries ? ['#9CA3AF'] : [])   // Grey for excluded series
+        ...(chartData.hasExcludedSeries ? ['#6B7280'] : [])   // Darker grey for excluded (better text contrast)
       ],
       stroke: {
         curve: 'straight',
         width: [
-          ...Array(chartData.numSolidSegments).fill(2),       // Width 2 for solid
+          ...Array(chartData.numSolidSegments).fill(1.5),     // Width 1.5 for solid
           ...(chartData.hasExcludedSeries ? [0] : [])          // Width 0 for excluded (no connecting lines)
         ],
         dashArray: [
@@ -530,18 +530,33 @@ export default function CycleChartPage() {
         opacity: 1
       },
       dataLabels: {
-        enabled: false
+        enabled: true,
+        formatter: (val: number) => getTempNodeLabel(val) ?? '',
+        style: {
+          fontSize: '11px',
+          fontWeight: 400,
+          colors: ['#002142'],
+        },
+        offsetY: -1,
+        background: { enabled: false },
       },
       markers: {
         size: [
-          ...Array(chartData.numSolidSegments).fill(5),  // Show markers on solid segments
-          ...(chartData.hasExcludedSeries ? [5] : [])     // Show markers on excluded series
+          ...Array(chartData.numSolidSegments).fill(7),
+          ...(chartData.hasExcludedSeries ? [7] : [])
+        ],
+        colors: [
+          ...Array(chartData.numSolidSegments).fill('#ffffff'),
+          ...(chartData.hasExcludedSeries ? ['#ffffff'] : [])
         ],
         fillOpacity: 1,
-        strokeWidth: 2,
-        strokeColors: '#fff',
+        strokeWidth: 1.5,
+        strokeColors: [
+          ...Array(chartData.numSolidSegments).fill('#3b82f6'),
+          ...(chartData.hasExcludedSeries ? ['#6B7280'] : [])
+        ],
         hover: {
-          size: 7,
+          size: 9,
           sizeOffset: 0
         }
       },
@@ -968,6 +983,10 @@ export default function CycleChartPage() {
             .apexcharts-grid,
             .apexcharts-plot-area {
               pointer-events: none !important;
+            }
+            .apexcharts-data-labels text,
+            .apexcharts-datalabels text {
+              dominant-baseline: central !important;
             }
             .cf-cell-pattern {
               background-color: white;
@@ -1442,12 +1461,10 @@ export default function CycleChartPage() {
                         className="absolute pointer-events-none"
                         style={{ left: `${xPos}px`, top: `${yPos}px`, transform: 'translate(-50%, -50%)', zIndex: 4 }}
                       >
-                        <svg width="14" height="14" viewBox="0 0 14 14">
-                          {/* Hollow circle matching BBT dot size (r=5, strokeWidth=2) */}
-                          <circle cx="7" cy="7" r="5" fill="#d9d9d9" stroke="white" strokeWidth="2" />
-                          {/* ✕ cross inside */}
-                          <line x1="4.5" y1="4.5" x2="9.5" y2="9.5" stroke="#FF6B6B" strokeWidth="1.5" strokeLinecap="round" />
-                          <line x1="9.5" y1="4.5" x2="4.5" y2="9.5" stroke="#FF6B6B" strokeWidth="1.5" strokeLinecap="round" />
+                        <svg width="13" height="13" viewBox="0 0 13 13">
+                          <circle cx="6.5" cy="6.5" r="5.5" fill="#ffffff" stroke="#6B7280" strokeWidth="1.5" />
+                          <line x1="4" y1="4" x2="9" y2="9" stroke="#FF6B6B" strokeWidth="1.5" strokeLinecap="round" />
+                          <line x1="9" y1="4" x2="4" y2="9" stroke="#FF6B6B" strokeWidth="1.5" strokeLinecap="round" />
                         </svg>
                       </div>
                     );
