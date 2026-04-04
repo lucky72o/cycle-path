@@ -8,7 +8,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
 import { Info } from 'lucide-react';
-import { formatDateForInput, convertToFahrenheitForStorage, fahrenheitToCelsius } from './utils';
+import { formatDateForInput, convertToFahrenheitForStorage, fahrenheitToCelsius, formatTemperature } from './utils';
 import SideNav from './SideNav';
 
 export default function AddCycleDayPage() {
@@ -16,6 +16,7 @@ export default function AddCycleDayPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const dayId = searchParams.get('dayId');
+  const returnTo = searchParams.get('returnTo');
   
   const { data: cycle, isLoading: cycleLoading } = useQuery(getCycleById, { cycleId: cycleId || '' }, { enabled: !!cycleId });
   const { data: settings, isLoading: settingsLoading } = useQuery(getUserSettings);
@@ -127,8 +128,8 @@ export default function AddCycleDayPage() {
         setTravelTimeDiff(0);
       }
       
-      // Redirect to days page
-      navigate(`/cycles/${cycleId}/days`);
+      // Redirect back to chart if that's where the edit was initiated, otherwise days page
+      navigate(returnTo === 'chart' ? `/cycles/${cycleId}/chart` : `/cycles/${cycleId}/days`);
     } catch (err: any) {
       console.error('Failed to save cycle day:', err);
       alert(err.message || 'Failed to save cycle day');
@@ -537,7 +538,7 @@ export default function AddCycleDayPage() {
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? 'Saving...' : existingDay ? 'Update Entry' : 'Save Entry'}
               </Button>
-              <Link to={`/cycles/${cycle.id}/days`}>
+              <Link to={returnTo === 'chart' ? `/cycles/${cycle.id}/chart` : `/cycles/${cycle.id}/days`}>
                 <Button type="button" variant="outline">Cancel</Button>
               </Link>
             </div>
@@ -563,7 +564,7 @@ export default function AddCycleDayPage() {
                         {new Date(day.date).toLocaleDateString()} ({day.dayOfWeek})
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {day.bbt ? `${day.bbt.toFixed(2)}°F` : 'No temp'}
+                        {day.bbt ? formatTemperature(day.bbt, settings?.temperatureUnit ?? 'FAHRENHEIT') : 'No temp'}
                         {day.hadIntercourse && ' • Intercourse'}
                       </div>
                     </div>

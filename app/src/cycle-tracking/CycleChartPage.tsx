@@ -1361,7 +1361,7 @@ export default function CycleChartPage() {
                       )}
                       {day.id && (
                         <div className="mt-2 pt-2 border-t border-gray-100 flex pointer-events-auto">
-                          <Link to={`/cycles/${cycleId}/add-day?dayId=${day.id}`}>
+                          <Link to={`/cycles/${cycleId}/add-day?dayId=${day.id}&returnTo=chart`}>
                             <Button size="sm" variant="ghost" className="hidden md:inline-flex">Edit</Button>
                             <Button size="sm" variant="outline" aria-label="Edit" className="md:hidden">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
