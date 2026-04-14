@@ -10,7 +10,7 @@ Throughout this document, features are labeled as either **[Sensiplan Core]** (f
 
 - Thermal shift detection only (no mucus peak or fertile window close)
 - Sequential scan algorithm aligned with Sensiplan
-- Proposition card UI with user actions (Confirm, Adjust, Reject, Track This)
+- Proposition card UI with user actions (Confirm, Adjust, Reject, Keep Watching)
 - Chart overlays (coverline, day highlights)
 - Nudges for data quality (pre-shift outliers, post-shift dips)
 - Post-shift monitoring for false rise detection
@@ -85,7 +85,7 @@ type FailedAttempt = {
 | Scenario | Engine Behavior |
 |----------|----------------|
 | 1-2 excluded in reference 6 | Skip and reach back to fill 6 valid temps. Standard evaluation — fully trusted by Sensiplan. |
-| Excluded day is the highest of the 6 | Excluded, so removed. Engine reaches back for a replacement. Coverline recalculates to the highest of the new 6 valid temps (will be lower since the highest was removed). |
+| Excluded day is the highest of the 6 | Excluded — a disturbed temperature is not taken into account at all. It is not one of the 6 reference temps. Engine reaches back one more valid, non-disturbed day to complete the 6 reference lows. Coverline recalculates to the highest of the new 6 valid temps. **Example:** If Days 9-14 are candidates but Day 11 (36.5°C) is disturbed, it is skipped entirely. Engine uses Day 8 instead: Days 8 (36.1), 9 (36.2), 10 (36.3), 12 (36.2), 13 (36.3), 14 (36.3). Highest valid = 36.3°C, so coverline = 36.3°C (lower than the 36.5°C that was excluded). |
 | Excluded day right before rise | Skip it. 6th valid low is one day earlier. Rise starts at first temp above new coverline. |
 | 3+ excluded in reference window | Engine can still evaluate (reach back further), but flags as Low confidence. No official Sensiplan limit exists, but data is sparse. |
 | Excluded day in the 3 highs | Skip it. Extend count — need additional valid temps to complete confirmation. E.g., if Day 16 excluded: Day 15 = 1st, Day 17 = 2nd, Day 18 = 3rd. |
@@ -113,15 +113,15 @@ The UI must state: "Confidence reflects data quality (a CyclePath enhancement). 
 
 | State | Meaning | Available Actions |
 |-------|---------|-------------------|
-| SUGGESTED (pending) | Engine found a potential shift but needs more confirming temps | Track This · Adjust · Reject This Pattern |
+| SUGGESTED (pending) | Engine found a potential shift but needs more confirming temps | Keep Watching · Adjust · Reject This Pattern |
 | SUGGESTED (confirmed) | Engine fully confirmed a shift, awaiting user decision | Confirm · Adjust · Reject |
 | CONFIRMED | User accepted the engine's interpretation | Adjust · Reject |
 | ADJUSTED | User modified the shift day and/or coverline | Adjust (re-adjust) · Reject |
 | DISMISSED | User rejected the interpretation | (Engine may re-suggest if data changes produce a materially different result — different shift day) |
 
-### "Track This" (pending only)
+### "Keep Watching" (pending only)
 
-A UI-level acknowledgment that collapses the pending proposition card to a minimal indicator. The engine continues monitoring. The underlying state stays SUGGESTED — this is not a new database state, just a local UI treatment (e.g., a `tracked` boolean in component state or localStorage). When the user reopens the chart, the card re-expands if new data has arrived since tracking.
+A UI-level acknowledgment that collapses the pending proposition card to a minimal indicator. The engine continues monitoring. The underlying state stays SUGGESTED — this is not a new database state, just a local UI treatment (e.g., a `keepWatching` boolean in component state or localStorage). When the user reopens the chart, the card re-expands if new data has arrived since the user clicked Keep Watching.
 
 ### Adjust (available at every stage)
 
@@ -375,7 +375,7 @@ The engine itself runs client-side as a pure function over cycle data.
 
 Located below existing data rows (cervical fluid, disturbances, intercourse, OPK).
 
-**Pending card**: Shows possible shift day, coverline, reference temps, and "X of 3 confirming temps recorded." Actions: Track This · Adjust · Reject This Pattern.
+**Pending card**: Shows possible shift day, coverline, reference temps, and "X of 3 confirming temps recorded." Actions: Keep Watching · Adjust · Reject This Pattern.
 
 **Confirmed-by-engine card**: Shows shift day, coverline, reference temps, per-day clearance breakdown for confirming temps, confidence badge with disclaimer. Actions: Confirm · Adjust · Reject.
 
@@ -405,7 +405,7 @@ Located below existing data rows (cervical fluid, disturbances, intercourse, OPK
 | Confirm | Green (#059669) bg, white text | Accept interpretation |
 | Adjust | Amber (#c2410c) text on light amber (#fff7ed) bg | Modify interpretation (all cards) |
 | Reject / Reject This Pattern | Red (#dc2626) text on light red (#fee2e2) bg | Dismiss interpretation |
-| Track This | Secondary style (white bg, grey border) | Acknowledge pending, keep watching |
+| Keep Watching | Secondary style (white bg, grey border) | Acknowledge pending, collapse card while engine monitors |
 | Keep Mine | Green (#059669) bg, white text | Keep user's confirmed values (needs review) |
 | Accept New | Purple (#8b5cf6) bg, white text | Accept engine's new suggestion (needs review) |
 | Save Adjustment | Amber (#d97706) bg, white text | Commit user's adjusted values |
