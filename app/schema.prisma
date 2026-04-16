@@ -166,26 +166,27 @@ model Cycle {
   endDate     DateTime?
   cycleNumber Int
   isActive    Boolean     @default(true)
-  
+
   user        User        @relation(fields: [userId], references: [id])
   userId      String
-  
+
   days        CycleDay[]
-  
+  interpretations CycleInterpretation[]
+
   @@index([userId, isActive])
 }
 
 model CycleDay {
   id                          String    @id @default(uuid())
   createdAt                   DateTime  @default(now())
-  
+
   cycle                       Cycle     @relation(fields: [cycleId], references: [id], onDelete: Cascade)
   cycleId                     String
-  
+
   dayNumber                   Int
   date                        DateTime
   dayOfWeek                   String
-  
+
   bbt                         Float?
   bbtTime                     String?
   excludeFromInterpretation   Boolean   @default(false)
@@ -196,7 +197,43 @@ model CycleDay {
   menstrualFlow               MenstrualFlow?
   disturbanceFactors          String[]
   travelTimeDiff              Int?
-  
+
   @@unique([cycleId, dayNumber])
   @@index([cycleId, date])
+}
+
+enum InterpretationType {
+  THERMAL_SHIFT
+}
+
+enum InterpretationState {
+  SUGGESTED
+  CONFIRMED
+  ADJUSTED
+  DISMISSED
+}
+
+model CycleInterpretation {
+  id                    String              @id @default(uuid())
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  cycle                 Cycle               @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  cycleId               String
+
+  type                  InterpretationType
+  state                 InterpretationState @default(SUGGESTED)
+
+  engineResult          Json
+  userOverrides         Json?
+
+  dismissedShiftDay     Int?
+  needsReview           Boolean             @default(false)
+  reviewReason          String?
+  previousEngineResult  Json?
+
+  postShiftMonitoring   Json?
+  pendingNudges         Json?
+
+  @@unique([cycleId, type])
 }

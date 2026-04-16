@@ -401,4 +401,49 @@ action deleteCycleDay {
   fn: import { deleteCycleDay } from "@src/cycle-tracking/operations",
   entities: [Cycle, CycleDay]
 }
+
+query getCycleInterpretation {
+  fn: import { getCycleInterpretation } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action upsertCycleInterpretation {
+  fn: import { upsertCycleInterpretation } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action deleteCycleInterpretation {
+  fn: import { deleteCycleInterpretation } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action confirmInterpretation {
+  fn: import { confirmInterpretation } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action adjustInterpretation {
+  fn: import { adjustInterpretation } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action dismissInterpretation {
+  fn: import { dismissInterpretation } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action resolveReview {
+  fn: import { resolveReview } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action resolveFalseRiseWarning {
+  fn: import { resolveFalseRiseWarning } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action resolveNudge {
+  fn: import { resolveNudge } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
 //#endregion
