@@ -5,9 +5,14 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { fahrenheitToCelsius, formatDate, formatDateLong, formatDateDDMMMYYYY, getDayOfWeekAbbreviation, getDayOfWeek, getCycleDayCount, getTempNodeLabel } from './utils';
+import { fahrenheitToCelsius, celsiusToFahrenheit, formatDate, formatDateLong, formatDateDDMMMYYYY, getDayOfWeekAbbreviation, getDayOfWeek, getCycleDayCount, getTempNodeLabel } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
+import { useInterpretation } from './interpretation/hooks/useInterpretation';
+import type { CycleDayInput } from './interpretation/types';
+import { PropositionCard } from './interpretation/components/PropositionCard';
+import { NudgeIcon } from './interpretation/components/NudgeIcon';
+import { NudgeMessage } from './interpretation/components/NudgeMessage';
 
 const DISTURBANCE_EMOJI: Record<string, string> = {
   POOR_SLEEP: '🌙',
@@ -50,6 +55,8 @@ export default function CycleChartPage() {
   const pinnedDayNumberRef = useRef<number | null>(null);
   const pinnedCrosshairXRef = useRef<number | null>(null);
 
+  const [expandedNudgeDay, setExpandedNudgeDay] = useState<number | null>(null);
+
   // Touch gesture tracking
   const isTouchScrollingRef = useRef<boolean>(false);
   const lastTouchedDayRef = useRef<number | null>(null);
@@ -78,6 +85,29 @@ export default function CycleChartPage() {
   const excludedBBTDays = useMemo(() => {
     return allDaysWithBBT.filter((day: any) => day.excludeFromInterpretation);
   }, [allDaysWithBBT]);
+
+  // Convert cycle days to engine input format
+  const cycleDayInputs: CycleDayInput[] = useMemo(() => {
+    if (!cycle) return [];
+    return cycle.days.map((d: any) => ({
+      dayNumber: d.dayNumber,
+      bbt: d.bbt,
+      bbtTime: d.bbtTime,
+      excludeFromInterpretation: d.excludeFromInterpretation,
+      disturbanceFactors: d.disturbanceFactors ?? [],
+      travelTimeDiff: d.travelTimeDiff,
+    }));
+  }, [cycle]);
+
+  const {
+    engineResult,
+    interpretation,
+    postShiftMonitoring,
+    isLoading: interpretationLoading,
+    keepWatchingDismissed,
+    onKeepWatching,
+    actions: interpretationActions,
+  } = useInterpretation(cycleId, cycleDayInputs);
 
   // Determine how many days to show on the chart.
   const displayDayRange = useMemo(() => {
@@ -511,6 +541,44 @@ export default function CycleChartPage() {
           }
         }
       },
+      annotations: {
+        yaxis: (() => {
+          if (!interpretation || !engineResult) return [];
+          const shift = engineResult.thermalShift;
+          const state = interpretation.state;
+          const overrides = interpretation.userOverrides as any;
+
+          // Determine coverline from active values: overrides first, then engine
+          const coverlineC = overrides?.coverlineTemp
+            ?? (shift && shift.status !== 'none' ? shift.coverlineTemp : null);
+
+          if (coverlineC == null || state === 'DISMISSED') return [];
+
+          // Convert to display unit
+          const coverlineDisplay = settings.temperatureUnit === 'CELSIUS'
+            ? coverlineC
+            : celsiusToFahrenheit(coverlineC);
+
+          const styleMap: Record<string, { color: string; dash: number; opacity: number }> = {
+            SUGGESTED: { color: '#8b5cf6', dash: 6, opacity: 0.6 },
+            CONFIRMED: { color: '#059669', dash: 0, opacity: 1 },
+            ADJUSTED: { color: '#d97706', dash: 0, opacity: 1 },
+          };
+          const style = styleMap[state] ?? styleMap.SUGGESTED;
+
+          return [{
+            y: coverlineDisplay,
+            borderColor: style.color,
+            strokeDashArray: style.dash,
+            opacity: style.opacity,
+            label: {
+              text: `${coverlineC.toFixed(2)}°C`,
+              position: 'right' as const,
+              style: { color: style.color, fontSize: '10px', background: 'transparent' },
+            },
+          }];
+        })(),
+      },
       colors: [
         ...Array(chartData.numSolidSegments).fill('#3b82f6'), // Blue for solid segments
         ...(chartData.hasExcludedSeries ? ['#6B7280'] : [])   // Darker grey for excluded (better text contrast)
@@ -618,7 +686,7 @@ export default function CycleChartPage() {
         enabled: false // Disabled - using custom React tooltip + native mousemove listener
       }
     };
-  }, [settings, chartData, allDaysWithBBT, cycle, navigate, yAxisRange, plotAreaWidth, plotAreaOffset]);
+  }, [settings, chartData, allDaysWithBBT, cycle, navigate, yAxisRange, plotAreaWidth, plotAreaOffset, interpretation, engineResult]);
 
   const prevCycle = useMemo(() => {
     if (!cycle || !allCycles) return null;
@@ -1963,6 +2031,20 @@ export default function CycleChartPage() {
               </Link>
             </div>
           )}
+            {/* Interpretation Proposition Card */}
+            {engineResult && (
+              <div className="px-4 pb-4">
+                <PropositionCard
+                  engineResult={engineResult}
+                  interpretation={interpretation}
+                  postShiftMonitoring={postShiftMonitoring}
+                  changeNotice={null}
+                  keepWatchingDismissed={keepWatchingDismissed}
+                  onKeepWatching={onKeepWatching}
+                  actions={interpretationActions}
+                />
+              </div>
+            )}
         </CardContent>
       </Card>
 
