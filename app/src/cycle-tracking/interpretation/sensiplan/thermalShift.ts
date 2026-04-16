@@ -5,6 +5,7 @@ import type {
 } from '../types';
 import { collectReferenceDays } from './excludedDays';
 import { checkFourthDayException } from './fourthDayException';
+import { calculateConfidence } from './confidence';
 import { fahrenheitToCelsius } from '../../utils';
 
 const THRESHOLD_C = 0.2;
@@ -59,8 +60,8 @@ export function detectThermalShift(days: CycleDayInput[]): ThermalShiftResult {
         confirmingDays: [candidateDay.dayNumber, ...confirmResult.confirmingDays],
         skippedDays,
         usedFourthDayException: confirmResult.usedFourthDay,
-        confidence: 'high', // placeholder — Task 5 calculates this properly
-        confidenceReasons: [],
+        confidence: calculateConfidence(skippedDays.length).confidence,
+        confidenceReasons: calculateConfidence(skippedDays.length).reasons,
         failedAttempts,
       };
     }
@@ -74,8 +75,8 @@ export function detectThermalShift(days: CycleDayInput[]): ThermalShiftResult {
         confirmingDays: [candidateDay.dayNumber, ...confirmResult.confirmingDays],
         skippedDays,
         usedFourthDayException: false,
-        confidence: 'high', // placeholder — Task 5 calculates this properly
-        confidenceReasons: [],
+        confidence: calculateConfidence(skippedDays.length).confidence,
+        confidenceReasons: calculateConfidence(skippedDays.length).reasons,
         failedAttempts,
       };
     }
