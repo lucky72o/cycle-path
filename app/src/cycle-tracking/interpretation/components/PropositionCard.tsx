@@ -1,4 +1,5 @@
 // app/src/cycle-tracking/interpretation/components/PropositionCard.tsx
+import { useState } from 'react';
 import type { InterpretationResult, PostShiftMonitoring, UserOverrides } from '../types';
 import { PendingCard } from './PendingCard';
 import { ConfirmedCard } from './ConfirmedCard';
@@ -9,6 +10,7 @@ import { NeedsReviewCard } from './NeedsReviewCard';
 import { FalseRiseWarningCard } from './FalseRiseWarningCard';
 import { FailedAttemptsSection } from './FailedAttemptsSection';
 import { ChangeNotice } from './ChangeNotice';
+import { AdjustFlow } from './AdjustFlow';
 
 type PropositionCardProps = {
   engineResult: InterpretationResult;
@@ -34,6 +36,7 @@ export function PropositionCard({
   const state = interpretation?.state;
   const needsReview = interpretation?.needsReview;
   const userOverrides = interpretation?.userOverrides as UserOverrides | null;
+  const [adjustFlowOpen, setAdjustFlowOpen] = useState(false);
 
   // No proposition
   if (thermalShift.status === 'none' && !interpretation) return null;
@@ -43,6 +46,20 @@ export function PropositionCard({
     <div className="space-y-3 mt-4">
       {changeNotice && <ChangeNotice message={changeNotice} />}
 
+      {/* Adjust flow */}
+      {adjustFlowOpen && (
+        <AdjustFlow
+          currentResult={thermalShift}
+          days={[]}
+          existingOverrides={userOverrides ?? undefined}
+          onSave={async (overrides) => {
+            await actions.adjust(overrides);
+            setAdjustFlowOpen(false);
+          }}
+          onCancel={() => setAdjustFlowOpen(false)}
+        />
+      )}
+
       {needsReview && (
         <NeedsReviewCard
           previous={interpretation.previousEngineResult}
@@ -51,7 +68,7 @@ export function PropositionCard({
           isNoneResult={thermalShift.status === 'none'}
           onKeepMine={() => actions.resolveReview('keep_mine')}
           onAcceptNew={thermalShift.status !== 'none' ? () => actions.resolveReview('accept_new') : undefined}
-          onAdjust={thermalShift.status !== 'none' ? () => {/* open adjust flow */} : undefined}
+          onAdjust={thermalShift.status !== 'none' ? () => setAdjustFlowOpen(true) : undefined}
           onReject={thermalShift.status === 'none' ? () => actions.resolveReview('reject') : undefined}
         />
       )}
