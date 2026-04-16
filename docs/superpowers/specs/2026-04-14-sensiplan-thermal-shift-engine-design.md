@@ -45,6 +45,12 @@ The engine scans forward through cycle days, one at a time. It finds the first v
 
 7. If all conditions met → **SHIFT CONFIRMED. Stop scanning.**
 
+8. **Pending detection**: If the scan reaches the end of available data while a candidate is mid-confirmation, return `status: 'pending'`. This applies to any of these mid-confirmation states:
+   - D is above coverline but only 1 or 2 of the 3 required confirming temps have been recorded
+   - All 3 confirming temps are recorded but the 3rd is above coverline without clearing +0.2°C, and no 4th valid temp exists yet (4th-day exception in progress)
+
+   The pending result includes the candidate's shift day, coverline, reference days, confirming days so far, and `usedFourthDayException: false` (not yet resolved). It represents the latest (most recent) viable candidate — any earlier candidates that failed are recorded in `failedAttempts`. Only one candidate can be pending at a time: the one currently mid-confirmation when data runs out.
+
 ### Temperature Handling
 
 - All temps stored in Fahrenheit (existing behavior)
@@ -56,9 +62,34 @@ The engine scans forward through cycle days, one at a time. It finds the first v
 ### Engine Result Type
 
 ```typescript
-type ThermalShiftResult = {
-  status: 'confirmed' | 'pending' | 'none';
-  shiftDay: number | null;
+// Discriminated union — shape depends on status
+type ThermalShiftResult =
+  | ThermalShiftNone
+  | ThermalShiftPending
+  | ThermalShiftConfirmed;
+
+type ThermalShiftNone = {
+  status: 'none';
+  reason: 'insufficient_data' | 'no_shift_detected';  // why no result
+  failedAttempts: FailedAttempt[];                     // patterns that were tried and rejected
+};
+
+type ThermalShiftPending = {
+  status: 'pending';
+  shiftDay: number;                 // candidate shift day
+  coverlineTemp: number;            // °C, full precision
+  referenceDays: number[];          // which 6 cycle days were used
+  confirmingDays: number[];         // 1-3 confirming temps recorded so far
+  skippedDays: number[];            // excluded days that were skipped in reference
+  usedFourthDayException: boolean;  // false while pending (not yet resolved)
+  confidence: 'high' | 'low';
+  confidenceReasons: string[];
+  failedAttempts: FailedAttempt[];
+};
+
+type ThermalShiftConfirmed = {
+  status: 'confirmed';
+  shiftDay: number;
   coverlineTemp: number;            // °C, full precision
   referenceDays: number[];          // which 6 cycle days were used
   confirmingDays: number[];         // the 3 (or 4) higher temp days
@@ -129,14 +160,15 @@ User can override:
 - **Shift day**: pick a different day (tap on chart or dropdown)
 - **Coverline temperature**: enter a value or drag the line on chart
 
-The engine recalculates downstream effects in real-time (preview). After saving, state changes to ADJUSTED. The engine continues monitoring against the user's values, not its own.
+The engine recalculates downstream effects in real-time (preview). After saving, state changes to ADJUSTED. Post-shift monitoring (Section 8) uses the user's adjusted values as the active interpretation — dips are evaluated against the user's coverline, not the engine's.
 
 ### Reject / Dismiss behavior
 
 - "Reject This Pattern" (pending) and "Reject" (confirmed) both set state to DISMISSED
+- The rejected shift day is recorded in `dismissedShiftDay` for future comparison
 - Chart overlay disappears, raw data only
-- If the engine later produces a **materially different** result (different shift day), it creates a new SUGGESTED interpretation
-- If the engine finds the same shift the user already rejected, it stays quiet
+- If the engine later produces a **materially different** result (different shift day than `dismissedShiftDay`), it creates a new SUGGESTED interpretation
+- If the engine finds the same shift day the user already rejected, it stays quiet
 
 ---
 
@@ -159,21 +191,46 @@ Appears when the engine result changed while in SUGGESTED state. Always referenc
 
 Change notices persist until the user acts on the proposition card.
 
-### Needs Review triggers (only these two)
+### Review triggers
 
-**Scenario A — False Rise [CyclePath Enhancement]:**
-3+ consecutive unexplained post-shift temps below coverline. Engine nudges about disturbances first. Only warns if dips remain unexplained.
+There are two distinct review scenarios. They use **different cards and different actions** because the nature of the problem is different.
 
-**Scenario B — Retroactive Data Edit:**
-User changes a temp reading, marks/unmarks a disturbance, adds/removes a day that affects the engine's inputs. Engine re-evaluates and flags if the result conflicts with the user's confirmed/adjusted interpretation.
+**Scenario A — Retroactive Data Edit (Needs Review card):**
+User changes a temp reading, marks/unmarks a disturbance, adds/removes a day that affects the engine's inputs. Engine re-evaluates and the result conflicts with the user's confirmed/adjusted interpretation. Sets `needsReview = true`.
 
-### Needs Review card
+**Scenario B — False Rise Warning (False Rise card) [CyclePath Enhancement]:**
+3+ consecutive unexplained post-shift temps below coverline. Engine nudges about disturbances first. Only warns if dips remain unexplained. This does NOT set `needsReview` — it uses a separate `falseRiseWarning` flag (see Section 8 for the full flow and persistence).
+
+### Needs Review card (Scenario A only)
 
 Shows side-by-side comparison:
 - "Your confirmed" values (shift day, coverline, confirming days)
 - "Engine now suggests" values
 - Reason for the discrepancy
 - Actions: Keep Mine · Accept New · Adjust
+
+### Needs Review resolution — state transitions
+
+**When engine has a new result (different shift):**
+
+| Action | State after | engineResult | userOverrides | previousEngineResult | needsReview |
+|--------|-------------|-------------|---------------|---------------------|-------------|
+| **Keep Mine** | ADJUSTED (see note below) | Updated to the new engine result (latest evaluation) | Set to the user's kept values (see note) | Cleared | Set to `false` |
+| **Accept New** | CONFIRMED | Updated to the new engine result | Cleared (`null`) — user is now accepting engine's values | Cleared | Set to `false` |
+| **Adjust** | Opens adjust flow → on save: ADJUSTED | Updated to the new engine result | Set to user's new values | Cleared | Set to `false` |
+
+**Keep Mine promotes CONFIRMED → ADJUSTED.** When the user originally confirmed and now clicks Keep Mine, their kept values (shift day, coverline from `previousEngineResult`) must be saved into `userOverrides` — otherwise they'd be lost when `engineResult` is overwritten. This is semantically correct: the user is now asserting values that differ from the engine's current evaluation, which is exactly what ADJUSTED means. If the row was already ADJUSTED, `userOverrides` is already populated and stays as-is.
+
+**When engine returns `none` (shift no longer detectable):**
+
+| Action | State after | engineResult | userOverrides | previousEngineResult | needsReview |
+|--------|-------------|-------------|---------------|---------------------|-------------|
+| **Keep Mine** | ADJUSTED | Set to the `none` result | Set to the user's kept values (from `previousEngineResult`) | Cleared | Set to `false` |
+| **Reject** | DISMISSED | Set to the `none` result | Cleared | Cleared | Set to `false` |
+
+No "Accept New" is available because there is no new shift to accept. Reject transitions to DISMISSED (not row deletion) — same semantics as every other reject. This preserves the memory of which shift day the user rejected, so the engine can stay quiet if that same shift day reappears later.
+
+In all cases, `reviewReason` is also cleared. The key principle: `engineResult` always reflects the latest engine evaluation regardless of which action the user takes. The user's active values always live in `userOverrides` when they differ from the engine (ADJUSTED state), or are implied by `engineResult` when they match (CONFIRMED state).
 
 ---
 
@@ -213,9 +270,15 @@ Calculated **per cycle** (not globally across cycles) to handle travel/timezone 
 
 1. Collect all `bbtTime` entries for the current cycle
 2. Require **5+ data points** before establishing a window (before that, don't use timing in nudge decisions)
-3. Calculate the mean measurement time for this cycle
+3. Calculate the mean measurement time for this cycle using **circular time averaging** to handle midnight crossings correctly:
+   - Convert each time to minutes since midnight (0–1439)
+   - Convert minutes to an angle: `θ = (minutes / 1440) × 2π`
+   - Sum `sin(θ)` and `cos(θ)` across all data points
+   - Mean angle: `atan2(Σsin, Σcos)`
+   - Convert back to minutes: `meanMinutes = (meanAngle / 2π) × 1440` (normalize to 0–1439)
+   - This ensures 23:30 and 00:30 correctly average to midnight, not noon
 4. Window = mean ± 1 hour (based on Sensiplan educator guidance)
-5. **Travel segmentation**: If a travel event with `travelTimeDiff` exists, compute separate means for pre-travel and post-travel periods. Each day is compared against its segment's mean.
+5. **Travel segmentation**: If a travel event with `travelTimeDiff` exists, compute separate means for pre-travel and post-travel periods. Each day is compared against its segment's mean. Each segment uses the same circular averaging method.
 
 ### Edge cases
 
@@ -227,6 +290,14 @@ Calculated **per cycle** (not globally across cycles) to handle travel/timezone 
 ## 8. Post-Shift Monitoring [CyclePath Enhancement]
 
 Active from shift confirmation until cycle ends. Sensiplan doesn't monitor post-confirmation — this is a CyclePath safety net.
+
+### Active values principle
+
+Post-shift monitoring always runs against the **active interpretation values** — not the engine's own detection. The active values are:
+- **CONFIRMED state**: the engine's shift day and coverline (since the user accepted them)
+- **ADJUSTED state**: the user's overridden shift day and/or coverline from `userOverrides`
+
+This means: if the user adjusted the coverline from 36.4°C to 36.5°C, dips are evaluated against 36.5°C. The monitoring result is stored in its own `postShiftMonitoring` field on the model, separate from `engineResult`.
 
 ### Flow
 
@@ -240,18 +311,29 @@ Active from shift confirmation until cycle ends. Sensiplan doesn't monitor post-
 
 ### False rise warning
 
+Displayed as a **separate card from the Needs Review card** — this is not a data-edit conflict, it's a pattern-quality concern. The card appears alongside (below) the existing proposition card, not replacing it.
+
 Message: "Temperatures on Days 20–22 fell below the coverline without recorded disturbances. This may indicate the thermal shift on Day 15 was a false rise. Consider rejecting this shift and waiting for a new pattern."
 
 Must include disclaimer: "Note: This is a CyclePath safety feature, not a standard Sensiplan rule."
 
 Actions: Reject Shift · Keep Shift
 
+### False rise resolution — state transitions
+
+| Action | State after | falseRiseWarning | What happens |
+|--------|-------------|-----------------|-------------|
+| **Reject Shift** | DISMISSED | Cleared | Interpretation dismissed. Engine may re-suggest if new data produces a different shift. |
+| **Keep Shift** | Stays CONFIRMED or ADJUSTED (unchanged) | Set to `dismissed` (warning hidden but monitoring continues) | User acknowledged the warning and chose to keep the shift. If additional consecutive unexplained dips occur beyond the original warning, a new warning may surface. |
+
+The `falseRiseWarning` field lives in the `PostShiftMonitoring` JSON stored in the model's `postShiftMonitoring` field (separate from `engineResult`). It can be `null` (no warning), `active` (warning visible), or `dismissed` (user chose Keep Shift).
+
 ### Post-shift monitoring result type
 
 ```typescript
 type PostShiftMonitoring = {
   isActive: boolean;
-  warning: string | null;
+  falseRiseWarning: 'active' | 'dismissed' | null;  // null = no warning triggered
   daysMonitored: number;
   dipsBelow: {
     day: number;
@@ -281,13 +363,17 @@ model CycleInterpretation {
   type                  InterpretationType
   state                 InterpretationState @default(SUGGESTED)
 
-  engineResult          Json                // ThermalShiftResult serialized
+  @@unique([cycleId, type])              // One interpretation per cycle per type
+
+  engineResult          Json                // ThermalShiftResult serialized (engine's own shift detection)
   userOverrides         Json?               // { coverlineTemp?: number, shiftDay?: number }
 
+  dismissedShiftDay     Int?                // When DISMISSED: the shift day that was rejected, for "stay quiet" comparison
   needsReview           Boolean             @default(false)
   reviewReason          String?
   previousEngineResult  Json?
 
+  postShiftMonitoring   Json?               // PostShiftMonitoring — computed against ACTIVE values (see below)
   pendingNudges         Json?               // [{ day, message, type, resolved }]
 }
 
@@ -318,21 +404,43 @@ model Cycle {
 
 | Event | What happens |
 |-------|-------------|
-| User opens chart, engine runs | If no interpretation exists → create with state SUGGESTED. If one exists → re-evaluate, compare with stored engineResult. |
+| User opens chart, engine runs | Engine evaluates cycle data. If result is `status: 'none'` (no detectable or evaluable shift) → **do not persist**. No database row is created and no proposition card is shown. If result is `status: 'confirmed'` or `status: 'pending'` → create/update as follows: If no interpretation exists → create with state SUGGESTED. If one exists → re-evaluate, compare with stored engineResult. |
 | Engine result unchanged | No database write |
-| Engine result changed + SUGGESTED | Update engineResult |
-| Engine result changed + CONFIRMED/ADJUSTED | Set needsReview = true, store previousEngineResult, write reviewReason |
-| Engine result changed + DISMISSED | If materially different (different shift day) → replace with new SUGGESTED. Otherwise → no change. |
+| Engine now returns `none` + SUGGESTED | Delete the interpretation row. No user investment in this suggestion — the candidate simply disappeared. No card shown. |
+| Engine now returns `none` + CONFIRMED/ADJUSTED | Set needsReview = true, store previousEngineResult, update engineResult to `none`, write reviewReason = "The data no longer supports a thermal shift. The engine cannot detect a valid pattern with the current readings." Show a Needs Review card with only the user's side (no "engine suggests" side) and actions: Keep Mine · Reject. No "Accept New" because there is nothing to accept. |
+| Engine now returns `none` + DISMISSED | No change. Keep the DISMISSED row as-is — it preserves the memory of which shift day the user rejected. If data changes later and that same shift day reappears, the engine will stay quiet. |
+| Engine result changed (not `none`) + SUGGESTED | Update engineResult |
+| Engine result changed (not `none`) + CONFIRMED/ADJUSTED | Set needsReview = true, store previousEngineResult, write reviewReason |
+| Engine result changed (not `none`) + DISMISSED | If materially different (different shift day) → replace with new SUGGESTED. Otherwise → no change. |
 | User clicks Confirm/Adjust/Reject | Update state (and userOverrides if adjusted) |
 | User responds to nudge | Update pendingNudges, re-run engine |
 
 ### Frontend operations
 
-1. **Query**: `getCycleInterpretation(cycleId, type)` — returns the current interpretation
-2. **Mutation**: `updateInterpretationState(interpretationId, state, userOverrides?)` — user actions
-3. **Mutation**: `upsertCycleInterpretation(cycleId, type, engineResult, pendingNudges?)` — engine persistence
+**Query:**
 
-The engine itself runs client-side as a pure function over cycle data.
+1. `getCycleInterpretation(cycleId, type)` — returns the current interpretation (or null)
+
+**Engine persistence mutations** (called by engine after evaluation):
+
+2. `upsertCycleInterpretation(cycleId, type, engineResult, postShiftMonitoring?, pendingNudges?)` — create or update the engine's evaluation. Handles the `none`-vs-existing logic described in persistence rules.
+3. `deleteCycleInterpretation(interpretationId)` — for `none` + SUGGESTED cleanup.
+
+**User action mutations** (called when user clicks a button):
+
+4. `confirmInterpretation(interpretationId)` — sets state to CONFIRMED. Clears nothing else.
+5. `adjustInterpretation(interpretationId, userOverrides)` — sets state to ADJUSTED, stores `userOverrides`. Triggers post-shift monitoring recomputation against new active values.
+6. `dismissInterpretation(interpretationId)` — sets state to DISMISSED, records `dismissedShiftDay` (from userOverrides or engineResult), clears `userOverrides`.
+7. `resolveReview(interpretationId, action)` — where `action` is one of:
+   - `'keep_mine'`: sets state to ADJUSTED, updates engineResult to latest, populates `userOverrides` with the kept values (from existing `userOverrides` if already ADJUSTED, or extracted from `previousEngineResult` if was CONFIRMED), clears needsReview + reviewReason + previousEngineResult.
+   - `'accept_new'`: sets state to CONFIRMED, updates engineResult, clears userOverrides + needsReview + reviewReason + previousEngineResult.
+   - `'reject'`: sets state to DISMISSED, records `dismissedShiftDay` (from userOverrides or previousEngineResult), updates engineResult, clears userOverrides + needsReview + reviewReason + previousEngineResult. (Used for the `none` review case.)
+8. `resolveFalseRiseWarning(interpretationId, action)` — where `action` is one of:
+   - `'reject_shift'`: sets state to DISMISSED, records `dismissedShiftDay`, clears postShiftMonitoring + userOverrides.
+   - `'keep_shift'`: sets `falseRiseWarning` to `'dismissed'` in postShiftMonitoring. State unchanged.
+9. `resolveNudge(interpretationId, day, response)` — where `response` is `'yes_disturbed'` or `'no_correct'`. Updates pendingNudges, triggers engine re-run.
+
+The engine itself runs client-side as a pure function over cycle data. These mutations are Wasp operations (actions/queries) that the frontend calls after the engine computes its result or when the user interacts with the UI.
 
 ---
 
@@ -375,13 +483,18 @@ The engine itself runs client-side as a pure function over cycle data.
 
 Located below existing data rows (cervical fluid, disturbances, intercourse, OPK).
 
-**Pending card**: Shows possible shift day, coverline, reference temps, and "X of 3 confirming temps recorded." Actions: Keep Watching · Adjust · Reject This Pattern.
+**Pending card**: Shows possible shift day, coverline, reference temps, and progress status. Progress text is dynamic:
+- Standard confirmation: "X of 3 confirming temps recorded."
+- 4th-day exception in progress (3rd temp above coverline but below +0.2°C): "3 of 3 recorded, but 3rd doesn't clear +0.2°C. Awaiting 4th temp to confirm (Sensiplan 4th-day rule)."
+Actions: Keep Watching · Adjust · Reject This Pattern.
 
 **Confirmed-by-engine card**: Shows shift day, coverline, reference temps, per-day clearance breakdown for confirming temps, confidence badge with disclaimer. Actions: Confirm · Adjust · Reject.
 
 **4th-day exception variation**: Same as confirmed, with extra row showing the 4th day and an explanatory note: "The 3rd temp didn't reach +0.2°C. A 4th consecutive elevated temp confirms the shift (standard Sensiplan rule)."
 
-**Needs Review card**: Red border, side-by-side comparison of user's values vs engine's new values, reason for discrepancy. Actions: Keep Mine · Accept New · Adjust.
+**Needs Review card** (retroactive data edit only): Red border, side-by-side comparison of user's values vs engine's new values, reason for discrepancy. Actions: Keep Mine · Accept New · Adjust. When engine returns `none`, only shows the user's side with: Keep Mine · Reject.
+
+**False Rise Warning card** [CyclePath Enhancement]: Amber/red border, separate from the Needs Review card. Shows which days dipped below coverline, disclaimer that this is a CyclePath safety feature. Actions: Reject Shift · Keep Shift.
 
 **Adjust flow**: Expanded card with shift day picker, coverline temperature input, collapsible reference/confirming temps detail, collapsible "How is the coverline calculated?" Sensiplan explanation, live preview, engine comparison. Actions: Save Adjustment · Cancel.
 
@@ -397,6 +510,7 @@ Located below existing data rows (cervical fluid, disturbances, intercourse, OPK
 4. Change notice (if engine recalculated due to data edit)
 5. Cervical fluid bars · Disturbance row · Intercourse · OPK (existing, unchanged)
 6. Proposition Card (thermal shift details + action buttons)
+7. False Rise Warning card (if post-shift monitoring triggered, below the proposition card)
 
 ### Button color coding
 
@@ -406,9 +520,11 @@ Located below existing data rows (cervical fluid, disturbances, intercourse, OPK
 | Adjust | Amber (#c2410c) text on light amber (#fff7ed) bg | Modify interpretation (all cards) |
 | Reject / Reject This Pattern | Red (#dc2626) text on light red (#fee2e2) bg | Dismiss interpretation |
 | Keep Watching | Secondary style (white bg, grey border) | Acknowledge pending, collapse card while engine monitors |
-| Keep Mine | Green (#059669) bg, white text | Keep user's confirmed values (needs review) |
+| Keep Mine | Green (#059669) bg, white text | Keep user's values, promote to ADJUSTED (needs review) |
 | Accept New | Purple (#8b5cf6) bg, white text | Accept engine's new suggestion (needs review) |
 | Save Adjustment | Amber (#d97706) bg, white text | Commit user's adjusted values |
+| Reject Shift | Red (#dc2626) text on light red (#fee2e2) bg | Dismiss shift due to false rise warning |
+| Keep Shift | Secondary style (white bg, grey border) | Acknowledge false rise warning, keep current shift |
 
 ---
 
