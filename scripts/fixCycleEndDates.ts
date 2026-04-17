@@ -33,7 +33,7 @@ async function main() {
     const lastDayDate = new Date(lastDay.date);
     const currentEndDate = cycle.endDate ? new Date(cycle.endDate) : null;
 
-    // Only update if endDate is missing or after the last recorded day
+    // Only update if endDate is missing or doesn't match the last recorded day
     if (!currentEndDate || currentEndDate.getTime() !== lastDayDate.getTime()) {
       await prisma.cycle.update({
         where: { id: cycle.id },
