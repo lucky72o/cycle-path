@@ -30,6 +30,9 @@ export function FalseRiseWarningCard({ monitoring, shiftDay, onRejectShift, onKe
             Unexplained dips on: {unexplainedDips.map((d) => `Day ${d.day}`).join(', ')}
           </div>
         )}
+        <div className="text-xs text-gray-400 italic">
+          Note: This is a CyclePath safety feature, not a standard Sensiplan rule.
+        </div>
       </div>
       <div className={`${footer.base} bg-red-50 border-red-200`}>
         <button onClick={onRejectShift} className={`${btn.base} ${btn.rejectShift}`}>Reject This Shift</button>

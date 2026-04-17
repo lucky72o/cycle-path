@@ -52,6 +52,7 @@ export function detectThermalShift(days: CycleDayInput[]): ThermalShiftResult {
     );
 
     if (confirmResult.outcome === 'confirmed') {
+      const { confidence, reasons } = calculateConfidence(skippedDays.length);
       return {
         status: 'confirmed',
         shiftDay: candidateDay.dayNumber,
@@ -60,13 +61,14 @@ export function detectThermalShift(days: CycleDayInput[]): ThermalShiftResult {
         confirmingDays: [candidateDay.dayNumber, ...confirmResult.confirmingDays],
         skippedDays,
         usedFourthDayException: confirmResult.usedFourthDay,
-        confidence: calculateConfidence(skippedDays.length).confidence,
-        confidenceReasons: calculateConfidence(skippedDays.length).reasons,
+        confidence,
+        confidenceReasons: reasons,
         failedAttempts,
       };
     }
 
     if (confirmResult.outcome === 'pending') {
+      const { confidence, reasons } = calculateConfidence(skippedDays.length);
       return {
         status: 'pending',
         shiftDay: candidateDay.dayNumber,
@@ -75,8 +77,8 @@ export function detectThermalShift(days: CycleDayInput[]): ThermalShiftResult {
         confirmingDays: [candidateDay.dayNumber, ...confirmResult.confirmingDays],
         skippedDays,
         usedFourthDayException: false,
-        confidence: calculateConfidence(skippedDays.length).confidence,
-        confidenceReasons: calculateConfidence(skippedDays.length).reasons,
+        confidence,
+        confidenceReasons: reasons,
         failedAttempts,
       };
     }

@@ -35,6 +35,7 @@ export function UserConfirmedCard({ result, onAdjust, onReject }: Props) {
         <div className="text-xs text-emerald-600 italic mt-2">✓ You confirmed this interpretation</div>
       </div>
       <div className={`${footer.base} bg-green-50 border-green-200`}>
+        <button onClick={() => onAdjust({})} className={`${btn.base} ${btn.adjust}`}>Adjust</button>
         <button onClick={onReject} className={`${btn.base} ${btn.reject}`}>Reject</button>
       </div>
     </div>

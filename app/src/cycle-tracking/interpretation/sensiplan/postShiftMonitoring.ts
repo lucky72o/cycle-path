@@ -28,7 +28,7 @@ export function monitorPostShift(
   const sorted = [...days].sort((a, b) => a.dayNumber - b.dayNumber);
 
   const postShiftDays = sorted.filter(
-    (d) => d.dayNumber > lastConfirmDay && d.bbt !== null
+    (d) => d.dayNumber > lastConfirmDay && d.bbt !== null && !d.excludeFromInterpretation
   );
 
   const resolvedMap = new Map(
@@ -71,11 +71,20 @@ export function monitorPostShift(
     }
   }
 
-  // Determine false rise warning state
+  // Determine false rise warning state.
+  // If previously dismissed, re-trigger only when max consecutive exceeds
+  // the threshold (strictly >). The original warning fired at exactly the
+  // threshold, so new evidence beyond that triggers a fresh warning.
+  // This is a safety measure for a fertility tracking app.
   let falseRiseWarning: 'active' | 'dismissed' | null = null;
 
   if (previousWarning === 'dismissed') {
-    falseRiseWarning = 'dismissed';
+    // Re-trigger if new dips have pushed max beyond the original threshold
+    if (maxConsecutiveUnexplained > FALSE_RISE_THRESHOLD) {
+      falseRiseWarning = 'active';
+    } else {
+      falseRiseWarning = 'dismissed';
+    }
   } else if (maxConsecutiveUnexplained >= FALSE_RISE_THRESHOLD) {
     falseRiseWarning = 'active';
   }
@@ -85,6 +94,9 @@ export function monitorPostShift(
     falseRiseWarning,
     daysMonitored: postShiftDays.length,
     dipsBelow,
-    consecutiveUnexplainedDips: consecutiveUnexplained,
+    // Use maxConsecutiveUnexplained for display so the warning card shows
+    // the peak count, not the running count (which may have been reset by
+    // an above-coverline day)
+    consecutiveUnexplainedDips: maxConsecutiveUnexplained,
   };
 }

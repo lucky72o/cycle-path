@@ -77,10 +77,10 @@ describe('monitorPostShift', () => {
     const days = [
       day(7, cToF(36.45)), day(8, cToF(36.50)), day(9, cToF(36.55)),
       day(10, cToF(36.2)), day(11, cToF(36.1)),
-      day(12, cToF(36.5)), // above coverline — breaks chain
+      day(12, cToF(36.5)), // above coverline — breaks running chain
     ];
     const result = monitorPostShift(days, shiftDay, coverlineC, lastConfirmDay, []);
-    expect(result.consecutiveUnexplainedDips).toBe(0); // reset by above-coverline day
+    expect(result.consecutiveUnexplainedDips).toBe(2); // max consecutive was 2 (before reset)
     expect(result.falseRiseWarning).toBeNull();
   });
 
@@ -97,13 +97,35 @@ describe('monitorPostShift', () => {
     expect(result.falseRiseWarning).toBeNull();
   });
 
-  it('preserves dismissed warning state', () => {
+  it('preserves dismissed warning state when dips at threshold', () => {
     const days = [
       day(7, cToF(36.45)), day(8, cToF(36.50)), day(9, cToF(36.55)),
       day(10, cToF(36.2)), day(11, cToF(36.1)), day(12, cToF(36.25)),
     ];
     const result = monitorPostShift(days, shiftDay, coverlineC, lastConfirmDay, [], 'dismissed');
-    // Warning was previously dismissed — should stay dismissed even though dips still exist
+    // Warning was previously dismissed at threshold (3) — stays dismissed
     expect(result.falseRiseWarning).toBe('dismissed');
+  });
+
+  it('re-triggers warning when dismissed but new dips exceed threshold', () => {
+    const days = [
+      day(7, cToF(36.45)), day(8, cToF(36.50)), day(9, cToF(36.55)),
+      day(10, cToF(36.2)), day(11, cToF(36.1)), day(12, cToF(36.25)), day(13, cToF(36.15)),
+    ];
+    const result = monitorPostShift(days, shiftDay, coverlineC, lastConfirmDay, [], 'dismissed');
+    // 4 consecutive unexplained dips > threshold of 3 — re-trigger despite previous dismissal
+    expect(result.consecutiveUnexplainedDips).toBe(4);
+    expect(result.falseRiseWarning).toBe('active');
+  });
+
+  it('skips excluded days in post-shift monitoring', () => {
+    const days = [
+      day(7, cToF(36.45)), day(8, cToF(36.50)), day(9, cToF(36.55)),
+      day(10, cToF(36.2), { excludeFromInterpretation: true }), // excluded — should not count
+      day(11, cToF(36.5)),
+    ];
+    const result = monitorPostShift(days, shiftDay, coverlineC, lastConfirmDay, []);
+    expect(result.dipsBelow).toHaveLength(0); // excluded day not counted
+    expect(result.daysMonitored).toBe(1); // only day 11
   });
 });

@@ -54,6 +54,7 @@ export function ConfirmedCard({ result, onConfirm, onAdjust, onReject }: Props) 
       </div>
       <div className={footer.base}>
         <button onClick={onConfirm} className={`${btn.base} ${btn.confirm}`}>Confirm</button>
+        <button onClick={() => onAdjust({})} className={`${btn.base} ${btn.adjust}`}>Adjust</button>
         <button onClick={onReject} className={`${btn.base} ${btn.reject}`}>Reject</button>
       </div>
     </div>
