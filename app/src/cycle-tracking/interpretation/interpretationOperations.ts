@@ -77,16 +77,21 @@ type UpsertInput = {
 };
 
 /**
- * State-aware engine persistence. Implements the spec's full persistence rules:
+ * State-aware engine persistence. Implements the spec's full persistence rules
+ * (see docs/superpowers/specs/2026-04-20-coverline-recovery-and-cycle-classification.md §11).
  *
+ * High-level:
+ * - Cycle marked (anovulatory/uninterpretable) → delete any orphan row, return null
  * - `none` + no row         → no-op (return null)
  * - `none` + SUGGESTED      → delete row (return null)
  * - `none` + CONFIRMED/ADJ  → set needsReview, store previousEngineResult
- * - `none` + DISMISSED      → no-op (preserve dismiss memory)
+ * - `none` + DISMISSED      → update engineResult only, stay DISMISSED
  * - non-none + no row       → create SUGGESTED
  * - non-none + SUGGESTED    → update engineResult
- * - non-none + CONF/ADJ     → if material change (shiftDay/coverline/status/4th-day): needsReview; else silent update
- * - non-none + DISMISSED    → if different shift day: replace with new SUGGESTED; else no-op
+ * - non-none + CONF/ADJ     → if material change: needsReview; else silent update
+ * - non-none + DISMISSED    → fingerprint-aware: different shift day → reset to SUGGESTED;
+ *                             same shift day + fingerprint changed → reset to SUGGESTED (auto-recovery);
+ *                             otherwise → refresh engineResult, stay DISMISSED
  */
 export const upsertCycleInterpretation: UpsertCycleInterpretation<
   UpsertInput,
@@ -150,8 +155,16 @@ export const upsertCycleInterpretation: UpsertCycleInterpretation<
         });
 
       case 'DISMISSED':
-        // Preserve dismiss memory — no change
-        return existing;
+        // Preserve the dismissal but keep engineResult fresh so the UI
+        // (DismissedCard) can make accurate mark-button decisions based on
+        // the latest engine finding. Per spec §11, DISMISSED + none always
+        // updates engineResult; state stays DISMISSED.
+        return context.entities.CycleInterpretation.update({
+          where: { id: existing.id },
+          data: {
+            engineResult: args.engineResult,
+          },
+        });
 
       default:
         return existing;
