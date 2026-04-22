@@ -3,6 +3,7 @@ import { useQuery } from 'wasp/client/operations';
 import { getCycleInterpretation } from 'wasp/client/operations';
 import { runInterpretation } from '../sensiplan/index';
 import { monitorPostShift } from '../sensiplan/postShiftMonitoring';
+import { computeCycleDataFingerprint } from '../dataFingerprint';
 import type {
   CycleDayInput,
   ThermalShiftResult,
@@ -59,6 +60,11 @@ export function useInterpretation(
     if (days.length === 0) return null;
     return runInterpretation(days);
   }, [days]);
+
+  // Stable fingerprint of the BBT/exclusion data that affects the engine.
+  // Used by upsertCycleInterpretation to detect data changes for DISMISSED
+  // auto-recovery (fingerprint-aware dismissal reset).
+  const dataFingerprint = useMemo(() => computeCycleDataFingerprint(days), [days]);
 
   // Keep Watching: local-only state. Collapses the pending card without
   // persisting anything. Resets when the engine result changes (new data
@@ -131,11 +137,12 @@ export function useInterpretation(
     if (!cycleId || !engineResult) return;
 
     // Dedupe key covers the full persisted payload — thermalShift, monitoring,
-    // and nudges — so changes to any of them trigger a write.
+    // nudges, and data fingerprint — so changes to any of them trigger a write.
     const payload = {
       ts: engineResult.thermalShift,
       psm: postShiftMonitoring,
       n: engineResult.nudges,
+      fp: dataFingerprint,
     };
     const payloadJson = JSON.stringify(payload);
     if (payloadJson === lastPersistedRef.current) return;
@@ -150,12 +157,13 @@ export function useInterpretation(
           engineResult: engineResult.thermalShift,
           postShiftMonitoring: postShiftMonitoring ?? undefined,
           pendingNudges: engineResult.nudges,
+          dataFingerprint,
         });
       } catch (err) {
         console.error('Failed to persist interpretation:', err);
       }
     })();
-  }, [cycleId, engineResult, postShiftMonitoring]);
+  }, [cycleId, engineResult, postShiftMonitoring, dataFingerprint]);
 
   // Action handlers
   const confirm = useCallback(async () => {
@@ -181,8 +189,9 @@ export function useInterpretation(
     await dismissInterpretation({
       interpretationId: interpretation.id,
       dismissedShiftDay: shiftDay,
+      dataFingerprint,
     });
-  }, [interpretation, engineResult]);
+  }, [interpretation, engineResult, dataFingerprint]);
 
   const resolveReviewAction = useCallback(async (action: 'keep_mine' | 'accept_new' | 'reject') => {
     if (!interpretation || !engineResult) return;
@@ -203,10 +212,11 @@ export function useInterpretation(
       interpretationId: interpretation.id,
       action,
       latestEngineResult: engineResult.thermalShift,
-      keptValues,
+      keptValues: keptValues as { shiftDay: number; coverlineTemp: number } | undefined,
       dismissedShiftDay,
+      dataFingerprint,
     });
-  }, [interpretation, engineResult]);
+  }, [interpretation, engineResult, dataFingerprint]);
 
   const resolveFalseRise = useCallback(async (action: 'reject_shift' | 'keep_shift') => {
     if (!interpretation || !engineResult) return;

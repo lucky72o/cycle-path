@@ -1,5 +1,6 @@
 // app/src/cycle-tracking/interpretation/interpretationOperations.ts
 import { HttpError } from 'wasp/server';
+import { Prisma } from '@prisma/client';
 import type {
   GetCycleInterpretation,
   UpsertCycleInterpretation,
@@ -12,6 +13,7 @@ import type {
   ResolveNudge,
 } from 'wasp/server/operations';
 import type { CycleInterpretation } from 'wasp/entities';
+import { hasMaterialChange } from './materialChange';
 
 // ===== OWNERSHIP HELPER =====
 
@@ -71,6 +73,7 @@ type UpsertInput = {
   engineResult: any;
   postShiftMonitoring?: any;
   pendingNudges?: any;
+  dataFingerprint: string;  // NEW — required for DISMISSED auto-recovery
 };
 
 /**
@@ -82,7 +85,7 @@ type UpsertInput = {
  * - `none` + DISMISSED      → no-op (preserve dismiss memory)
  * - non-none + no row       → create SUGGESTED
  * - non-none + SUGGESTED    → update engineResult
- * - non-none + CONF/ADJ     → if result changed: set needsReview, store previousEngineResult
+ * - non-none + CONF/ADJ     → if material change (shiftDay/coverline/status/4th-day): needsReview; else silent update
  * - non-none + DISMISSED    → if different shift day: replace with new SUGGESTED; else no-op
  */
 export const upsertCycleInterpretation: UpsertCycleInterpretation<
@@ -97,6 +100,18 @@ export const upsertCycleInterpretation: UpsertCycleInterpretation<
   });
   if (!cycle || cycle.userId !== context.user.id) {
     throw new HttpError(403, 'Not authorized to access this cycle');
+  }
+
+  // If the cycle is classified (anovulatory or uninterpretable), the engine
+  // result is irrelevant. Defensive cleanup: delete any orphan interpretation row.
+  if (cycle.markedAnovulatoryAt || cycle.markedUninterpretableAt) {
+    const existing = await context.entities.CycleInterpretation.findUnique({
+      where: { cycleId_type: { cycleId: args.cycleId, type: args.type } },
+    });
+    if (existing) {
+      await context.entities.CycleInterpretation.delete({ where: { id: existing.id } });
+    }
+    return null;
   }
 
   const existing = await context.entities.CycleInterpretation.findUnique({
@@ -128,7 +143,7 @@ export const upsertCycleInterpretation: UpsertCycleInterpretation<
             needsReview: true,
             reviewReason:
               'The data no longer supports a thermal shift. The engine cannot detect a valid pattern with the current readings.',
-            previousEngineResult: existing.engineResult,
+            previousEngineResult: existing.engineResult as Prisma.InputJsonValue,
             engineResult: args.engineResult,
             pendingNudges: args.pendingNudges ?? undefined,
           },
@@ -158,9 +173,11 @@ export const upsertCycleInterpretation: UpsertCycleInterpretation<
     });
   }
 
-  // Helper: did the engine result change in any way the user should review?
-  const resultChanged =
-    JSON.stringify(existing.engineResult) !== JSON.stringify(args.engineResult);
+  // Did the core interpretation change in a way the user should review?
+  // Only shiftDay, coverlineTemp, status, and usedFourthDayException are
+  // "material." Metadata changes (referenceDays, confidence, etc.) update
+  // the stored result silently without triggering a review notification.
+  const materialChange = hasMaterialChange(existing.engineResult, args.engineResult);
 
   switch (existing.state) {
     case 'SUGGESTED':
@@ -176,23 +193,25 @@ export const upsertCycleInterpretation: UpsertCycleInterpretation<
 
     case 'CONFIRMED':
     case 'ADJUSTED':
-      if (!resultChanged) {
-        // Same result — just refresh monitoring/nudges, no review
+      if (!materialChange) {
+        // Core interpretation unchanged — silently refresh engine result,
+        // monitoring, and nudges without triggering a review
         return context.entities.CycleInterpretation.update({
           where: { id: existing.id },
           data: {
+            engineResult: args.engineResult,
             postShiftMonitoring: args.postShiftMonitoring ?? undefined,
             pendingNudges: args.pendingNudges ?? undefined,
           },
         });
       }
-      // Result changed — enter review
+      // Material change — enter review
       return context.entities.CycleInterpretation.update({
         where: { id: existing.id },
         data: {
           needsReview: true,
           reviewReason: 'A data edit changed the engine\'s evaluation. Review the new result.',
-          previousEngineResult: existing.engineResult,
+          previousEngineResult: existing.engineResult as Prisma.InputJsonValue,
           engineResult: args.engineResult,
           postShiftMonitoring: args.postShiftMonitoring ?? undefined,
           pendingNudges: args.pendingNudges ?? undefined,
@@ -200,27 +219,65 @@ export const upsertCycleInterpretation: UpsertCycleInterpretation<
       });
 
     case 'DISMISSED': {
-      // If materially different shift day → replace with new SUGGESTED
       const oldEngineResult = existing.engineResult as any;
       const dismissedDay = existing.dismissedShiftDay ?? (oldEngineResult?.shiftDay ?? null);
-      if (dismissedDay !== null && args.engineResult?.shiftDay !== dismissedDay) {
+      const fingerprintChanged = existing.dismissedDataFingerprint !== args.dataFingerprint;
+
+      // If the engine found a shift on a DIFFERENT day than the one the user rejected
+      // → replace with new SUGGESTED (preserves existing behavior)
+      if (
+        args.engineResult?.status !== 'none' &&
+        dismissedDay !== null &&
+        args.engineResult?.shiftDay !== dismissedDay
+      ) {
         return context.entities.CycleInterpretation.update({
           where: { id: existing.id },
           data: {
             state: 'SUGGESTED',
             engineResult: args.engineResult,
-            userOverrides: null,
+            userOverrides: Prisma.DbNull,
             dismissedShiftDay: null,
+            dismissedDataFingerprint: null,
             needsReview: false,
             reviewReason: null,
-            previousEngineResult: null,
-            postShiftMonitoring: args.postShiftMonitoring ?? null,
-            pendingNudges: args.pendingNudges ?? null,
+            previousEngineResult: Prisma.DbNull,
+            postShiftMonitoring: args.postShiftMonitoring ?? Prisma.DbNull,
+            pendingNudges: args.pendingNudges ?? Prisma.DbNull,
           },
         });
       }
-      // Same shift day the user rejected — stay quiet
-      return existing;
+
+      // Same shift day or none result — check fingerprint
+      if (fingerprintChanged && args.engineResult?.status !== 'none') {
+        // Data has changed AND engine still detects a shift on the same day
+        // → reset to SUGGESTED (auto-recovery)
+        return context.entities.CycleInterpretation.update({
+          where: { id: existing.id },
+          data: {
+            state: 'SUGGESTED',
+            engineResult: args.engineResult,
+            userOverrides: Prisma.DbNull,
+            dismissedShiftDay: null,
+            dismissedDataFingerprint: null,
+            needsReview: false,
+            reviewReason: null,
+            previousEngineResult: Prisma.DbNull,
+            postShiftMonitoring: args.postShiftMonitoring ?? Prisma.DbNull,
+            pendingNudges: args.pendingNudges ?? Prisma.DbNull,
+          },
+        });
+      }
+
+      // Either fingerprint unchanged OR engine still returns none — respect the
+      // dismissal but keep engineResult fresh so Re-evaluate/UI have current data
+      return context.entities.CycleInterpretation.update({
+        where: { id: existing.id },
+        data: {
+          engineResult: args.engineResult,
+          // postShiftMonitoring and pendingNudges are not persisted for DISMISSED
+          // since there's no active coverline; leave them unchanged
+        },
+      });
     }
 
     default:
@@ -284,7 +341,7 @@ export const adjustInterpretation: AdjustInterpretation<
 };
 
 export const dismissInterpretation: DismissInterpretation<
-  IdInput & { dismissedShiftDay: number },
+  IdInput & { dismissedShiftDay: number; dataFingerprint: string },
   CycleInterpretation
 > = async (args, context) => {
   if (!context.user) throw new HttpError(401, 'Not authorized');
@@ -296,7 +353,8 @@ export const dismissInterpretation: DismissInterpretation<
     data: {
       state: 'DISMISSED',
       dismissedShiftDay: args.dismissedShiftDay,
-      userOverrides: null,
+      dismissedDataFingerprint: args.dataFingerprint,
+      userOverrides: Prisma.DbNull,
     },
   });
 };
@@ -307,6 +365,7 @@ type ResolveReviewInput = {
   latestEngineResult: any;
   keptValues?: { shiftDay: number; coverlineTemp: number };
   dismissedShiftDay?: number;
+  dataFingerprint: string;  // NEW
 };
 
 export const resolveReview: ResolveReview<
@@ -334,7 +393,7 @@ export const resolveReview: ResolveReview<
           userOverrides,
           needsReview: false,
           reviewReason: null,
-          previousEngineResult: null,
+          previousEngineResult: Prisma.DbNull,
         },
       });
     }
@@ -345,10 +404,10 @@ export const resolveReview: ResolveReview<
         data: {
           state: 'CONFIRMED',
           engineResult: args.latestEngineResult,
-          userOverrides: null,
+          userOverrides: Prisma.DbNull,
           needsReview: false,
           reviewReason: null,
-          previousEngineResult: null,
+          previousEngineResult: Prisma.DbNull,
         },
       });
 
@@ -359,10 +418,11 @@ export const resolveReview: ResolveReview<
           state: 'DISMISSED',
           engineResult: args.latestEngineResult,
           dismissedShiftDay: args.dismissedShiftDay,
-          userOverrides: null,
+          dismissedDataFingerprint: args.dataFingerprint,
+          userOverrides: Prisma.DbNull,
           needsReview: false,
           reviewReason: null,
-          previousEngineResult: null,
+          previousEngineResult: Prisma.DbNull,
         },
       });
 
@@ -393,8 +453,8 @@ export const resolveFalseRiseWarning: ResolveFalseRiseWarning<
       data: {
         state: 'DISMISSED',
         dismissedShiftDay: args.dismissedShiftDay,
-        userOverrides: null,
-        postShiftMonitoring: null,
+        userOverrides: Prisma.DbNull,
+        postShiftMonitoring: Prisma.DbNull,
       },
     });
   }
