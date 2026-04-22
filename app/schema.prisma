@@ -173,6 +173,9 @@ model Cycle {
   days        CycleDay[]
   interpretations CycleInterpretation[]
 
+  markedAnovulatoryAt       DateTime?
+  markedUninterpretableAt   DateTime?
+
   @@index([userId, isActive])
 }
 
@@ -234,6 +237,8 @@ model CycleInterpretation {
 
   postShiftMonitoring   Json?
   pendingNudges         Json?
+
+  dismissedDataFingerprint  String?
 
   @@unique([cycleId, type])
 }
