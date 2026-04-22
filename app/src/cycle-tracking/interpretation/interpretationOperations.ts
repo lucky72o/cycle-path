@@ -14,6 +14,7 @@ import type {
 } from 'wasp/server/operations';
 import type { CycleInterpretation } from 'wasp/entities';
 import { hasMaterialChange } from './materialChange';
+import { decideDismissedAction } from './dismissedDecision';
 
 // ===== OWNERSHIP HELPER =====
 
@@ -232,17 +233,15 @@ export const upsertCycleInterpretation: UpsertCycleInterpretation<
       });
 
     case 'DISMISSED': {
-      const oldEngineResult = existing.engineResult as any;
-      const dismissedDay = existing.dismissedShiftDay ?? (oldEngineResult?.shiftDay ?? null);
-      const fingerprintChanged = existing.dismissedDataFingerprint !== args.dataFingerprint;
+      const action = decideDismissedAction(
+        existing.engineResult,
+        existing.dismissedShiftDay,
+        existing.dismissedDataFingerprint,
+        args.engineResult,
+        args.dataFingerprint,
+      );
 
-      // If the engine found a shift on a DIFFERENT day than the one the user rejected
-      // → replace with new SUGGESTED (preserves existing behavior)
-      if (
-        args.engineResult?.status !== 'none' &&
-        dismissedDay !== null &&
-        args.engineResult?.shiftDay !== dismissedDay
-      ) {
+      if (action.kind === 'reset_to_suggested') {
         return context.entities.CycleInterpretation.update({
           where: { id: existing.id },
           data: {
@@ -260,35 +259,13 @@ export const upsertCycleInterpretation: UpsertCycleInterpretation<
         });
       }
 
-      // Same shift day or none result — check fingerprint
-      if (fingerprintChanged && args.engineResult?.status !== 'none') {
-        // Data has changed AND engine still detects a shift on the same day
-        // → reset to SUGGESTED (auto-recovery)
-        return context.entities.CycleInterpretation.update({
-          where: { id: existing.id },
-          data: {
-            state: 'SUGGESTED',
-            engineResult: args.engineResult,
-            userOverrides: Prisma.DbNull,
-            dismissedShiftDay: null,
-            dismissedDataFingerprint: null,
-            needsReview: false,
-            reviewReason: null,
-            previousEngineResult: Prisma.DbNull,
-            postShiftMonitoring: args.postShiftMonitoring ?? Prisma.DbNull,
-            pendingNudges: args.pendingNudges ?? Prisma.DbNull,
-          },
-        });
-      }
-
-      // Either fingerprint unchanged OR engine still returns none — respect the
-      // dismissal but keep engineResult fresh so Re-evaluate/UI have current data
+      // refresh_engine_result — respect the dismissal but keep engineResult fresh
+      // so Re-evaluate/UI have current data (per spec §11)
       return context.entities.CycleInterpretation.update({
         where: { id: existing.id },
         data: {
           engineResult: args.engineResult,
           // postShiftMonitoring and pendingNudges are not persisted for DISMISSED
-          // since there's no active coverline; leave them unchanged
         },
       });
     }
