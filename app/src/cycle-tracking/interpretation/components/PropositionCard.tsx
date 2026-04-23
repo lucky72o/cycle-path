@@ -11,6 +11,9 @@ import { FalseRiseWarningCard } from './FalseRiseWarningCard';
 import { FailedAttemptsSection } from './FailedAttemptsSection';
 import { ChangeNotice } from './ChangeNotice';
 import { AdjustFlow } from './AdjustFlow';
+import { DismissedCard } from './DismissedCard';
+import { NoShiftCard } from './NoShiftCard';
+import { InfoCard } from './InfoCard';
 
 type PropositionCardProps = {
   engineResult: InterpretationResult;
@@ -26,11 +29,18 @@ type PropositionCardProps = {
     resolveReview: (action: 'keep_mine' | 'accept_new' | 'reject') => Promise<void>;
     resolveFalseRise: (action: 'reject_shift' | 'keep_shift') => Promise<void>;
   };
+  cycleIsActive: boolean;
+  maxDayNumber: number;
+  onReEvaluate: () => void;
+  onMarkAnovulatory: () => void;
+  onMarkUninterpretable: () => void;
 };
 
 export function PropositionCard({
   engineResult, interpretation, postShiftMonitoring,
   changeNotice, keepWatchingDismissed, onKeepWatching, actions,
+  cycleIsActive, maxDayNumber,
+  onReEvaluate, onMarkAnovulatory, onMarkUninterpretable,
 }: PropositionCardProps) {
   const { thermalShift } = engineResult;
   const state = interpretation?.state;
@@ -38,9 +48,43 @@ export function PropositionCard({
   const userOverrides = interpretation?.userOverrides as UserOverrides | null;
   const [adjustFlowOpen, setAdjustFlowOpen] = useState(false);
 
-  // No proposition
+  // Priority 1: DISMISSED state → render DismissedCard (no longer a silent no-op).
+  // Both mark buttons gated by DismissedCard on engine's current result per §5.3.4.
+  if (state === 'DISMISSED') {
+    return (
+      <DismissedCard
+        engineResult={thermalShift}
+        cycleIsActive={cycleIsActive}
+        onReEvaluate={onReEvaluate}
+        onMarkAnovulatory={onMarkAnovulatory}
+        onMarkUninterpretable={onMarkUninterpretable}
+      />
+    );
+  }
+
+  // Priority 2: no-shift-detected + no interpretation row
+  const engineNoShift =
+    thermalShift.status === 'none' &&
+    (thermalShift as { reason?: string }).reason === 'no_shift_detected';
+
+  if (!interpretation && engineNoShift) {
+    if (!cycleIsActive) {
+      return (
+        <NoShiftCard
+          onMarkAnovulatory={onMarkAnovulatory}
+          onMarkUninterpretable={onMarkUninterpretable}
+        />
+      );
+    }
+    // Active cycle + engine says no shift: silent until day 7, InfoCard thereafter
+    if (maxDayNumber >= 7) {
+      return <InfoCard onMarkUninterpretable={onMarkUninterpretable} />;
+    }
+    return null;
+  }
+
+  // Preserve existing "no proposition" silent case for other none-with-no-row edge cases
   if (thermalShift.status === 'none' && !interpretation) return null;
-  if (state === 'DISMISSED') return null;
 
   return (
     <div className="space-y-3 mt-4">
