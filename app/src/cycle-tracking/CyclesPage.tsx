@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { formatDateForInput, getCycleDayCount } from './utils';
+import { CycleBadge } from './interpretation/components/CycleBadge';
 import SideNav from './SideNav';
 
 export default function CyclesPage() {
@@ -153,7 +154,13 @@ export default function CyclesPage() {
       {activeCycle && (
         <Card className="mb-8 border-primary">
           <CardHeader>
-            <CardTitle>Current Cycle (#{activeCycle.cycleNumber})</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <span>Current Cycle (#{activeCycle.cycleNumber})</span>
+              <CycleBadge
+                markedAnovulatoryAt={(activeCycle as any).markedAnovulatoryAt ?? null}
+                markedUninterpretableAt={(activeCycle as any).markedUninterpretableAt ?? null}
+              />
+            </CardTitle>
             <CardDescription>
               Started: {new Date(activeCycle.startDate).toLocaleDateString()}
               {getCycleDayCount(activeCycle) > 0 && ` · ${getCycleDayCount(activeCycle)} days recorded`}
@@ -220,8 +227,12 @@ export default function CyclesPage() {
             {pastCycles.map((cycle) => (
               <Card key={cycle.id}>
                 <CardHeader>
-                  <CardTitle>
-                    Cycle #{cycle.cycleNumber}{getCycleDayCount(cycle) > 0 && `: ${getCycleDayCount(cycle)} days`}
+                  <CardTitle className="flex items-center gap-2">
+                    <span>Cycle #{cycle.cycleNumber}{getCycleDayCount(cycle) > 0 && `: ${getCycleDayCount(cycle)} days`}</span>
+                    <CycleBadge
+                      markedAnovulatoryAt={(cycle as any).markedAnovulatoryAt ?? null}
+                      markedUninterpretableAt={(cycle as any).markedUninterpretableAt ?? null}
+                    />
                   </CardTitle>
                   <CardDescription>
                     {new Date(cycle.startDate).toLocaleDateString()} - {' '}
