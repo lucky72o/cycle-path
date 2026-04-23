@@ -11,8 +11,13 @@ import SideNav from './SideNav';
 import { useInterpretation } from './interpretation/hooks/useInterpretation';
 import type { CycleDayInput } from './interpretation/types';
 import { PropositionCard } from './interpretation/components/PropositionCard';
+import { AnovulatoryCard } from './interpretation/components/AnovulatoryCard';
+import { UninterpretableCard } from './interpretation/components/UninterpretableCard';
+import { CycleBadge } from './interpretation/components/CycleBadge';
+import { CrossCycleAnovulatoryBanner } from './interpretation/components/CrossCycleAnovulatoryBanner';
 import { NudgeIcon } from './interpretation/components/NudgeIcon';
 import { NudgeMessage } from './interpretation/components/NudgeMessage';
+import { getPreviousCycleSummary } from 'wasp/client/operations';
 
 const DISTURBANCE_EMOJI: Record<string, string> = {
   POOR_SLEEP: '🌙',
@@ -32,6 +37,11 @@ export default function CycleChartPage() {
   const { data: allCycles } = useQuery(getUserCycles);
   const { data: cycle, isLoading: cycleLoading } = useQuery(getCycleById, { cycleId: cycleId || '' }, { enabled: !!cycleId });
   const { data: settings, isLoading: settingsLoading } = useQuery(getUserSettings);
+  const { data: previousCycle } = useQuery(
+    getPreviousCycleSummary,
+    { cycleNumber: cycle?.cycleNumber ?? 0 },
+    { enabled: !!cycle?.isActive && typeof cycle?.cycleNumber === 'number' }
+  );
 
   // Refs and state for custom x-axis rows
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -98,6 +108,11 @@ export default function CycleChartPage() {
       travelTimeDiff: d.travelTimeDiff,
     }));
   }, [cycle]);
+
+  const maxDayNumber = useMemo(() => {
+    if (cycleDayInputs.length === 0) return 0;
+    return Math.max(...cycleDayInputs.map((d) => d.dayNumber));
+  }, [cycleDayInputs]);
 
   const {
     engineResult,
@@ -558,7 +573,9 @@ export default function CycleChartPage() {
           const coverlineC = overrides?.coverlineTemp
             ?? (shift && shift.status !== 'none' ? shift.coverlineTemp : null);
 
-          if (coverlineC == null || state === 'DISMISSED') return [];
+          const isMarked =
+            !!(cycle as any)?.markedAnovulatoryAt || !!(cycle as any)?.markedUninterpretableAt;
+          if (coverlineC == null || state === 'DISMISSED' || isMarked) return [];
 
           // Convert to display unit
           const coverlineDisplay = settings.temperatureUnit === 'CELSIUS'
@@ -1003,8 +1020,12 @@ export default function CycleChartPage() {
       <div className="flex-1 p-4 md:p-8 max-w-6xl">
       <div className="mb-4 md:mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-xl md:text-3xl font-bold mb-2">
-            Cycle #{cycle.cycleNumber}{getCycleDayCount(cycle) > 0 && `: ${getCycleDayCount(cycle)} ${cycle.isActive ? 'days recorded' : 'days'}`}
+          <h1 className="text-xl md:text-3xl font-bold mb-2 flex items-center gap-2">
+            <span>Cycle #{cycle.cycleNumber}{getCycleDayCount(cycle) > 0 && `: ${getCycleDayCount(cycle)} ${cycle.isActive ? 'days recorded' : 'days'}`}</span>
+            <CycleBadge
+              markedAnovulatoryAt={(cycle as any).markedAnovulatoryAt ?? null}
+              markedUninterpretableAt={(cycle as any).markedUninterpretableAt ?? null}
+            />
           </h1>
           <p className="text-muted-foreground">
             Started: {formatDateLong(new Date(cycle.startDate))}
@@ -1018,6 +1039,10 @@ export default function CycleChartPage() {
           </Button>
         </Link>
       </div>
+
+      {cycle.isActive && (
+        <CrossCycleAnovulatoryBanner previousCycle={previousCycle ?? null} />
+      )}
 
       <Card className="mb-6">
         <CardHeader className="flex flex-row items-center justify-between">
@@ -2038,8 +2063,12 @@ export default function CycleChartPage() {
             </div>
           )}
             {/* Interpretation Proposition Card */}
-            {engineResult && (
-              <div className="px-4 pb-4">
+            <div className="px-4 pb-4">
+              {(cycle as any).markedAnovulatoryAt ? (
+                <AnovulatoryCard onRemoveMark={interpretationActions.unmarkClassification} />
+              ) : (cycle as any).markedUninterpretableAt ? (
+                <UninterpretableCard onRemoveMark={interpretationActions.unmarkClassification} />
+              ) : engineResult ? (
                 <PropositionCard
                   engineResult={engineResult}
                   interpretation={interpretation}
@@ -2048,9 +2077,14 @@ export default function CycleChartPage() {
                   keepWatchingDismissed={keepWatchingDismissed}
                   onKeepWatching={onKeepWatching}
                   actions={interpretationActions}
+                  cycleIsActive={cycle.isActive}
+                  maxDayNumber={maxDayNumber}
+                  onReEvaluate={interpretationActions.reEvaluate}
+                  onMarkAnovulatory={interpretationActions.markAnovulatory}
+                  onMarkUninterpretable={interpretationActions.markUninterpretable}
                 />
-              </div>
-            )}
+              ) : null}
+            </div>
         </CardContent>
       </Card>
 
