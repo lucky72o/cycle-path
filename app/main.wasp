@@ -1,6 +1,6 @@
 app CyclePath {
   wasp: {
-    version: "^0.18.0"
+    version: "^0.19.0"
   },
 
   title: "CyclePath - Natural Fertility Tracking",
@@ -445,5 +445,25 @@ action resolveFalseRiseWarning {
 action resolveNudge {
   fn: import { resolveNudge } from "@src/cycle-tracking/interpretation/interpretationOperations",
   entities: [CycleInterpretation, Cycle]
+}
+
+action markCycleAnovulatory {
+  fn: import { markCycleAnovulatory } from "@src/cycle-tracking/cycleClassificationOperations",
+  entities: [Cycle, CycleInterpretation, CycleDay]
+}
+
+action markCycleUninterpretable {
+  fn: import { markCycleUninterpretable } from "@src/cycle-tracking/cycleClassificationOperations",
+  entities: [Cycle, CycleInterpretation, CycleDay]
+}
+
+action unmarkCycleClassification {
+  fn: import { unmarkCycleClassification } from "@src/cycle-tracking/cycleClassificationOperations",
+  entities: [Cycle]
+}
+
+action reEvaluateCycleInterpretation {
+  fn: import { reEvaluateCycleInterpretation } from "@src/cycle-tracking/cycleClassificationOperations",
+  entities: [Cycle, CycleInterpretation]
 }
 //#endregion
