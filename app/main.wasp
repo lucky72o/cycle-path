@@ -362,6 +362,11 @@ query getUserSettings {
   entities: [User, UserSettings]
 }
 
+query getPreviousCycleSummary {
+  fn: import { getPreviousCycleSummary } from "@src/cycle-tracking/operations",
+  entities: [Cycle, CycleInterpretation]
+}
+
 action createCycle {
   fn: import { createCycle } from "@src/cycle-tracking/operations",
   entities: [User, Cycle]

@@ -1,0 +1,92 @@
+[      70ms] [WARNING] Ignoring Event: localhost @ https://plausible.io/js/script.js:0
+[     164ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=f36cd17d:4391
+[  202835ms] TypeError: ((intermediate value) || e.target.className || "").substring is not a function
+    at document.addEventListener.capture (eval at evaluate (:301:30), <anonymous>:70:82)
+[  204204ms] TypeError: ((intermediate value) || e.target.className || "").substring is not a function
+    at document.addEventListener.capture (eval at evaluate (:301:30), <anonymous>:70:82)
+[  206838ms] TypeError: ((intermediate value) || e.target.className || "").substring is not a function
+    at document.addEventListener.capture (eval at evaluate (:301:30), <anonymous>:70:82)
+[  466861ms] TypeError: ((intermediate value) || e.target.className || "").substring is not a function
+    at document.addEventListener.capture (eval at evaluate (:301:30), <anonymous>:70:82)
+[  569412ms] TypeError: ((intermediate value) || e.target.className || "").substring is not a function
+    at document.addEventListener.capture (eval at evaluate (:301:30), <anonymous>:70:82)
+[  571263ms] TypeError: ((intermediate value) || e.target.className || "").substring is not a function
+    at document.addEventListener.capture (eval at evaluate (:301:30), <anonymous>:70:82)
+[  572511ms] TypeError: ((intermediate value) || e.target.className || "").substring is not a function
+    at document.addEventListener.capture (eval at evaluate (:301:30), <anonymous>:70:82)
+[  746535ms] TypeError: ((intermediate value) || e.target.className || "").substring is not a function
+    at document.addEventListener.capture (eval at evaluate (:301:30), <anonymous>:70:82)
+[  747146ms] TypeError: ((intermediate value) || e.target.className || "").substring is not a function
+    at document.addEventListener.capture (eval at evaluate (:301:30), <anonymous>:70:82)
+[  844268ms] TypeError: ((intermediate value) || e.target.className || "").substring is not a function
+    at document.addEventListener.capture (eval at evaluate (:301:30), <anonymous>:70:82)
+[  845417ms] TypeError: ((intermediate value) || e.target.className || "").substring is not a function
+    at document.addEventListener.capture (eval at evaluate (:301:30), <anonymous>:70:82)
+[  846532ms] TypeError: ((intermediate value) || e.target.className || "").substring is not a function
+    at document.addEventListener.capture (eval at evaluate (:301:30), <anonymous>:70:82)
+[ 1026542ms] TypeError: ((intermediate value) || e.target.className || "").substring is not a function
+    at document.addEventListener.capture (eval at evaluate (:301:30), <anonymous>:70:82)
+[ 1029177ms] TypeError: ((intermediate value) || e.target.className || "").substring is not a function
+    at document.addEventListener.capture (eval at evaluate (:301:30), <anonymous>:70:82)
+[ 1495122ms] ReferenceError: canvas is not defined
+    at http://localhost:3000/@fs/Users/olgapak/work/cycle-path/app/src/cycle-tracking/CycleChartPage.tsx?t=1774476368129:678:5
+    at commitHookEffectListMount (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:16963:34)
+    at commitPassiveMountOnFiber (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:18206:19)
+    at commitPassiveMountEffects_complete (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:18179:17)
+    at commitPassiveMountEffects_begin (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:18169:15)
+    at commitPassiveMountEffects (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:18159:11)
+    at flushPassiveEffectsImpl (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:19543:11)
+    at flushPassiveEffects (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:19500:22)
+    at commitRootImpl (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:19469:13)
+    at commitRoot (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:19330:13)
+[ 1495125ms] [ERROR] ReferenceError: canvas is not defined
+    at http://localhost:3000/@fs/Users/olgapak/work/cycle-path/app/src/cycle-tracking/CycleChartPage.tsx?t=1774476368129:678:5
+    at commitHookEffectListMount (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:16963:34)
+    at commitPassiveMountOnFiber (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:18206:19)
+    at commitPassiveMountEffects_complete (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:18179:17)
+    at commitPassiveMountEffects_begin (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:18169:15)
+    at commitPassiveMountEffects (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:18159:11)
+    at flushPassiveEffectsImpl (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:19543:11)
+    at flushPassiveEffects (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:19500:22)
+    at commitRootImpl (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:19469:13)
+    at commitRoot (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:19330:13) @ http://localhost:3000/src/components/DefaultRootErrorBoundary.tsx:22
+[ 1495125ms] [ERROR] ReferenceError: canvas is not defined
+    at http://localhost:3000/@fs/Users/olgapak/work/cycle-path/app/src/cycle-tracking/CycleChartPage.tsx?t=1774476368129:678:5
+    at commitHookEffectListMount (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:16963:34)
+    at commitPassiveMountOnFiber (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:18206:19)
+    at commitPassiveMountEffects_complete (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:18179:17)
+    at commitPassiveMountEffects_begin (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:18169:15)
+    at commitPassiveMountEffects (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:18159:11)
+    at flushPassiveEffectsImpl (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:19543:11)
+    at flushPassiveEffects (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:19500:22)
+    at commitRootImpl (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:19469:13)
+    at commitRoot (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:19330:13) @ http://localhost:3000/src/components/DefaultRootErrorBoundary.tsx:22
+[ 1495127ms] [ERROR] The above error occurred in the <CycleChartPage> component:
+
+    at CycleChartPage (http://localhost:3000/@fs/Users/olgapak/work/cycle-path/app/src/cycle-tracking/CycleChartPage.tsx?t=1774476368129:39:23)
+    at http://localhost:3000/src/auth/pages/createAuthRequiredPage.jsx?t=1774472604592:12:43
+    at RenderedRoute (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=f36cd17d:4087:5)
+    at Outlet (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=f36cd17d:4493:26)
+    at div
+    at div
+    at App (http://localhost:3000/@fs/Users/olgapak/work/cycle-path/app/src/client/App.tsx?t=1774472604592:28:20)
+    at RenderedRoute (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=f36cd17d:4087:5)
+    at RenderErrorBoundary (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=f36cd17d:4047:5)
+    at DataRoutes (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=f36cd17d:5238:5)
+    at Router (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=f36cd17d:4500:15)
+    at RouterProvider (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=f36cd17d:5052:5)
+    at QueryClientProvider (http://localhost:3000/node_modules/.vite/deps/@tanstack_react-query.js?v=f36cd17d:2837:3)
+
+React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary. @ http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:14079
+[ 1495127ms] [ERROR] React Router caught the following error during render ReferenceError: canvas is not defined
+    at http://localhost:3000/@fs/Users/olgapak/work/cycle-path/app/src/cycle-tracking/CycleChartPage.tsx?t=1774476368129:678:5
+    at commitHookEffectListMount (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:16963:34)
+    at commitPassiveMountOnFiber (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:18206:19)
+    at commitPassiveMountEffects_complete (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:18179:17)
+    at commitPassiveMountEffects_begin (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:18169:15)
+    at commitPassiveMountEffects (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:18159:11)
+    at flushPassiveEffectsImpl (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:19543:11)
+    at flushPassiveEffects (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:19500:22)
+    at commitRootImpl (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:19469:13)
+    at commitRoot (http://localhost:3000/node_modules/.vite/deps/chunk-2JXCENCK.js?v=f36cd17d:19330:13) {componentStack: 
+    at CycleChartPage (http://localhost:3000/@fs/…/deps/@tanstack_react-query.js?v=f36cd17d:2837:3)} @ http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=f36cd17d:4073

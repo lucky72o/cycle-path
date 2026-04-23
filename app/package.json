@@ -1,6 +1,7 @@
 {
   "name": "opensaas",
   "type": "module",
+  "workspaces": [".wasp/build/*", ".wasp/out/*"],
   "scripts": {
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "test": "vitest run"

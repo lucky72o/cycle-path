@@ -10,12 +10,12 @@ export default defineConfig({
   trailingSlash: 'always',
   integrations: [
     starlight({
-      title: 'Cycle Monitor',
+      title: 'Cycle Path',
       customCss: ['./src/styles/tailwind.css'],
-      description: 'Documentation for Cycle Monitor.',
+      description: 'Documentation for Cycle Path.',
       logo: {
         src: '/src/assets/logo.webp',
-        alt: 'Cycle Monitor',
+        alt: 'Cycle Path',
       },
       head: [
         // Add your script tags here. Below is an example for Google analytics, etc.
@@ -77,7 +77,7 @@ export default defineConfig({
           authors: {
             Dev: {
               name: 'Dev',
-              title: 'Dev @ Cycle Monitor',
+              title: 'Dev @ Cycle Path',
               picture: '/CRAIG_ROCK.png', // Images in the `public` directory are supported.
               url: 'https://cyclemonitor.com',
             },

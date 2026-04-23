@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  @import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Satoshi', -apple-system, sans-serif;
+    background: #f8fafc;
+    color: #002142;
+    padding: 24px;
+    line-height: 1.5;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+  h2 { font-size: 18px; font-weight: 700; margin-top: 40px; margin-bottom: 4px; color: #002142; }
+  h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; margin-top: 24px; }
+  .subtitle { font-size: 13px; color: #64748b; margin-bottom: 20px; }
+  .section-label { font-size: 11px; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .note { font-size: 12px; color: #64748b; margin-top: 8px; line-height: 1.5; padding: 8px 12px; background: #f1f5f9; border-radius: 6px; }
+  .sensiplan-badge { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 6px; vertical-align: middle; }
+  .sensiplan-core { background: #dbeafe; color: #1d4ed8; }
+  .sensiplan-enhance { background: #fef3c7; color: #92400e; }
+  .divider { border-top: 2px solid #e2e8f0; margin: 40px 0; }
+  .thick-divider { border-top: 4px solid #002142; margin: 48px 0; }
+
+  /* Card base */
+  .prop-card {
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    max-width: 440px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .prop-card-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .prop-card-body { padding: 16px 18px; font-size: 13px; color: #334155; }
+  .prop-card-footer {
+    padding: 12px 18px;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: 'Satoshi', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+  }
+  .btn-confirm { background: #059669; color: white; }
+  .btn-adjust { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+  .btn-reject { background: #fee2e2; color: #dc2626; }
+  .btn-keep { background: #059669; color: white; }
+  .btn-accept-new { background: #8b5cf6; color: white; }
+  .btn-secondary { background: white; color: #64748b; border: 1px solid #e2e8f0; }
+  .btn-save-adjust { background: #d97706; color: white; }
+  .btn-reject-shift { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+  /* Badges */
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+  .badge-high { background: #dbeafe; color: #1d4ed8; }
+  .badge-low { background: #fee2e2; color: #991b1b; }
+
+  /* Info boxes */
+  .info-purple { padding: 12px; background: #faf5ff; border-radius: 6px; border: 1px solid #e9d5ff; }
+  .info-amber { padding: 8px 12px; background: #fffbeb; border-radius: 6px; border: 1px solid #fef3c7; font-size: 11px; color: #92400e; }
+  .info-blue { padding: 10px 14px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe; font-size: 12px; color: #1e40af; }
+  .info-red { padding: 12px; background: #fef2f2; border-radius: 6px; border: 1px solid #fecaca; font-size: 12px; }
+  .info-grey { padding: 10px 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 12px; }
+
+  /* Grid */
+  .detail-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; }
+  .detail-label { color: #64748b; }
+  .detail-value { font-weight: 500; }
+
+  /* Temp rows */
+  .temp-row { display: flex; justify-content: space-between; font-size: 12px; line-height: 1.8; }
+  .temp-clearance { color: #64748b; }
+  .temp-pass { color: #059669; font-weight: 600; }
+  .temp-fail { color: #d97706; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 12px; font-weight: 600; background: #f8fafc; border-bottom: 2px solid #e2e8f0; }
+  td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
+
+  /* Algorithm steps */
+  .algo-step { padding: 10px 14px; background: white; border-left: 3px solid #8b5cf6; margin-bottom: 8px; border-radius: 0 6px 6px 0; font-size: 13px; }
+  .algo-step strong { color: #7c3aed; }
+</style>
+</head>
+<body>
+
+<h1>CyclePath — Sensiplan Thermal Shift Engine</h1>
+<p class="subtitle">Complete design mockup — all decisions consolidated</p>
+<div style="display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap;">
+  <span class="sensiplan-badge sensiplan-core">Sensiplan Core</span> <span style="font-size: 11px; color: #64748b;">= follows official Sensiplan guidelines</span>
+  <span style="margin-left: 12px;"></span>
+  <span class="sensiplan-badge sensiplan-enhance">CyclePath Enhancement</span> <span style="font-size: 11px; color: #64748b;">= our addition, clearly labeled</span>
+</div>
+
+<!-- ================================================================ -->
+<div class="thick-divider"></div>
+<h2>1. Core Algorithm — Sequential Thermal Shift Detection <span class="sensiplan-badge sensiplan-core">Sensiplan Core</span></h2>
+<!-- ================================================================ -->
+
+<p style="font-size: 13px; color: #475569; margin: 12px 0;">The engine scans forward through cycle days, one at a time. It finds the <strong>first valid</strong> thermal shift and stops.</p>
+
+<div class="algo-step"><strong>Step 1:</strong> For each day D, collect the 6 valid (non-excluded) temperatures immediately before D. Skip excluded days, reach back further to fill 6. If fewer than 6 valid temps exist → skip, can't evaluate.</div>
+<div class="algo-step"><strong>Step 2:</strong> Calculate <strong>coverline = highest of those 6</strong> valid temps (in °C, full precision).</div>
+<div class="algo-step"><strong>Step 3:</strong> Is D's temp above the coverline? No → move to next day. Yes → D is a potential first higher temperature.</div>
+<div class="algo-step"><strong>Step 4:</strong> Check the next 2 valid temps after D (skip excluded days):
+  <br>• 2nd higher temp: must be above coverline
+  <br>• 3rd higher temp: must be <strong>≥ coverline + 0.2°C</strong></div>
+<div class="algo-step"><strong>Step 5 (4th-day exception):</strong> If 3rd is above coverline but doesn't clear +0.2°C → check 4th valid temp. 4th only needs to be above coverline (NOT +0.2°C). If yes → shift confirmed.</div>
+<div class="algo-step"><strong>Step 6:</strong> If any temp drops below coverline during confirmation → attempt <strong>FAILED</strong>. Record as failed attempt. Resume scanning from the day after the failure.</div>
+<div class="algo-step"><strong>Step 7:</strong> If all conditions met → <strong>SHIFT CONFIRMED. Stop scanning.</strong></div>
+
+<div class="note" style="margin-top: 12px;">
+  <strong>Temperature handling:</strong> All temps stored in Fahrenheit, converted to Celsius (full precision, no rounding) for evaluation. The 0.2°C threshold is the exact Sensiplan value. Display converts back to user's preferred unit.
+</div>
+
+<!-- ================================================================ -->
+<div class="thick-divider"></div>
+<h2>2. Excluded Day Handling <span class="sensiplan-badge sensiplan-core">Sensiplan Core</span></h2>
+<!-- ================================================================ -->
+
+<table style="margin-top: 12px;">
+  <thead>
+    <tr><th>Scenario</th><th>Engine Behavior</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="font-weight: 500;">1-2 excluded in reference 6</td>
+      <td>Skip and reach back to fill 6 valid temps. Standard evaluation — fully trusted by Sensiplan.</td>
+    </tr>
+    <tr>
+      <td style="font-weight: 500;">Excluded day is the highest of 6</td>
+      <td>A disturbed temperature is not taken into account at all — it is not one of the 6 reference temps. Engine reaches back one more valid, non-disturbed day to complete the 6 reference lows. <strong>Example:</strong> Days 9-14 are candidates but Day 11 (36.5°C) is disturbed → skipped entirely. Engine uses Day 8 instead: Days 8 (36.1), 9 (36.2), 10 (36.3), 12 (36.2), 13 (36.3), 14 (36.3). Highest valid = 36.3°C → coverline = 36.3°C.</td>
+    </tr>
+    <tr>
+      <td style="font-weight: 500;">Excluded day right before rise</td>
+      <td>Skip it. 6th valid low is one day earlier. Rise starts at first temp above new coverline.</td>
+    </tr>
+    <tr>
+      <td style="font-weight: 500;">3+ excluded in reference window</td>
+      <td>Engine can still evaluate (reach back further), but flags as <strong>Low confidence</strong>. No official Sensiplan limit exists, but data is sparse.</td>
+    </tr>
+    <tr>
+      <td style="font-weight: 500;">Excluded day in the 3 highs</td>
+      <td>Skip it. Extend — need additional valid temps to complete the count. E.g., if Day 16 excluded: Day 15 = 1st, Day 17 = 2nd, Day 18 = 3rd.</td>
+    </tr>
+    <tr>
+      <td style="font-weight: 500;">Fewer than 6 valid temps available</td>
+      <td>Cannot evaluate. No proposition generated.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ================================================================ -->
+<div class="thick-divider"></div>
+<h2>3. Confidence Levels <span class="sensiplan-badge sensiplan-enhance">CyclePath Enhancement</span></h2>
+<!-- ================================================================ -->
+
+<p style="font-size: 13px; color: #475569; margin: 12px 0 6px;">Confidence reflects <strong>data quality</strong>, not whether Sensiplan rules were met — they were. Sensiplan evaluation is binary (meets rules or doesn't). This layer is a CyclePath addition to help users assess how clean their data was.</p>
+
+<table style="margin-top: 8px;">
+  <thead>
+    <tr><th>Level</th><th>Criteria</th><th>Badge</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="font-weight: 500;">High</td>
+      <td>0-2 excluded days in reference 6. With or without 4th-day exception. Sensiplan treats all of these as standard, valid evaluation.</td>
+      <td><span class="badge badge-high">High confidence</span></td>
+    </tr>
+    <tr>
+      <td style="font-weight: 500;">Low</td>
+      <td>3+ excluded days in reference window. While Sensiplan does not set a specific limit, reaching far back for reference temps may reduce their relevance to the current cycle.</td>
+      <td><span class="badge badge-low">Low confidence</span></td>
+    </tr>
+    <tr>
+      <td style="font-weight: 500;">Cannot evaluate</td>
+      <td>Fewer than 6 valid temps available before the potential shift. Engine cannot apply the rule.</td>
+      <td style="color: #94a3b8; font-size: 12px; font-style: italic;">No card shown</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ================================================================ -->
+<div class="thick-divider"></div>
+<h2>4. Interpretation States & User Actions</h2>
+<!-- ================================================================ -->
+
+<table style="margin-top: 12px;">
+  <thead>
+    <tr><th>State</th><th>Meaning</th><th>Available Actions</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="font-weight: 500;">SUGGESTED (pending)</td>
+      <td>Engine found a potential shift but needs more confirming temps</td>
+      <td>Reject This Pattern</td>
+    </tr>
+    <tr>
+      <td style="font-weight: 500;">SUGGESTED (confirmed)</td>
+      <td>Engine fully confirmed a shift, awaiting user decision</td>
+      <td>Confirm · Adjust · Reject</td>
+    </tr>
+    <tr>
+      <td style="font-weight: 500;">CONFIRMED</td>
+      <td>User accepted the engine's interpretation</td>
+      <td>Adjust · Reject</td>
+    </tr>
+    <tr>
+      <td style="font-weight: 500;">ADJUSTED</td>
+      <td>User modified the shift day and/or coverline</td>
+      <td>Adjust (re-adjust) · Reject</td>
+    </tr>
+    <tr>
+      <td style="font-weight: 500;">DISMISSED</td>
+      <td>User rejected the interpretation</td>
+      <td>(Engine may re-suggest if data changes produce a materially different result)</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ================================================================ -->
+<div class="thick-divider"></div>
+<h2>5. Re-evaluation & Needs Review <span class="sensiplan-badge sensiplan-enhance">CyclePath Enhancement</span></h2>
+<!-- ================================================================ -->
+
+<p style="font-size: 13px; color: #475569; margin: 12px 0;">The engine re-evaluates every time data changes. It never silently overrides a user decision.</p>
+
+<h3>When engine result changes:</h3>
+<table style="margin-top: 8px;">
+  <thead>
+    <tr><th>Current State</th><th>Behavior</th></tr>
+  </thead>
+  <tbody>
+    <tr><td style="font-weight: 500;">SUGGESTED</td><td>Auto-update the suggestion. Show change notice: "Updated — you changed Day X, engine recalculated."</td></tr>
+    <tr><td style="font-weight: 500;">CONFIRMED / ADJUSTED</td><td>Set <strong>needsReview = true</strong>. Show "Interpretation Needs Review" card with reason.</td></tr>
+    <tr><td style="font-weight: 500;">DISMISSED</td><td>If new result is materially different (different shift day) → create new SUGGESTED. If same shift → stay quiet.</td></tr>
+  </tbody>
+</table>
+
+<h3 style="margin-top: 20px;">Needs Review triggers (only these two):</h3>
+<div style="display: flex; gap: 12px; margin-top: 8px;">
+  <div style="flex: 1; padding: 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+    <div style="font-weight: 600; font-size: 13px; margin-bottom: 6px;">Scenario A: False Rise <span class="sensiplan-badge sensiplan-enhance">Enhancement</span></div>
+    <div style="font-size: 12px; color: #475569; line-height: 1.6;">
+      3+ consecutive unexplained post-shift temps below coverline. Engine nudges about disturbances first. Only warns if dips remain unexplained.
+    </div>
+  </div>
+  <div style="flex: 1; padding: 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+    <div style="font-weight: 600; font-size: 13px; margin-bottom: 6px;">Scenario B: Retroactive Data Edit</div>
+    <div style="font-size: 12px; color: #475569; line-height: 1.6;">
+      User changes a temp reading, marks/unmarks a disturbance, adds/removes a day that affects the engine's inputs. Engine re-evaluates and flags conflict.
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<div class="thick-divider"></div>
+<h2>6. Nudges — Data Quality Prompts <span class="sensiplan-badge sensiplan-enhance">CyclePath Enhancement</span></h2>
+<!-- ================================================================ -->
+
+<p style="font-size: 13px; color: #475569; margin: 12px 0;">A 💬 icon appears above the temp node on the chart. User clicks to reveal the full nudge. Nudges persist until the user acts.</p>
+
+<h3>Pre-shift nudge: Suspicious outlier in low phase</h3>
+<div style="font-size: 12px; color: #475569; margin: 6px 0 12px;">Fires when a temp is ≥ 0.2°C above its neighbors. Timing check enriches the message but doesn't gate whether the nudge fires.</div>
+
+<div style="display: flex; gap: 20px; align-items: start;">
+  <div style="flex: 0 0 120px;">
+    <div style="font-size: 11px; color: #64748b; margin-bottom: 6px; font-weight: 500;">On chart:</div>
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; position: relative; height: 90px;">
+      <div style="position: absolute; left: 50%; top: 55%; transform: translate(-50%, -50%); width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; border: 2px solid white; box-shadow: 0 0 0 1px #3b82f6;"></div>
+      <div style="position: absolute; left: 50%; top: 28%; transform: translate(-50%, -50%); font-size: 14px; cursor: pointer;">💬</div>
+      <div style="position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); font-size: 10px; color: #64748b;">9</div>
+    </div>
+  </div>
+  <div style="flex: 1;">
+    <div style="font-size: 11px; color: #64748b; margin-bottom: 6px; font-weight: 500;">After tapping 💬:</div>
+    <div style="padding: 14px; background: #fffbeb; border-radius: 8px; border: 1px solid #fef3c7;">
+      <div style="display: flex; align-items: start; gap: 8px;">
+        <span style="font-size: 14px; line-height: 1;">💬</span>
+        <div>
+          <div style="font-weight: 600; color: #92400e; font-size: 13px; margin-bottom: 6px;">Day 9 — Temperature Check</div>
+          <div style="color: #78350f; font-size: 12px; line-height: 1.6;">
+            This temperature (36.7°C) is noticeably higher than surrounding days and was taken outside your usual time window (recorded 9:15 AM, usual ~7:00 AM).
+            <br><br>Was it affected by a disturbance?
+          </div>
+          <div style="display: flex; gap: 12px; margin-top: 12px;">
+            <button class="btn btn-secondary" style="font-size: 11px; padding: 5px 10px;">Yes, disturbed</button>
+            <button class="btn btn-secondary" style="font-size: 11px; padding: 5px 10px;">No, correct</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>Post-shift nudge: Below coverline</h3>
+<div style="font-size: 12px; color: #475569; margin: 6px 0 12px;">Fires when any post-shift temp is below coverline without disturbance factors.</div>
+
+<div style="max-width: 440px;">
+  <div style="padding: 14px; background: #fef2f2; border-radius: 8px; border: 1px solid #fecaca;">
+    <div style="display: flex; align-items: start; gap: 8px;">
+      <span style="font-size: 14px; line-height: 1;">💬</span>
+      <div>
+        <div style="font-weight: 600; color: #991b1b; font-size: 13px; margin-bottom: 6px;">Day 20 — Below Coverline</div>
+        <div style="color: #7f1d1d; font-size: 12px; line-height: 1.6;">
+          This temperature (36.3°C) dropped below your coverline (36.4°C) with no disturbance recorded.
+          <br><br>Was it affected by a disturbance?
+        </div>
+        <div style="display: flex; gap: 12px; margin-top: 12px;">
+          <button class="btn btn-secondary" style="font-size: 11px; padding: 5px 10px;">Yes, disturbed</button>
+          <button class="btn btn-secondary" style="font-size: 11px; padding: 5px 10px;">No, correct</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>Measurement time window <span class="sensiplan-badge sensiplan-enhance">Enhancement</span></h3>
+<div style="font-size: 12px; color: #475569; margin: 6px 0; line-height: 1.6;">
+  Calculated <strong>per cycle</strong> (not globally across cycles) to handle travel/timezone changes. Mean ± 1 hour from that cycle's recorded times. Requires 5+ data points before establishing a window. Travel events (with <code>travelTimeDiff</code>) segment the cycle — separate means for pre/post travel.
+</div>
+
+<table style="margin-top: 8px; max-width: 600px;">
+  <thead><tr><th>Spike ≥ 0.2°C above neighbors?</th><th>Within normal time?</th><th>Action</th></tr></thead>
+  <tbody>
+    <tr><td>Yes</td><td>Yes</td><td>Nudge (temp spike is unusual regardless of timing)</td></tr>
+    <tr><td>Yes</td><td>No</td><td>Nudge + mention timing: "taken outside your usual time window"</td></tr>
+    <tr><td>No</td><td>Any</td><td>No nudge</td></tr>
+  </tbody>
+</table>
+
+<!-- ================================================================ -->
+<div class="thick-divider"></div>
+<h2>7. Post-Shift Monitoring <span class="sensiplan-badge sensiplan-enhance">CyclePath Enhancement</span></h2>
+<!-- ================================================================ -->
+
+<p style="font-size: 13px; color: #475569; margin: 12px 0;">Active from shift confirmation until cycle ends. Sensiplan doesn't monitor post-confirmation — this is our safety net.</p>
+
+<div class="algo-step"><strong>1.</strong> Post-shift temp below coverline? → Check if disturbance factors are marked.</div>
+<div class="algo-step"><strong>2.</strong> Disturbance marked? → <strong>Explained dip.</strong> Don't count toward warning threshold.</div>
+<div class="algo-step"><strong>3.</strong> No disturbance? → Nudge: "Was this disturbed?" Wait for response.</div>
+<div class="algo-step"><strong>4.</strong> User says "No, correct" or ignores nudge → count as <strong>unexplained dip</strong>.</div>
+<div class="algo-step"><strong>5.</strong> A disturbed day between two unexplained dips <strong>breaks the chain</strong> — resets consecutive count.</div>
+<div class="algo-step"><strong>6.</strong> 2+ consecutive unexplained dips → <strong>trigger false rise warning.</strong></div>
+
+<h3>False Rise Warning</h3>
+<div style="max-width: 440px; margin-top: 8px; padding: 16px; background: #fef2f2; border-radius: 8px; border: 2px solid #fecaca;">
+  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+    <span style="font-size: 16px;">⚠️</span>
+    <span style="font-weight: 600; color: #991b1b; font-size: 14px;">Possible False Rise</span>
+  </div>
+  <div style="color: #7f1d1d; font-size: 12px; line-height: 1.6; margin-bottom: 12px;">
+    Temperatures on Days 20–21 fell below the coverline without recorded disturbances. This may indicate the thermal shift on Day 15 was a false rise. Consider rejecting this shift and waiting for a new pattern.
+  </div>
+  <div style="padding: 8px 10px; background: #fff1f2; border-radius: 4px; font-size: 11px; color: #9f1239; margin-bottom: 12px; font-style: italic;">
+    Note: This is a CyclePath safety feature, not a standard Sensiplan rule.
+  </div>
+  <div style="display: flex; gap: 12px;">
+    <button class="btn btn-reject-shift">Reject Shift</button>
+    <button class="btn btn-secondary">Keep Shift</button>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<div class="thick-divider"></div>
+<h2>8. Chart Overlays</h2>
+<!-- ================================================================ -->
+
+<h3>8A. Coverline Styles by State</h3>
+<div style="display: flex; flex-direction: column; gap: 16px; margin-top: 12px; max-width: 600px;">
+
+  <!-- SUGGESTED -->
+  <div>
+    <div class="section-label" style="color: #8b5cf6;">Suggested</div>
+    <div style="position: relative; height: 70px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+      <div style="position:absolute; left:10%; top:58%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:20%; top:55%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:30%; top:60%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:40%; top:53%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:55%; top:28%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:65%; top:23%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:75%; top:18%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:0; right:0; top:48%; border-top: 2px dashed #8b5cf6; opacity: 0.6;"></div>
+      <div style="position:absolute; right:8px; top:calc(48% - 16px); font-size:10px; color:#8b5cf6; opacity:0.7; font-weight:500;">36.4°C</div>
+    </div>
+    <div style="font-size: 11px; color: #64748b; margin-top: 3px;">Dashed purple, muted opacity</div>
+  </div>
+
+  <!-- CONFIRMED -->
+  <div>
+    <div class="section-label" style="color: #059669;">Confirmed</div>
+    <div style="position: relative; height: 70px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+      <div style="position:absolute; left:10%; top:58%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:20%; top:55%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:30%; top:60%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:40%; top:53%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:55%; top:28%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:65%; top:23%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:75%; top:18%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:0; right:0; top:48%; border-top: 2px solid #059669;"></div>
+      <div style="position:absolute; right:8px; top:calc(48% - 16px); font-size:10px; color:#059669; font-weight:600;">36.4°C</div>
+    </div>
+    <div style="font-size: 11px; color: #64748b; margin-top: 3px;">Solid green — user-approved</div>
+  </div>
+
+  <!-- ADJUSTED -->
+  <div>
+    <div class="section-label" style="color: #d97706;">Adjusted</div>
+    <div style="position: relative; height: 70px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+      <div style="position:absolute; left:10%; top:58%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:20%; top:55%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:30%; top:60%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:40%; top:53%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:55%; top:28%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:65%; top:23%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:75%; top:18%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:0; right:0; top:44%; border-top: 2px solid #d97706;"></div>
+      <div style="position:absolute; right:8px; top:calc(44% - 16px); font-size:10px; color:#d97706; font-weight:600;">36.5°C ← yours</div>
+      <div style="position:absolute; left:0; right:0; top:48%; border-top: 1px dashed #d4d4d8;"></div>
+      <div style="position:absolute; right:8px; top:calc(48% + 3px); font-size:9px; color:#a1a1aa;">engine: 36.4°C</div>
+    </div>
+    <div style="font-size: 11px; color: #64748b; margin-top: 3px;">Solid amber at user's value. Ghost dashed grey for engine's original.</div>
+  </div>
+
+  <!-- NEEDS REVIEW -->
+  <div>
+    <div class="section-label" style="color: #dc2626;">Needs Review</div>
+    <div style="position: relative; height: 70px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+      <div style="position:absolute; left:10%; top:58%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:20%; top:55%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:30%; top:60%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:40%; top:53%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:55%; top:28%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:65%; top:23%; width:6px; height:6px; border-radius:50%; background:#3b82f6; border:2px solid white; box-shadow:0 0 0 1px #3b82f6;"></div>
+      <div style="position:absolute; left:0; right:0; top:48%; border-top: 2px solid #dc2626;"></div>
+      <div style="position:absolute; right:8px; top:calc(48% - 16px); font-size:10px; color:#dc2626; font-weight:600;">36.4°C ⚠️</div>
+    </div>
+    <div style="font-size: 11px; color: #64748b; margin-top: 3px;">Solid red with warning — user's confirmed value, flagged for attention</div>
+  </div>
+</div>
+
+<h3>8B. Day Column Highlights</h3>
+<div style="margin-top: 8px;">
+  <div style="display: flex; font-size: 12px; gap: 0;">
+    <div style="width:36px; text-align:center; padding: 6px 0; background: white; border: 1px solid #e2e8f0;"><div style="color: #64748b; font-size: 10px;">8</div></div>
+    <div style="width:36px; text-align:center; padding: 6px 0; background: #eff6ff; border: 1px solid #bfdbfe;"><div style="color: #3b82f6; font-size: 10px; font-weight: 600;">9</div></div>
+    <div style="width:36px; text-align:center; padding: 6px 0; background: #eff6ff; border: 1px solid #bfdbfe;"><div style="color: #3b82f6; font-size: 10px; font-weight: 600;">10</div></div>
+    <div style="width:36px; text-align:center; padding: 6px 0; background: #eff6ff; border: 1px solid #bfdbfe;"><div style="color: #3b82f6; font-size: 10px; font-weight: 600;">11</div></div>
+    <div style="width:36px; text-align:center; padding: 6px 0; background: #eff6ff; border: 1px solid #bfdbfe;"><div style="color: #3b82f6; font-size: 10px; font-weight: 600;">12</div></div>
+    <div style="width:36px; text-align:center; padding: 6px 0; background: #eff6ff; border: 1px solid #bfdbfe;"><div style="color: #3b82f6; font-size: 10px; font-weight: 600;">13</div></div>
+    <div style="width:36px; text-align:center; padding: 6px 0; background: #eff6ff; border: 1px solid #bfdbfe;"><div style="color: #3b82f6; font-size: 10px; font-weight: 600;">14</div></div>
+    <div style="width:4px; background: #8b5cf6;"></div>
+    <div style="width:36px; text-align:center; padding: 6px 0; background: #f5f3ff; border: 1px solid #c4b5fd;"><div style="color: #7c3aed; font-size: 10px; font-weight: 600;">15</div></div>
+    <div style="width:36px; text-align:center; padding: 6px 0; background: #f5f3ff; border: 1px solid #c4b5fd;"><div style="color: #7c3aed; font-size: 10px; font-weight: 600;">16</div></div>
+    <div style="width:36px; text-align:center; padding: 6px 0; background: #f5f3ff; border: 1px solid #c4b5fd;"><div style="color: #7c3aed; font-size: 10px; font-weight: 600;">17</div></div>
+    <div style="width:36px; text-align:center; padding: 6px 0; background: white; border: 1px solid #e2e8f0;"><div style="color: #64748b; font-size: 10px;">18</div></div>
+  </div>
+  <div style="margin-top: 8px; display: flex; gap: 16px; font-size: 11px;">
+    <div style="display:flex; align-items:center; gap:4px;"><div style="width:12px; height:12px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:2px;"></div> Reference 6 (low phase)</div>
+    <div style="display:flex; align-items:center; gap:4px;"><div style="width:4px; height:12px; background:#8b5cf6; border-radius:1px;"></div> Shift point</div>
+    <div style="display:flex; align-items:center; gap:4px;"><div style="width:12px; height:12px; background:#f5f3ff; border:1px solid #c4b5fd; border-radius:2px;"></div> Confirming temps</div>
+  </div>
+</div>
+
+<h3>8C. Color System</h3>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; font-size: 12px; max-width: 500px;">
+  <div style="display:flex; align-items:center; gap:8px;"><div style="width:28px; border-top: 2px dashed #8b5cf6; opacity:0.6;"></div> Suggested — dashed purple</div>
+  <div style="display:flex; align-items:center; gap:8px;"><div style="width:28px; border-top: 2px solid #059669;"></div> Confirmed — solid green</div>
+  <div style="display:flex; align-items:center; gap:8px;"><div style="width:28px; border-top: 2px solid #d97706;"></div> Adjusted — solid amber</div>
+  <div style="display:flex; align-items:center; gap:8px;"><div style="width:28px; border-top: 2px solid #dc2626;"></div> Needs Review — solid red</div>
+  <div style="display:flex; align-items:center; gap:8px;"><div style="width:12px; height:12px; background:#3b82f6; border-radius:2px;"></div> Temp line — existing blue</div>
+  <div style="display:flex; align-items:center; gap:8px;"><div style="width:12px; height:12px; background:#4caf50; opacity:0.35; border-radius:2px;"></div> Fertile window — existing green</div>
+</div>
+
+<!-- ================================================================ -->
+<div class="thick-divider"></div>
+<h2>9. Proposition Cards</h2>
+<!-- ================================================================ -->
+
+<!-- PENDING -->
+<h3>9A. Pending (awaiting more data)</h3>
+<div class="prop-card" style="margin-top: 8px;">
+  <div class="prop-card-header">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="width: 8px; height: 8px; border-radius: 50%; background: #8b5cf6;"></div>
+      <span style="font-weight: 600; font-size: 14px;">Potential Thermal Shift Forming</span>
+    </div>
+  </div>
+  <div class="prop-card-body" style="line-height: 1.7;">
+    <div class="detail-grid">
+      <span class="detail-label">Possible shift day:</span>
+      <span class="detail-value">Day 15</span>
+      <span class="detail-label">Coverline:</span>
+      <span class="detail-value">36.4°C</span>
+      <span class="detail-label">Reference temps:</span>
+      <span class="detail-value">Days 9–14 (6 valid)</span>
+      <span class="detail-label">Status:</span>
+      <span class="detail-value"><span style="color: #8b5cf6;">2 of 3</span> confirming temps recorded</span>
+    </div>
+    <div style="margin-top: 12px; padding: 10px 12px; background: #f8fafc; border-radius: 6px; font-size: 12px; color: #64748b;">
+      Awaiting 1 more elevated temperature to confirm. Keep recording.
+    </div>
+  </div>
+  <div class="prop-card-footer">
+    <button class="btn btn-secondary" style="border-color: #d1d5db; color: #6b7280;">Keep Watching</button>
+    <button class="btn btn-adjust">Adjust</button>
+    <button class="btn btn-reject">Reject This Pattern</button>
+  </div>
+</div>
+
+<!-- CONFIRMED BY ENGINE -->
+<h3>9B. Confirmed by Engine — High Confidence</h3>
+<div class="prop-card" style="margin-top: 8px;">
+  <div class="prop-card-header">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="width: 8px; height: 8px; border-radius: 50%; background: #8b5cf6;"></div>
+      <span style="font-weight: 600; font-size: 14px;">Thermal Shift Detected</span>
+      <span class="badge badge-high">High confidence</span>
+    </div>
+  </div>
+  <div class="prop-card-body" style="line-height: 1.7;">
+    <div class="detail-grid">
+      <span class="detail-label">Shift day:</span>
+      <span class="detail-value">Day 15 <span style="color:#64748b; font-size:11px;">(first higher temp)</span></span>
+      <span class="detail-label">Coverline:</span>
+      <span class="detail-value">36.4°C</span>
+      <span class="detail-label">Reference temps:</span>
+      <span class="detail-value">Days 9–14 (6 valid, none skipped)</span>
+    </div>
+    <div class="info-purple" style="margin-top: 14px;">
+      <div style="font-size: 12px; font-weight: 600; color: #7c3aed; margin-bottom: 6px;">Confirming temperatures:</div>
+      <div class="temp-row"><span>Day 15: 36.55°C</span><span class="temp-clearance">+0.15°C above coverline</span></div>
+      <div class="temp-row"><span>Day 16: 36.60°C</span><span class="temp-clearance">+0.20°C above coverline</span></div>
+      <div class="temp-row"><span>Day 17: 36.70°C</span><span class="temp-pass">+0.30°C ✓ clears +0.2°C</span></div>
+    </div>
+    <div style="margin-top: 8px; font-size: 11px; color: #94a3b8; font-style: italic;">Confidence reflects data quality (CyclePath enhancement), not whether Sensiplan rules were met — they were.</div>
+  </div>
+  <div class="prop-card-footer">
+    <button class="btn btn-confirm">Confirm</button>
+    <button class="btn btn-adjust">Adjust</button>
+    <button class="btn btn-reject">Reject</button>
+  </div>
+</div>
+
+<!-- 4TH DAY EXCEPTION -->
+<h3>9C. 4th-Day Exception (still High confidence)</h3>
+<div class="prop-card" style="margin-top: 8px;">
+  <div class="prop-card-header">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="width: 8px; height: 8px; border-radius: 50%; background: #8b5cf6;"></div>
+      <span style="font-weight: 600; font-size: 14px;">Thermal Shift Detected</span>
+      <span class="badge badge-high">High confidence</span>
+    </div>
+  </div>
+  <div class="prop-card-body" style="line-height: 1.7;">
+    <div class="detail-grid">
+      <span class="detail-label">Shift day:</span><span class="detail-value">Day 15</span>
+      <span class="detail-label">Coverline:</span><span class="detail-value">36.4°C</span>
+      <span class="detail-label">Reference temps:</span><span class="detail-value">Days 9–14 (6 valid, none skipped)</span>
+    </div>
+    <div class="info-purple" style="margin-top: 14px;">
+      <div style="font-size: 12px; font-weight: 600; color: #7c3aed; margin-bottom: 6px;">Confirming temperatures:</div>
+      <div class="temp-row"><span>Day 15: 36.55°C</span><span class="temp-clearance">+0.15°C</span></div>
+      <div class="temp-row"><span>Day 16: 36.50°C</span><span class="temp-clearance">+0.10°C</span></div>
+      <div class="temp-row"><span>Day 17: 36.58°C</span><span class="temp-fail">+0.18°C — below +0.2°C threshold</span></div>
+      <div class="temp-row" style="padding-top: 4px; border-top: 1px dashed #e9d5ff; margin-top: 4px;"><span>Day 18: 36.52°C</span><span class="temp-pass">+0.12°C ✓ 4th-day confirms</span></div>
+    </div>
+    <div class="info-amber" style="margin-top: 10px;">ℹ️ The 3rd temp didn't reach +0.2°C. A 4th consecutive elevated temp confirms the shift (standard Sensiplan rule).</div>
+  </div>
+  <div class="prop-card-footer">
+    <button class="btn btn-confirm">Confirm</button>
+    <button class="btn btn-adjust">Adjust</button>
+    <button class="btn btn-reject">Reject</button>
+  </div>
+</div>
+
+<!-- NEEDS REVIEW -->
+<h3>9D. Needs Review</h3>
+<div class="prop-card" style="margin-top: 8px; border-color: #fecaca; border-width: 2px;">
+  <div class="prop-card-header" style="background: #fef2f2; border-bottom-color: #fecaca;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 16px;">⚠️</span>
+      <span style="font-weight: 600; font-size: 14px; color: #991b1b;">Interpretation Needs Review</span>
+    </div>
+  </div>
+  <div class="prop-card-body" style="line-height: 1.7;">
+    <div class="info-red" style="margin-bottom: 14px;">
+      <strong style="color: #991b1b;">Reason:</strong> Day 16 was marked as disturbed. This was one of the 3 confirming temperatures. The engine has re-evaluated with the remaining data.
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <div class="info-grey">
+        <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 600;">Your confirmed</div>
+        <div style="font-size: 12px; line-height: 1.6;">Shift: Day 15<br>Coverline: 36.4°C<br>Confirmed by: Days 15, 16, 17</div>
+      </div>
+      <div style="padding: 10px 12px; background: #faf5ff; border-radius: 6px; border: 1px solid #e9d5ff;">
+        <div style="font-size: 11px; color: #7c3aed; margin-bottom: 4px; font-weight: 600;">Engine now suggests</div>
+        <div style="font-size: 12px; line-height: 1.6;">Shift: Day 15<br>Coverline: 36.4°C<br>Confirmed by: Days 15, 17, 18</div>
+      </div>
+    </div>
+  </div>
+  <div class="prop-card-footer" style="background: #fffbfb; border-top-color: #fecaca;">
+    <button class="btn btn-keep">Keep Mine</button>
+    <button class="btn btn-accept-new">Accept New</button>
+    <button class="btn btn-adjust">Adjust</button>
+  </div>
+</div>
+
+<!-- FAILED ATTEMPTS -->
+<h3>9E. Failed Attempts (educational, dismissible)</h3>
+<div class="prop-card" style="margin-top: 8px;">
+  <div style="padding: 12px 18px; display: flex; align-items: center; justify-content: space-between;">
+    <span style="font-size: 12px; color: #64748b;">
+      ▶ 1 earlier pattern was considered and rejected <span style="font-size: 10px; color: #94a3b8;">(educational)</span>
+    </span>
+    <div style="display: flex; gap: 8px; align-items: center;">
+      <span style="font-size: 11px; color: #94a3b8;">expand</span>
+      <span style="font-size: 14px; color: #cbd5e1; cursor: pointer;">✕</span>
+    </div>
+  </div>
+  <div style="padding: 0 18px 14px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+    <div style="font-size: 12px; color: #64748b; margin-bottom: 8px;">▼ Earlier patterns considered:</div>
+    <div class="info-grey" style="line-height: 1.6;">
+      <div style="font-weight: 500; margin-bottom: 4px;">Day 12 — Rejected</div>
+      <div style="color: #64748b;">Coverline would have been 36.3°C (Days 6–11). Temps on Days 14–15 dropped below coverline. Pattern did not sustain.</div>
+    </div>
+    <div style="margin-top: 8px; display: flex; justify-content: flex-end;">
+      <span style="font-size: 11px; color: #94a3b8; cursor: pointer;">✕ Close this section</span>
+    </div>
+  </div>
+</div>
+
+<!-- CHANGE NOTICE -->
+<h3>9F. Change Notice</h3>
+<div style="max-width: 440px; margin-top: 8px;">
+  <div class="info-blue">
+    <div style="display: flex; align-items: start; gap: 8px;">
+      <span style="font-size: 14px; line-height: 1;">ℹ️</span>
+      <div style="line-height: 1.5;">
+        <strong>Updated</strong> — You changed the temperature for Day 12 from 36.3°C to 36.2°C. This affected the reference temperatures, and the engine has recalculated the suggestion.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADJUST FLOW -->
+<h3>9G. Adjust Flow</h3>
+<div class="prop-card" style="margin-top: 8px;">
+  <div class="prop-card-header" style="background: #faf5ff; border-bottom-color: #e9d5ff;">
+    <span style="font-weight: 600; font-size: 14px; color: #7c3aed;">Adjust Interpretation</span>
+  </div>
+  <div class="prop-card-body">
+    <div style="margin-bottom: 16px;">
+      <label style="font-size: 12px; color: #64748b; font-weight: 500; display: block; margin-bottom: 6px;">Shift day</label>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="padding: 8px 12px; border-radius: 6px; border: 2px solid #8b5cf6; background: #faf5ff; font-weight: 500; min-width: 80px;">Day 15</div>
+        <span style="font-size: 11px; color: #64748b;">or tap a day on the chart</span>
+      </div>
+    </div>
+    <div style="margin-bottom: 16px;">
+      <label style="font-size: 12px; color: #64748b; font-weight: 500; display: block; margin-bottom: 6px;">Coverline temperature</label>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="padding: 8px 12px; border-radius: 6px; border: 2px solid #8b5cf6; background: #faf5ff; font-weight: 500; min-width: 80px;">36.4°C</div>
+        <span style="font-size: 11px; color: #64748b;">or drag the line on the chart</span>
+      </div>
+    </div>
+    <details style="margin-bottom: 12px;">
+      <summary style="font-size: 12px; color: #7c3aed; cursor: pointer; font-weight: 500;">▶ View reference & confirming temps</summary>
+      <div style="margin-top: 8px;">
+        <div class="info-grey" style="margin-bottom: 8px;">
+          <div style="font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 4px;">6 preceding low temps (reference):</div>
+          <div style="font-size: 11px; line-height: 1.8; color: #475569;">
+            Day 9: 36.2°C · Day 10: 36.3°C · Day 11: 36.2°C<br>
+            Day 12: 36.3°C · Day 13: 36.4°C · Day 14: 36.3°C<br>
+            <span style="color: #8b5cf6; font-weight: 500;">Highest: Day 13 (36.4°C) → Coverline = 36.4°C</span>
+          </div>
+        </div>
+        <div class="info-grey">
+          <div style="font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 4px;">3 post-shift confirming temps:</div>
+          <div style="font-size: 11px; line-height: 1.8; color: #475569;">
+            Day 15: 36.55°C (+0.15°C) · Day 16: 36.60°C (+0.20°C) · Day 17: 36.70°C (+0.30°C ✓)
+          </div>
+        </div>
+      </div>
+    </details>
+    <details style="margin-bottom: 12px;">
+      <summary style="font-size: 12px; color: #7c3aed; cursor: pointer; font-weight: 500;">▶ How is the coverline calculated? (Sensiplan)</summary>
+      <div style="margin-top: 8px; padding: 12px; background: #faf5ff; border-radius: 6px; border: 1px solid #e9d5ff; font-size: 11px; line-height: 1.7; color: #475569;">
+        <strong>Step 1:</strong> Identify the 6 valid temps immediately before the apparent shift.<br>
+        <strong>Step 2:</strong> Find the highest of those 6.<br>
+        <strong>Step 3:</strong> The coverline is drawn at this highest value.<br>
+        <strong>Step 4:</strong> 3 consecutive temps must be above the coverline, with the 3rd at least +0.2°C above it.<br>
+        <strong>Exception:</strong> If the 3rd doesn't clear +0.2°C, a 4th consecutive temp above the coverline confirms the shift.
+      </div>
+    </details>
+    <div style="padding: 8px 12px; background: #f5f3ff; border-radius: 6px; font-size: 11px; color: #7c3aed; border: 1px solid #e9d5ff;">
+      Engine's suggestion: Day 15, coverline 36.4°C <span style="color:#94a3b8;">(matches your settings)</span>
+    </div>
+  </div>
+  <div class="prop-card-footer" style="background: #faf5ff; border-top-color: #e9d5ff;">
+    <button class="btn btn-save-adjust">Save Adjustment</button>
+    <button class="btn btn-secondary">Cancel</button>
+  </div>
+</div>
+
+<!-- USER-CONFIRMED STATE -->
+<h3>9H. User-Confirmed Interpretation</h3>
+<div class="prop-card" style="margin-top: 8px; border-color: #bbf7d0;">
+  <div class="prop-card-header" style="background: #f0fdf4; border-bottom-color: #bbf7d0;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="width: 8px; height: 8px; border-radius: 50%; background: #059669;"></div>
+      <span style="font-weight: 600; font-size: 14px;">Thermal Shift — Confirmed</span>
+      <span class="badge badge-high">High confidence</span>
+    </div>
+  </div>
+  <div class="prop-card-body" style="line-height: 1.7;">
+    <div class="detail-grid">
+      <span class="detail-label">Shift day:</span>
+      <span class="detail-value">Day 15</span>
+      <span class="detail-label">Coverline:</span>
+      <span class="detail-value">36.4°C</span>
+      <span class="detail-label">Reference temps:</span>
+      <span class="detail-value">Days 9–14 (6 valid, none skipped)</span>
+    </div>
+    <div style="margin-top: 10px; font-size: 11px; color: #059669; font-style: italic;">✓ You confirmed this interpretation</div>
+  </div>
+  <div class="prop-card-footer" style="background: #f0fdf4; border-top-color: #bbf7d0;">
+    <button class="btn btn-adjust">Adjust</button>
+    <button class="btn btn-reject">Reject</button>
+  </div>
+</div>
+
+<!-- USER-ADJUSTED STATE -->
+<h3>9I. User-Adjusted Interpretation</h3>
+<div class="prop-card" style="margin-top: 8px; border-color: #fde68a;">
+  <div class="prop-card-header" style="background: #fffbeb; border-bottom-color: #fde68a;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <div style="width: 8px; height: 8px; border-radius: 50%; background: #d97706;"></div>
+      <span style="font-weight: 600; font-size: 14px;">Thermal Shift — Adjusted</span>
+    </div>
+  </div>
+  <div class="prop-card-body" style="line-height: 1.7;">
+    <div class="detail-grid">
+      <span class="detail-label">Shift day:</span>
+      <span class="detail-value">Day 16 <span style="font-size: 10px; color: #94a3b8;">(engine suggested Day 15)</span></span>
+      <span class="detail-label">Coverline:</span>
+      <span class="detail-value">36.5°C <span style="font-size: 10px; color: #94a3b8;">(engine suggested 36.4°C)</span></span>
+      <span class="detail-label">Reference temps:</span>
+      <span class="detail-value">Days 10–15 (6 valid)</span>
+    </div>
+    <div style="margin-top: 10px; font-size: 11px; color: #d97706; font-style: italic;">✎ You adjusted this interpretation</div>
+  </div>
+  <div class="prop-card-footer" style="background: #fffbeb; border-top-color: #fde68a;">
+    <button class="btn btn-adjust">Adjust</button>
+    <button class="btn btn-reject">Reject</button>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<div class="thick-divider"></div>
+<h2>10. Page Layout</h2>
+<!-- ================================================================ -->
+
+<div style="max-width: 500px; margin-top: 12px;">
+  <div style="display: flex; flex-direction: column; gap: 0;">
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px 8px 0 0; padding: 16px; text-align: center; font-size: 12px; color: #64748b;">
+      <strong>Temperature Chart</strong><br>coverline overlay + 💬 nudge icons above relevant nodes
+    </div>
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; padding: 6px 16px; text-align: center; font-size: 11px; color: #3b82f6; font-weight: 500;">
+      Cycle Day Row (reference/confirming day highlights)
+    </div>
+    <div style="background: #fffbeb; border: 1px solid #fef3c7; padding: 6px 16px; font-size: 11px; color: #92400e;">
+      💬 Expanded nudge messages (when user clicks icon)
+    </div>
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; padding: 6px 16px; font-size: 11px; color: #1e40af;">
+      ℹ️ Change notice (if engine recalculated due to data edit)
+    </div>
+    <div style="background: white; border: 1px solid #e2e8f0; padding: 10px 16px; text-align: center; font-size: 11px; color: #64748b;">
+      Cervical fluid bars · Disturbance row · Intercourse · OPK (existing)
+    </div>
+    <div style="background: #faf5ff; border: 2px solid #e9d5ff; border-radius: 0 0 8px 8px; padding: 10px 16px; text-align: center; font-size: 11px; color: #7c3aed; font-weight: 500;">
+      Proposition Card (thermal shift details + action buttons)
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<div class="thick-divider"></div>
+<h2>11. Data Model</h2>
+<!-- ================================================================ -->
+
+<div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; font-size: 12px; font-family: monospace; line-height: 1.7; max-width: 500px; margin-top: 12px;">
+  <div style="color: #7c3aed; font-weight: 600;">model CycleInterpretation {</div>
+  <div style="padding-left: 16px;">
+    id &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String &nbsp;&nbsp;@id @default(uuid())<br>
+    createdAt &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DateTime @default(now())<br>
+    updatedAt &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DateTime @updatedAt<br>
+    <br>
+    cycle &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Cycle &nbsp;&nbsp;&nbsp;@relation(...)<br>
+    cycleId &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String<br>
+    <br>
+    type &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;InterpretationType<br>
+    state &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;InterpretationState @default(SUGGESTED)<br>
+    <br>
+    engineResult &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Json<br>
+    userOverrides &nbsp;&nbsp;&nbsp;&nbsp;Json?<br>
+    <br>
+    needsReview &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Boolean @default(false)<br>
+    reviewReason &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String?<br>
+    previousEngineResult Json?<br>
+    pendingNudges &nbsp;&nbsp;&nbsp;&nbsp;Json?
+  </div>
+  <div style="color: #7c3aed; font-weight: 600;">}</div>
+  <br>
+  <div style="color: #059669;">enum InterpretationType { THERMAL_SHIFT }</div>
+  <div style="color: #059669;">enum InterpretationState { SUGGESTED CONFIRMED ADJUSTED DISMISSED }</div>
+</div>
+
+</body>
+</html>

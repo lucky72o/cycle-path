@@ -1,0 +1,171 @@
+<h2>When Would 3 Candidates All Be Meaningful?</h2>
+<p class="subtitle">Testing whether cap-at-3 adds value or noise</p>
+
+<div class="section">
+  <h3>Scenario A: Double Staircase — Long Cycle with Two False Starts</h3>
+  <p>Irregular cycle, temps rise twice before the real shift. All three candidates are technically valid 3-over-6 patterns.</p>
+  <div class="mockup">
+    <div class="mockup-header">Cycle Chart — Days 1-38 (long cycle)</div>
+    <div class="mockup-body" style="padding: 20px; font-family: monospace; font-size: 12px; background: #1a1a2e; color: #e0e0e0;">
+      <pre style="color: #e0e0e0; line-height: 1.8; margin: 0;">
+Day:   6    7    8    9   10   11   12   13   14   15   16   17   18   19   20   21   22   23   24   25   26   27   28   29   30
+Temp: 36.2 36.3 36.2 36.1 36.3 36.2 <span style="color:#ffa500;">36.4 36.5 36.4</span> <span style="color:#888;">36.3 36.2</span> 36.3 <span style="color:#c084fc;">36.5 36.5 36.6</span> <span style="color:#888;">36.4 36.3</span> 36.3 <span style="color:#ff6b6b;">36.6 36.7 36.8</span> 36.7 36.8 36.7 36.8
+                                     <span style="color:#ffa500;">─────────────</span> <span style="color:#888;">drops</span>        <span style="color:#c084fc;">─────────────────</span> <span style="color:#888;">drops</span>        <span style="color:#ff6b6b;">─────────────────</span> stays elevated ✓
+                                     <span style="color:#ffa500;">1st false start</span>              <span style="color:#c084fc;">2nd false start</span>               <span style="color:#ff6b6b;">Real shift</span>
+      </pre>
+      <div style="margin-top: 20px; display: flex; gap: 12px;">
+        <div style="flex:1; padding: 12px; background: rgba(255,165,0,0.12); border-radius: 8px; border: 1px solid rgba(255,165,0,0.3);">
+          <div style="color: #ffa500; font-weight: bold; font-size: 13px;">Candidate 1 — Day 12</div>
+          <div style="font-size: 11px; margin-top: 6px; line-height: 1.6;">
+            Coverline: 36.3°C<br>
+            Clearance: +0.2°C (barely)<br>
+            Post-shift: drops on Days 15-16 &#10060;<br>
+            <strong>Confidence: Low</strong> — suppressed by filter
+          </div>
+        </div>
+        <div style="flex:1; padding: 12px; background: rgba(192,132,252,0.12); border-radius: 8px; border: 1px solid rgba(192,132,252,0.3);">
+          <div style="color: #c084fc; font-weight: bold; font-size: 13px;">Candidate 2 — Day 18</div>
+          <div style="font-size: 11px; margin-top: 6px; line-height: 1.6;">
+            Coverline: 36.3°C<br>
+            Clearance: +0.3°C<br>
+            Post-shift: drops on Days 21-22 &#10060;<br>
+            <strong>Confidence: Low-Moderate</strong> — borderline
+          </div>
+        </div>
+        <div style="flex:1; padding: 12px; background: rgba(255,107,107,0.12); border-radius: 8px; border: 1px solid rgba(255,107,107,0.3);">
+          <div style="color: #ff6b6b; font-weight: bold; font-size: 13px;">Candidate 3 — Day 24 &#11088;</div>
+          <div style="font-size: 11px; margin-top: 6px; line-height: 1.6;">
+            Coverline: 36.3°C<br>
+            Clearance: +0.5°C (strong)<br>
+            Post-shift: stable &#9989;<br>
+            <strong>Confidence: High</strong>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 16px; padding: 12px; background: rgba(255,215,0,0.1); border-radius: 8px; font-size: 12px; border: 1px solid rgba(255,215,0,0.2);">
+        <strong style="color: #ffd700;">With low-confidence suppression:</strong> Candidate 1 is filtered out (post-shift failure). Candidate 2 is borderline — does it add value?<br><br>
+        <strong>Showing 2 (primary + 1 runner-up):</strong> "Day 24 (high) — also considered Day 18 (moderate, temps dropped after)"<br>
+        <strong>Showing 3 (all):</strong> Same as above + Day 12 — but Day 12 clearly failed, is this useful?
+      </div>
+    </div>
+  </div>
+  <div style="margin-top: 12px; padding: 12px; background: rgba(74,158,255,0.1); border-radius: 8px; font-size: 13px;">
+    <strong>Verdict:</strong> After low-confidence suppression, this scenario likely has only 2 meaningful candidates anyway. The 3rd either fails the filter or adds noise.
+  </div>
+</div>
+
+<div class="section" style="margin-top: 32px;">
+  <h3>Scenario B: Multiple Excluded Days Create Genuine Ambiguity</h3>
+  <p>Several disturbed days in the pre-shift phase mean different "windows of 6" produce different coverlines, each leading to a different valid shift point.</p>
+  <div class="mockup">
+    <div class="mockup-header">Cycle Chart — Days 1-30 (multiple exclusions)</div>
+    <div class="mockup-body" style="padding: 20px; font-family: monospace; font-size: 12px; background: #1a1a2e; color: #e0e0e0;">
+      <pre style="color: #e0e0e0; line-height: 1.8; margin: 0;">
+Day:   5    6    7    8    9   10   11   12   13   14   15   16   17   18   19   20   21   22   23
+Temp: 36.2 36.3 <span style="color:#888;">[36.8]</span> 36.2 <span style="color:#888;">[36.7]</span> 36.3 36.4 36.3 36.4 <span style="color:#ff6b6b;">36.6 36.6 36.7</span> 36.6 36.7 36.7 36.8 36.7 36.7 36.8
+                <span style="color:#888;">excl</span>       <span style="color:#888;">excl</span>                         <span style="color:#ff6b6b;">rise begins here</span>
+      </pre>
+      <div style="margin-top: 16px; font-size: 12px; color: #aaa; line-height: 1.8;">
+        Different "6 low" windows produce different interpretations:
+      </div>
+      <div style="margin-top: 12px; display: flex; gap: 12px;">
+        <div style="flex:1; padding: 12px; background: rgba(255,165,0,0.12); border-radius: 8px; border: 1px solid rgba(255,165,0,0.3);">
+          <div style="color: #ffa500; font-weight: bold; font-size: 13px;">Candidate A — Day 14</div>
+          <div style="font-size: 11px; margin-top: 6px; line-height: 1.6;">
+            6 lows: Days 5,6,8,10,11,12 (skip 7,9)<br>
+            Coverline: 36.4°C (Day 11 is highest)<br>
+            3 highs: Days 14,15,16<br>
+            Clearance: +0.3°C &#9989;<br>
+            <strong>Confidence: Moderate</strong> (2 excluded in ref window)
+          </div>
+        </div>
+        <div style="flex:1; padding: 12px; background: rgba(192,132,252,0.12); border-radius: 8px; border: 1px solid rgba(192,132,252,0.3);">
+          <div style="color: #c084fc; font-weight: bold; font-size: 13px;">Candidate B — Day 15</div>
+          <div style="font-size: 11px; margin-top: 6px; line-height: 1.6;">
+            6 lows: Days 6,8,10,11,12,13 (skip 7,9)<br>
+            Coverline: 36.4°C (Days 11,13 tie)<br>
+            3 highs: Days 15,16,17<br>
+            Clearance: +0.3°C &#9989;<br>
+            <strong>Confidence: Moderate</strong> (2 excluded in ref window)
+          </div>
+        </div>
+        <div style="flex:1; padding: 12px; background: rgba(255,107,107,0.12); border-radius: 8px; border: 1px solid rgba(255,107,107,0.3);">
+          <div style="color: #ff6b6b; font-weight: bold; font-size: 13px;">Candidate C — Day 16</div>
+          <div style="font-size: 11px; margin-top: 6px; line-height: 1.6;">
+            6 lows: Days 8,10,11,12,13,14 (skip 9)<br>
+            Coverline: 36.6°C (Day 14 is highest)<br>
+            3 highs: Days 16,17,18<br>
+            Clearance: +0.1°C &#10060; needs 4th day<br>
+            <strong>Confidence: Moderate</strong> (4th-day exception)
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 16px; padding: 12px; background: rgba(255,215,0,0.1); border-radius: 8px; font-size: 12px; border: 1px solid rgba(255,215,0,0.2);">
+        <strong style="color: #ffd700;">This is the real 3-candidate scenario.</strong> All three are valid, all moderate confidence, and they represent genuinely different interpretations of the same data. An experienced Sensiplan user would benefit from seeing all three.<br><br>
+        However — Candidates A and B are only 1 day apart and share the same coverline. Are they really different, or is this splitting hairs?
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 32px;">
+  <h3>Scenario C: The "Adjacent Candidates" Problem</h3>
+  <p>When candidates are 1 day apart with the same coverline, they're essentially the same interpretation shifted by a day. Should these be merged?</p>
+  <div class="mockup">
+    <div class="mockup-header">Merging Adjacent Candidates</div>
+    <div class="mockup-body" style="padding: 20px; font-size: 13px; background: #1a1a2e; color: #e0e0e0;">
+      <div style="display: flex; gap: 20px;">
+        <div style="flex: 1;">
+          <div style="color: #ff6b6b; font-weight: bold; margin-bottom: 12px;">Without Merging (3 candidates)</div>
+          <div style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 6px; font-size: 12px; line-height: 1.8; margin-bottom: 8px;">
+            &#x1F947; Day 14 — Moderate (coverline 36.4°C)
+          </div>
+          <div style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 6px; font-size: 12px; line-height: 1.8; margin-bottom: 8px;">
+            &#x1F948; Day 15 — Moderate (coverline 36.4°C)
+          </div>
+          <div style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 6px; font-size: 12px; line-height: 1.8;">
+            &#x1F949; Day 16 — Moderate (coverline 36.6°C, 4th-day)
+          </div>
+          <div style="margin-top: 8px; color: #888; font-size: 11px;">Days 14 &amp; 15 feel redundant — same coverline, 1 day apart</div>
+        </div>
+        <div style="flex: 1;">
+          <div style="color: #4a9eff; font-weight: bold; margin-bottom: 12px;">With Merging (2 distinct candidates)</div>
+          <div style="padding: 10px; background: rgba(74,158,255,0.1); border-radius: 6px; font-size: 12px; line-height: 1.8; margin-bottom: 8px;">
+            &#x1F947; Day 14-15 range — Moderate<br>
+            <span style="color:#aaa;">(coverline 36.4°C, shift starts Day 14 or 15)</span>
+          </div>
+          <div style="padding: 10px; background: rgba(74,158,255,0.1); border-radius: 6px; font-size: 12px; line-height: 1.8;">
+            &#x1F948; Day 16 — Moderate (different coverline: 36.6°C, 4th-day exception)<br>
+            <span style="color:#aaa;">(fundamentally different interpretation)</span>
+          </div>
+          <div style="margin-top: 8px; color: #4a9eff; font-size: 11px;">Cleaner — groups similar interpretations, highlights real differences</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 32px;">
+  <h3 style="color: #4a9eff;">Proposed Rule: Smart Candidate Display</h3>
+  <div class="mockup">
+    <div class="mockup-header">Display Rules</div>
+    <div class="mockup-body" style="padding: 20px; font-size: 13px; background: #1a1a2e; color: #e0e0e0; line-height: 1.8;">
+      <div style="margin-bottom: 16px;">
+        <strong style="color: #ffd700;">1. Suppress low-confidence candidates</strong><br>
+        <span style="color: #aaa;">If post-shift temps drop below coverline → filter out (mention in reasoning text only)</span>
+      </div>
+      <div style="margin-bottom: 16px;">
+        <strong style="color: #ffd700;">2. Merge adjacent candidates</strong><br>
+        <span style="color: #aaa;">If two candidates are ≤2 days apart AND share the same coverline → merge into a range ("Day 14-15")</span>
+      </div>
+      <div style="margin-bottom: 16px;">
+        <strong style="color: #ffd700;">3. Show up to 3 distinct candidates</strong><br>
+        <span style="color: #aaa;">After suppression + merging, show the top 3. In practice this will almost always be 1-2.</span>
+      </div>
+      <div>
+        <strong style="color: #ffd700;">4. Always explain why</strong><br>
+        <span style="color: #aaa;">Each candidate includes a one-line reason: "strongest clearance", "fewer excluded days", "earlier shift detected"</span>
+      </div>
+    </div>
+  </div>
+</div>
