@@ -13,6 +13,14 @@ import type {
   Nudge,
 } from '../types';
 
+type UseInterpretationArgs = {
+  cycleId: string | undefined;
+  days: CycleDayInput[];
+  cycleIsActive: boolean;
+  markedAnovulatoryAt: Date | null;
+  markedUninterpretableAt: Date | null;
+};
+
 type UseInterpretationReturn = {
   /** The engine's latest evaluation */
   engineResult: InterpretationResult | null;
@@ -34,32 +42,38 @@ type UseInterpretationReturn = {
     resolveReview: (action: 'keep_mine' | 'accept_new' | 'reject') => Promise<void>;
     resolveFalseRise: (action: 'reject_shift' | 'keep_shift') => Promise<void>;
     resolveNudge: (day: number, response: 'yes_disturbed' | 'no_correct') => Promise<void>;
+    reEvaluate: () => Promise<void>;
+    markAnovulatory: () => Promise<void>;
+    markUninterpretable: () => Promise<void>;
+    unmarkClassification: () => Promise<void>;
   };
 };
 
 /**
  * Orchestrates the interpretation engine lifecycle:
- * 1. Runs the engine when cycle data changes
+ * 1. Runs the engine when cycle data changes (unless cycle is marked)
  * 2. Compares with persisted state
  * 3. Handles persistence (create/update/delete)
  * 4. Manages re-evaluation and needsReview
  * 5. Exposes user action handlers
  */
-export function useInterpretation(
-  cycleId: string | undefined,
-  days: CycleDayInput[],
-): UseInterpretationReturn {
+export function useInterpretation(args: UseInterpretationArgs): UseInterpretationReturn {
+  const { cycleId, days, cycleIsActive, markedAnovulatoryAt, markedUninterpretableAt } = args;
+
   const { data: interpretation, isLoading } = useQuery(
     getCycleInterpretation,
     { cycleId: cycleId ?? '', type: 'THERMAL_SHIFT' as const },
     { enabled: !!cycleId }
   );
 
-  // Run engine whenever days change
+  // When a cycle is marked anovulatory or uninterpretable, skip engine + persistence
+  const isMarked = !!markedAnovulatoryAt || !!markedUninterpretableAt;
+
+  // Run engine whenever days change, but not when cycle is marked
   const engineResult = useMemo(() => {
-    if (days.length === 0) return null;
+    if (days.length === 0 || isMarked) return null;
     return runInterpretation(days);
-  }, [days]);
+  }, [days, isMarked]);
 
   // Stable fingerprint of the BBT/exclusion data that affects the engine.
   // Used by upsertCycleInterpretation to detect data changes for DISMISSED
@@ -134,7 +148,7 @@ export function useInterpretation(
   const lastPersistedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!cycleId || !engineResult) return;
+    if (!cycleId || !engineResult || isMarked) return;
 
     // Dedupe key covers the full persisted payload — thermalShift, monitoring,
     // nudges, and data fingerprint — so changes to any of them trigger a write.
@@ -163,7 +177,7 @@ export function useInterpretation(
         console.error('Failed to persist interpretation:', err);
       }
     })();
-  }, [cycleId, engineResult, postShiftMonitoring, dataFingerprint]);
+  }, [cycleId, engineResult, postShiftMonitoring, dataFingerprint, isMarked]);
 
   // Action handlers
   const confirm = useCallback(async () => {
@@ -242,6 +256,34 @@ export function useInterpretation(
     });
   }, [interpretation]);
 
+  const reEvaluate = useCallback(async () => {
+    if (!cycleId) return;
+    const { reEvaluateCycleInterpretation } = await import('wasp/client/operations');
+    await reEvaluateCycleInterpretation({ cycleId, type: 'THERMAL_SHIFT' });
+    lastPersistedRef.current = null;
+  }, [cycleId]);
+
+  const markAnovulatory = useCallback(async () => {
+    if (!cycleId) return;
+    const { markCycleAnovulatory } = await import('wasp/client/operations');
+    await markCycleAnovulatory({ cycleId });
+    lastPersistedRef.current = null;
+  }, [cycleId]);
+
+  const markUninterpretable = useCallback(async () => {
+    if (!cycleId) return;
+    const { markCycleUninterpretable } = await import('wasp/client/operations');
+    await markCycleUninterpretable({ cycleId });
+    lastPersistedRef.current = null;
+  }, [cycleId]);
+
+  const unmarkClassification = useCallback(async () => {
+    if (!cycleId) return;
+    const { unmarkCycleClassification } = await import('wasp/client/operations');
+    await unmarkCycleClassification({ cycleId });
+    lastPersistedRef.current = null;
+  }, [cycleId]);
+
   return {
     engineResult,
     interpretation,
@@ -256,6 +298,10 @@ export function useInterpretation(
       resolveReview: resolveReviewAction,
       resolveFalseRise,
       resolveNudge: resolveNudgeAction,
+      reEvaluate,
+      markAnovulatory,
+      markUninterpretable,
+      unmarkClassification,
     },
   };
 }

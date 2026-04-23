@@ -107,7 +107,13 @@ export default function CycleChartPage() {
     keepWatchingDismissed,
     onKeepWatching,
     actions: interpretationActions,
-  } = useInterpretation(cycleId, cycleDayInputs);
+  } = useInterpretation({
+    cycleId,
+    days: cycleDayInputs,
+    cycleIsActive: cycle?.isActive ?? false,
+    markedAnovulatoryAt: (cycle as any)?.markedAnovulatoryAt ?? null,
+    markedUninterpretableAt: (cycle as any)?.markedUninterpretableAt ?? null,
+  });
 
   // Determine how many days to show on the chart.
   const displayDayRange = useMemo(() => {
