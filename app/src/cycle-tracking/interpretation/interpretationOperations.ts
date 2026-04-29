@@ -360,6 +360,8 @@ export const confirmInterpretation: ConfirmInterpretation<
 
 type AdjustInput = {
   interpretationId: string;
+  // v2: only shiftDay is meaningful. Coverline is derived from raw days.
+  // Backward-compat: clients may still send coverlineTemp; it's silently dropped.
   userOverrides: { shiftDay?: number; coverlineTemp?: number };
 };
 
@@ -371,11 +373,16 @@ export const adjustInterpretation: AdjustInterpretation<
 
   await getOwnedInterpretation(args.interpretationId, context.user.id, context.entities);
 
+  // Strip any stale coverlineTemp; persist only shiftDay.
+  const sanitizedOverrides = args.userOverrides?.shiftDay != null
+    ? { shiftDay: args.userOverrides.shiftDay }
+    : null;
+
   return context.entities.CycleInterpretation.update({
     where: { id: args.interpretationId },
     data: {
       state: 'ADJUSTED',
-      userOverrides: args.userOverrides,
+      userOverrides: sanitizedOverrides ?? Prisma.DbNull,
     },
   });
 };
