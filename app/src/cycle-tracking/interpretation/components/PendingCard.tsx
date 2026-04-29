@@ -1,15 +1,14 @@
 // app/src/cycle-tracking/interpretation/components/PendingCard.tsx
-import type { ThermalShiftPending, UserOverrides } from '../types';
+import type { ThermalShiftPending } from '../types';
 import { card, header, footer, btn } from './cardStyles';
 
 type Props = {
   result: ThermalShiftPending;
   onKeepWatching: () => void;
-  onAdjust: (overrides: UserOverrides) => Promise<void>;
   onReject: () => Promise<void>;
 };
 
-export function PendingCard({ result, onKeepWatching, onAdjust, onReject }: Props) {
+export function PendingCard({ result, onKeepWatching, onReject }: Props) {
   return (
     <div className={`${card.base} ${card.suggested}`}>
       <div className={`${header.base} ${header.suggested}`}>

@@ -130,7 +130,6 @@ export function PropositionCard({
         <PendingCard
           result={thermalShift}
           onKeepWatching={onKeepWatching}
-          onAdjust={actions.adjust}
           onReject={actions.dismiss}
         />
       )}
