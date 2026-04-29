@@ -5,7 +5,6 @@ import { runInterpretation } from '../sensiplan/index';
 import { monitorPostShift } from '../sensiplan/postShiftMonitoring';
 import { computeCycleDataFingerprint } from '../dataFingerprint';
 import { getActiveCoverline } from '../getActiveCoverline';
-import { collectReferenceDays } from '../sensiplan/excludedDays';
 import type {
   CycleDayInput,
   ThermalShiftResult,
@@ -231,11 +230,7 @@ export function useInterpretation(args: UseInterpretationArgs): UseInterpretatio
           const shiftDay = overrides?.shiftDay
             ?? (prev && prev.status !== 'none' ? prev.shiftDay : undefined);
           if (shiftDay == null) return undefined;
-          // Coverline is derived from raw days, not stored — recompute it now so
-          // the persisted "kept values" are Sensiplan-consistent with current data.
-          const ref = collectReferenceDays(days, shiftDay);
-          if (!ref) return undefined;
-          return { shiftDay, coverlineTemp: ref.coverlineTemp };
+          return { shiftDay };
         })()
       : undefined;
 
@@ -248,7 +243,7 @@ export function useInterpretation(args: UseInterpretationArgs): UseInterpretatio
       interpretationId: interpretation.id,
       action,
       latestEngineResult: engineResult.thermalShift,
-      keptValues: keptValues as { shiftDay: number; coverlineTemp: number } | undefined,
+      keptValues: keptValues as { shiftDay: number } | undefined,
       dismissedShiftDay,
       dataFingerprint,
     });

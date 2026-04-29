@@ -475,7 +475,7 @@ type ResolveReviewInput = {
   interpretationId: string;
   action: 'keep_mine' | 'accept_new' | 'reject';
   latestEngineResult: any;
-  keptValues?: { shiftDay: number; coverlineTemp: number };
+  keptValues?: { shiftDay: number };
   dismissedShiftDay?: number;
   dataFingerprint: string;  // NEW
 };
