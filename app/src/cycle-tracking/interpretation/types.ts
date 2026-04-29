@@ -123,7 +123,9 @@ export type TimeWindowSegment = {
 
 export type UserOverrides = {
   shiftDay?: number;
-  coverlineTemp?: number;     // °C
+  // Note: coverlineTemp was removed in v2 (2026-04-26). The coverline is
+  // now always derived from raw days via collectReferenceDays(days, shiftDay).
+  // Stored values from before this change are silently ignored.
 };
 
 // ============================================================
