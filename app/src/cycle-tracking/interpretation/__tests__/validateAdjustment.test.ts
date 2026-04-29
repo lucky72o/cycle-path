@@ -32,6 +32,7 @@ describe('validateAdjustment', () => {
     expect(result.status).toBe('confirmed');
     expect(result.coverlineTemp).toBeCloseTo(36.32, 2);
     expect(result.usedFourthDayException).toBe(false);
+    expect(result.confirmingDays).toEqual([15, 16, 17]);
   });
 
   it('2. returns confirmed via 4th-day exception when 3rd does not clear +0.2°C', () => {
@@ -44,6 +45,7 @@ describe('validateAdjustment', () => {
     if (result.kind !== 'valid') return;
     expect(result.status).toBe('confirmed');
     expect(result.usedFourthDayException).toBe(true);
+    expect(result.confirmingDays).toEqual([15, 16, 17, 18]);
   });
 
   it('3. returns pending when only 1 high recorded after picked day', () => {
@@ -55,6 +57,7 @@ describe('validateAdjustment', () => {
     expect(result.kind).toBe('valid');
     if (result.kind !== 'valid') return;
     expect(result.status).toBe('pending');
+    expect(result.confirmingDays).toEqual([15]);
   });
 
   it('4. returns pending when 2 highs recorded but 2nd does not clear +0.2°C and no 3rd yet', () => {
@@ -77,6 +80,8 @@ describe('validateAdjustment', () => {
     expect(result.kind).toBe('invalid');
     if (result.kind !== 'invalid') return;
     expect(result.reason).toBe('rule_broken');
+    if (result.reason !== 'rule_broken') return;
+    expect(result.failedOnDay).toBe(16);
   });
 
   it('6. returns invalid when 3rd does not clear +0.2°C and 4th day also at/below coverline', () => {
@@ -96,6 +101,10 @@ describe('validateAdjustment', () => {
     expect(result.kind).toBe('invalid');
     if (result.kind !== 'invalid') return;
     expect(result.reason).toBe('insufficient_lows');
+    if (result.reason !== 'insufficient_lows') return;
+    expect(result.validLowsCount).toBe(4);
+    expect(result.missingDaysCount).toBe(0);
+    expect(result.excludedDaysCount).toBe(0);
   });
 
   it('8. returns invalid when picked day is excluded from interpretation', () => {
@@ -173,11 +182,14 @@ describe('validateAdjustment', () => {
     expect(result.kind).toBe('invalid');
     if (result.kind !== 'invalid') return;
     expect(result.reason).toBe('earlier_valid_shift_exists');
+    if (result.reason !== 'earlier_valid_shift_exists') return;
     expect(result.earlierShiftDay).toBe(8);
   });
 
-  it('14. P1.A: user picks earlier than auto-detected shift → valid', () => {
-    // For this test we just verify that a valid earlier pick is accepted.
+  it('14. P1.A: returns valid for any picked day where rules hold (smoke)', () => {
+    // The "user picks earlier than engine" case is unconstructible: if the user's
+    // earlier pick is Sensiplan-valid, detectThermalShift would have found it
+    // first. So this is just a smoke test that valid picks pass through P1.A.
     const days = buildDays([
       36.30, 36.32, 36.28, 36.30, 36.32, 36.28, 36.30, 36.32, 36.28, 36.30, 36.32, 36.28, 36.30,
       36.55, 36.55, 36.70, 36.55, 36.55, 36.55, 36.55,

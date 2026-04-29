@@ -6,6 +6,13 @@ import { fahrenheitToCelsius } from '../../utils';
 
 const THRESHOLD_C = 0.2;
 
+/**
+ * Sensiplan flags shifts before CD8 as suspicious — early shifts are often
+ * an artifact of post-menstrual elevation rather than true ovulation.
+ * Used as a soft warning, not a hard validity check.
+ */
+const EARLY_SHIFT_MAX_DAY = 7;
+
 export type AdjustValidation =
   | {
       kind: 'valid';
@@ -17,24 +24,30 @@ export type AdjustValidation =
       usedFourthDayException: boolean;
       softWarning: 'early_shift' | null;
     }
+  | { kind: 'invalid'; reason: 'picked_day_no_temp' }
+  | { kind: 'invalid'; reason: 'picked_day_excluded' }
+  | { kind: 'invalid'; reason: 'not_above_coverline' }
   | {
       kind: 'invalid';
-      reason:
-        | 'picked_day_no_temp'
-        | 'picked_day_excluded'
-        | 'insufficient_lows'
-        | 'not_above_coverline'
-        | 'earlier_valid_shift_exists'
-        | 'rule_broken'
-        | 'fourth_day_failed';
-      // For "earlier_valid_shift_exists":
-      earlierShiftDay?: number;
-      // For "rule_broken" / "fourth_day_failed":
-      failedOnDay?: number;
-      // For "insufficient_lows":
-      validLowsCount?: number;
-      missingDaysCount?: number;
-      excludedDaysCount?: number;
+      reason: 'insufficient_lows';
+      validLowsCount: number;
+      missingDaysCount: number;
+      excludedDaysCount: number;
+    }
+  | {
+      kind: 'invalid';
+      reason: 'earlier_valid_shift_exists';
+      earlierShiftDay: number;
+    }
+  | {
+      kind: 'invalid';
+      reason: 'rule_broken';
+      failedOnDay: number;
+    }
+  | {
+      kind: 'invalid';
+      reason: 'fourth_day_failed';
+      failedOnDay: number;
     };
 
 /**
@@ -119,7 +132,7 @@ export function validateAdjustment(
     };
   }
 
-  const softWarning: 'early_shift' | null = pickedShiftDay <= 7 ? 'early_shift' : null;
+  const softWarning: 'early_shift' | null = pickedShiftDay <= EARLY_SHIFT_MAX_DAY ? 'early_shift' : null;
 
   return {
     kind: 'valid',
@@ -139,6 +152,18 @@ type ConfirmFromPickedOutcome =
   | { outcome: 'rule_broken'; failedOnDay: number; confirmingDays: number[] }
   | { outcome: 'fourth_day_failed'; failedOnDay: number; confirmingDays: number[] };
 
+/**
+ * Confirms 3-over-6 from a user-picked candidate day.
+ *
+ * NOTE: This duplicates the core logic of `checkConfirmingTemps` in
+ * thermalShift.ts. They diverge on outcome alphabet — that helper returns
+ * 'failed' for any rule violation; this helper distinguishes 'rule_broken'
+ * (a confirming temp dropped) from 'fourth_day_failed' (4th-day exception
+ * failed) because the AdjustFlow UI shows different messages for each.
+ *
+ * If the Sensiplan rule changes, both helpers must update in lock-step.
+ * Future cleanup: extract a shared core that both wrap.
+ */
 function checkConfirmingFromPicked(
   sorted: CycleDayInput[],
   pickedShiftDay: number,
@@ -149,7 +174,6 @@ function checkConfirmingFromPicked(
   let i = sorted.findIndex((d) => d.dayNumber === pickedShiftDay) + 1;
 
   while (i < sorted.length) {
-    if (confirmingDays.length >= 3) break;
     const d = sorted[i];
     if (d.bbt === null || d.excludeFromInterpretation) {
       i++;
