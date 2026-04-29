@@ -141,7 +141,8 @@ export function validateAdjustment(
     referenceDays,
     skippedDays,
     confirmingDays: [pickedShiftDay, ...confirmResult.confirmingDays],
-    usedFourthDayException: confirmResult.usedFourthDay ?? false,
+    usedFourthDayException:
+      confirmResult.outcome === 'confirmed' ? confirmResult.usedFourthDay : false,
     softWarning,
   };
 }
