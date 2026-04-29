@@ -18,6 +18,7 @@ import { CrossCycleAnovulatoryBanner } from './interpretation/components/CrossCy
 import { NudgeIcon } from './interpretation/components/NudgeIcon';
 import { NudgeMessage } from './interpretation/components/NudgeMessage';
 import { getPreviousCycleSummary } from 'wasp/client/operations';
+import { getActiveCoverline } from './interpretation/getActiveCoverline';
 
 const DISTURBANCE_EMOJI: Record<string, string> = {
   POOR_SLEEP: '🌙',
@@ -567,11 +568,13 @@ export default function CycleChartPage() {
           if (!interpretation || !engineResult) return [];
           const shift = engineResult.thermalShift;
           const state = interpretation.state;
-          const overrides = interpretation.userOverrides as any;
 
-          // Determine coverline from active values: overrides first, then engine
-          const coverlineC = overrides?.coverlineTemp
-            ?? (shift && shift.status !== 'none' ? shift.coverlineTemp : null);
+          // P2.2: derive coverline via getActiveCoverline. For ADJUSTED state, this
+          // recomputes from raw days using userOverrides.shiftDay; for SUGGESTED/CONFIRMED,
+          // it returns the engine's coverline. Fixes two bugs: (1) ADJUSTED+engine.status='none'
+          // (KeptShiftCard) no longer loses the coverline; (2) ADJUSTED with user shiftDay
+          // differing from engine draws the user's coverline, not the engine's.
+          const coverlineC = getActiveCoverline(cycleDayInputs, interpretation, shift);
 
           const isMarked =
             !!(cycle as any)?.markedAnovulatoryAt || !!(cycle as any)?.markedUninterpretableAt;
@@ -2082,6 +2085,8 @@ export default function CycleChartPage() {
                   onReEvaluate={interpretationActions.reEvaluate}
                   onMarkAnovulatory={interpretationActions.markAnovulatory}
                   onMarkUninterpretable={interpretationActions.markUninterpretable}
+                  days={cycleDayInputs}
+                  cycleStartDate={new Date(cycle.startDate)}
                 />
               ) : null}
             </div>
