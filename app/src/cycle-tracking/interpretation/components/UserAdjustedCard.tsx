@@ -5,7 +5,7 @@ import { card, header, footer, btn } from './cardStyles';
 type Props = {
   result: ThermalShiftConfirmed | ThermalShiftPending;
   userOverrides: UserOverrides;
-  onAdjust: (overrides: UserOverrides) => Promise<void>;
+  onAdjust: () => void;
   onReject: () => Promise<void>;
 };
 
@@ -41,7 +41,7 @@ export function UserAdjustedCard({ result, userOverrides, onAdjust, onReject }: 
         <div className="text-xs text-amber-600 italic mt-2">✎ You adjusted this interpretation</div>
       </div>
       <div className={`${footer.base} bg-amber-50 border-amber-200`}>
-        <button onClick={() => onAdjust({})} className={`${btn.base} ${btn.adjust}`}>Re-Adjust</button>
+        <button onClick={onAdjust} className={`${btn.base} ${btn.adjust}`}>Re-Adjust</button>
         <button onClick={onReject} className={`${btn.base} ${btn.reject}`}>Reject</button>
       </div>
     </div>

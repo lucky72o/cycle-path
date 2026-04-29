@@ -1,12 +1,12 @@
 // app/src/cycle-tracking/interpretation/components/ConfirmedCard.tsx
-import type { ThermalShiftConfirmed, UserOverrides } from '../types';
+import type { ThermalShiftConfirmed } from '../types';
 import { card, header, footer, btn } from './cardStyles';
 import { ConfidenceBadge } from './ConfidenceBadge';
 
 type Props = {
   result: ThermalShiftConfirmed;
   onConfirm: () => Promise<void>;
-  onAdjust: (overrides: UserOverrides) => Promise<void>;
+  onAdjust: () => void;
   onReject: () => Promise<void>;
 };
 
@@ -54,7 +54,7 @@ export function ConfirmedCard({ result, onConfirm, onAdjust, onReject }: Props) 
       </div>
       <div className={footer.base}>
         <button onClick={onConfirm} className={`${btn.base} ${btn.confirm}`}>Confirm</button>
-        <button onClick={() => onAdjust({})} className={`${btn.base} ${btn.adjust}`}>Adjust</button>
+        <button onClick={onAdjust} className={`${btn.base} ${btn.adjust}`}>Adjust</button>
         <button onClick={onReject} className={`${btn.base} ${btn.reject}`}>Reject</button>
       </div>
     </div>

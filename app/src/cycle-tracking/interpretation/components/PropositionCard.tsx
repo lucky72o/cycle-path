@@ -130,7 +130,7 @@ export function PropositionCard({
         <ConfirmedCard
           result={thermalShift}
           onConfirm={actions.confirm}
-          onAdjust={actions.adjust}
+          onAdjust={() => setAdjustFlowOpen(true)}
           onReject={actions.dismiss}
         />
       )}
@@ -138,7 +138,7 @@ export function PropositionCard({
       {!needsReview && state === 'CONFIRMED' && (
         <UserConfirmedCard
           result={thermalShift}
-          onAdjust={actions.adjust}
+          onAdjust={() => setAdjustFlowOpen(true)}
           onReject={actions.dismiss}
         />
       )}
@@ -147,7 +147,7 @@ export function PropositionCard({
         <UserAdjustedCard
           result={thermalShift as any}
           userOverrides={userOverrides!}
-          onAdjust={actions.adjust}
+          onAdjust={() => setAdjustFlowOpen(true)}
           onReject={actions.dismiss}
         />
       )}

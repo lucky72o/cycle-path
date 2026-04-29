@@ -1,11 +1,11 @@
 // app/src/cycle-tracking/interpretation/components/UserConfirmedCard.tsx
-import type { ThermalShiftResult, UserOverrides } from '../types';
+import type { ThermalShiftResult } from '../types';
 import { card, header, footer, btn } from './cardStyles';
 import { ConfidenceBadge } from './ConfidenceBadge';
 
 type Props = {
   result: ThermalShiftResult;
-  onAdjust: (overrides: UserOverrides) => Promise<void>;
+  onAdjust: () => void;
   onReject: () => Promise<void>;
 };
 
@@ -35,7 +35,7 @@ export function UserConfirmedCard({ result, onAdjust, onReject }: Props) {
         <div className="text-xs text-emerald-600 italic mt-2">✓ You confirmed this interpretation</div>
       </div>
       <div className={`${footer.base} bg-green-50 border-green-200`}>
-        <button onClick={() => onAdjust({})} className={`${btn.base} ${btn.adjust}`}>Adjust</button>
+        <button onClick={onAdjust} className={`${btn.base} ${btn.adjust}`}>Adjust</button>
         <button onClick={onReject} className={`${btn.base} ${btn.reject}`}>Reject</button>
       </div>
     </div>
