@@ -432,6 +432,11 @@ action adjustInterpretation {
   entities: [CycleInterpretation, Cycle]
 }
 
+action revertInterpretation {
+  fn: import { revertInterpretation } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
 action dismissInterpretation {
   fn: import { dismissInterpretation } from "@src/cycle-tracking/interpretation/interpretationOperations",
   entities: [CycleInterpretation, Cycle]

@@ -7,6 +7,7 @@ import type {
   DeleteCycleInterpretation,
   ConfirmInterpretation,
   AdjustInterpretation,
+  RevertInterpretation,
   DismissInterpretation,
   ResolveReview,
   ResolveFalseRiseWarning,
@@ -326,6 +327,71 @@ export const adjustInterpretation: AdjustInterpretation<
     data: {
       state: 'ADJUSTED',
       userOverrides: args.userOverrides,
+    },
+  });
+};
+
+type RevertInput = { interpretationId: string };
+
+/**
+ * Revert an ADJUSTED interpretation to SUGGESTED, clearing userOverrides.
+ *
+ * Server-side preconditions (P1 — defense in depth, the UI also gates):
+ * - The row's state MUST be 'ADJUSTED'. Calling revert on SUGGESTED, CONFIRMED,
+ *   or DISMISSED is a 409 Conflict — there is nothing to revert.
+ * - userOverrides.shiftDay MUST exist. An ADJUSTED row without a shiftDay
+ *   override is malformed; treating it as revertable would silently destroy
+ *   data the user did not intend to modify.
+ *
+ * Defensive (P1.B): if engineResult.status === 'none' at revert time AND
+ * preconditions pass, delete the row entirely instead of demoting (mirrors
+ * SUGGESTED+'none' deletion in upsertCycleInterpretation). The UI gating
+ * prevents AdjustFlow from opening in that state, but the mutation is robust
+ * to it (e.g., race conditions with concurrent data edits).
+ */
+export const revertInterpretation: RevertInterpretation<
+  RevertInput,
+  CycleInterpretation | null
+> = async (args, context) => {
+  if (!context.user) throw new HttpError(401, 'Not authorized');
+
+  const interp = await getOwnedInterpretation(
+    args.interpretationId, context.user.id, context.entities,
+  );
+
+  // Precondition 1: state must be ADJUSTED
+  if (interp.state !== 'ADJUSTED') {
+    throw new HttpError(
+      409,
+      `Cannot revert: interpretation is in state '${interp.state}', not 'ADJUSTED'. There is no saved adjustment to revert.`,
+    );
+  }
+
+  // Precondition 2: userOverrides.shiftDay must exist
+  const overrides = interp.userOverrides as { shiftDay?: number } | null;
+  if (overrides?.shiftDay == null) {
+    throw new HttpError(
+      409,
+      'Cannot revert: ADJUSTED interpretation has no saved shiftDay override.',
+    );
+  }
+
+  const engineResult = interp.engineResult as { status?: string } | null;
+  if (engineResult?.status === 'none') {
+    await context.entities.CycleInterpretation.delete({
+      where: { id: args.interpretationId },
+    });
+    return null;
+  }
+
+  return context.entities.CycleInterpretation.update({
+    where: { id: args.interpretationId },
+    data: {
+      state: 'SUGGESTED',
+      userOverrides: Prisma.DbNull,
+      needsReview: false,
+      reviewReason: null,
+      previousEngineResult: Prisma.DbNull,
     },
   });
 };
