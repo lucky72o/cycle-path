@@ -165,7 +165,7 @@ export function PropositionCard({
       {!needsReview && state === 'ADJUSTED' && thermalShift.status === 'none' && userOverrides && (
         <KeptShiftCard
           userOverrides={userOverrides}
-          onAdjust={actions.adjust}
+          days={days}
           onReject={actions.dismiss}
         />
       )}
