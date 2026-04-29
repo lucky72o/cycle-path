@@ -156,6 +156,7 @@ export function PropositionCard({
         <UserAdjustedCard
           result={thermalShift as any}
           userOverrides={userOverrides!}
+          days={days}
           onAdjust={() => setAdjustFlowOpen(true)}
           onReject={actions.dismiss}
         />
