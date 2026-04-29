@@ -61,18 +61,15 @@ export function validateAdjustment(
 
   // 2. P1.A: no earlier confirmed valid shift.
   //
-  // Block only when the engine's confirmed shift is fully self-contained
-  // before the user's pick (all confirming days < pickedShiftDay). If the
-  // engine borrowed the picked day or later days to confirm an earlier
-  // candidate, the user is reinterpreting the engine's earlier candidate
-  // as a fluke, so we don't block — and we also exclude that earlier
-  // candidate from the user's reference window below.
+  // Sensiplan defines the shift as the FIRST day above the coverline with
+  // 3-over-6 satisfied. If the engine has confirmed an earlier candidate,
+  // the user cannot silently override it by picking a later day — they
+  // must explicitly mark the earlier day(s) as excluded from interpretation
+  // first. This block is run BEFORE the reference window / not_above_coverline
+  // check because the user's late pick may produce a contaminated reference
+  // window that masks the real Sensiplan violation.
   const autoDetected = detectThermalShift(sorted);
-  if (
-    autoDetected.status === 'confirmed' &&
-    autoDetected.shiftDay < pickedShiftDay &&
-    autoDetected.confirmingDays.every((d) => d < pickedShiftDay)
-  ) {
+  if (autoDetected.status === 'confirmed' && autoDetected.shiftDay < pickedShiftDay) {
     return {
       kind: 'invalid',
       reason: 'earlier_valid_shift_exists',
@@ -80,23 +77,8 @@ export function validateAdjustment(
     };
   }
 
-  // If the engine confirmed an earlier shift but borrowed picked-or-later
-  // days as confirming days, the user's reinterpretation implies the
-  // engine's earlier candidate day was a fluke. Exclude it from the
-  // reference window so the user's pick is evaluated against true lows.
-  const engineBorrowedPicked =
-    autoDetected.status === 'confirmed' &&
-    autoDetected.shiftDay < pickedShiftDay;
-  const daysForReference = engineBorrowedPicked
-    ? sorted.map((d) =>
-        d.dayNumber === autoDetected.shiftDay
-          ? { ...d, excludeFromInterpretation: true }
-          : d,
-      )
-    : sorted;
-
   // 3. Reference window
-  const refResult = collectReferenceDays(daysForReference, pickedShiftDay);
+  const refResult = collectReferenceDays(sorted, pickedShiftDay);
   if (!refResult) {
     const validLowsCount = sorted.filter(
       (d) => d.dayNumber < pickedShiftDay && d.bbt !== null && !d.excludeFromInterpretation,

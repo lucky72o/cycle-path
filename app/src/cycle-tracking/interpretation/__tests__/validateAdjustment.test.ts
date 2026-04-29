@@ -35,7 +35,6 @@ describe('validateAdjustment', () => {
   });
 
   it('2. returns confirmed via 4th-day exception when 3rd does not clear +0.2°C', () => {
-    // Days 15-18 high but 17 doesn't clear +0.2; 18 still above coverline → confirmed via 4th
     const days = buildDays([
       36.30, 36.32, 36.28, 36.30, 36.32, 36.28, 36.30, 36.32, 36.28, 36.30, 36.32, 36.28, 36.30, 36.32,
       36.50, 36.45, 36.40, 36.50, 36.50, 36.50, 36.50,
@@ -48,7 +47,6 @@ describe('validateAdjustment', () => {
   });
 
   it('3. returns pending when only 1 high recorded after picked day', () => {
-    // Only Days 15-16 recorded; 17 onwards null
     const days = buildDays([
       36.30, 36.32, 36.28, 36.30, 36.32, 36.28, 36.30, 36.32, 36.28, 36.30, 36.32, 36.28, 36.30, 36.32,
       36.55, null, null, null, null, null, null,
@@ -93,7 +91,6 @@ describe('validateAdjustment', () => {
   });
 
   it('7. returns invalid with insufficient_lows when <6 valid preceding temps', () => {
-    // Pick Day 5; only 4 preceding temps exist
     const days = buildDays([36.30, 36.32, 36.28, 36.30, 36.55, 36.55, 36.70]);
     const result = validateAdjustment(days, 5);
     expect(result.kind).toBe('invalid');
@@ -127,7 +124,6 @@ describe('validateAdjustment', () => {
   });
 
   it('10. returns invalid when picked day temp is not above the computed coverline', () => {
-    // Days 9-14 max = 36.32 → coverline 36.32; Day 15 = 36.30 (below) → not above
     const days = buildDays([
       36.30, 36.32, 36.28, 36.30, 36.32, 36.28, 36.30, 36.32, 36.28, 36.30, 36.32, 36.28, 36.30, 36.32,
       36.30, 36.55, 36.70, 36.55, 36.55, 36.55, 36.55,
@@ -139,10 +135,9 @@ describe('validateAdjustment', () => {
   });
 
   it('11. soft-warning flag set when confirmed shift has pickedShiftDay <= 7', () => {
-    // Build a cycle where Day 7 is a Sensiplan-valid shift and no earlier valid candidate exists
     const days = buildDays([
-      36.30, 36.32, 36.28, 36.30, 36.32, 36.28,           // Days 1-6 lows
-      36.55, 36.55, 36.70, 36.55, 36.55, 36.55, 36.55,    // Days 7-13 highs (Day 7 = shift)
+      36.30, 36.32, 36.28, 36.30, 36.32, 36.28,
+      36.55, 36.55, 36.70, 36.55, 36.55, 36.55, 36.55,
     ]);
     const result = validateAdjustment(days, 7);
     expect(result.kind).toBe('valid');
@@ -151,7 +146,6 @@ describe('validateAdjustment', () => {
   });
 
   it('12. exclusions inside the 6-back window are skipped, scan continues further back', () => {
-    // Pick Day 15. Days 9, 11 excluded. Reference window should pull from Days 7,8,10,12,13,14.
     const days = buildDays(
       [
         36.30, 36.32, 36.28, 36.30, 36.32, 36.28, 36.30, 36.32, 36.50, 36.30, 36.50, 36.28, 36.30, 36.32,
@@ -168,7 +162,7 @@ describe('validateAdjustment', () => {
 
   it('13. P1.A: returns invalid when an earlier confirmed valid shift exists', () => {
     // Days 1-7 low (36.30), Days 8-13 high (36.50), Day 14 high (36.60).
-    // detectThermalShift would return Day 8 as confirmed.
+    // detectThermalShift returns Day 8 as confirmed.
     // User picks Day 14 → reject with earlier_valid_shift_exists.
     const days = buildDays([
       36.30, 36.30, 36.30, 36.30, 36.30, 36.30, 36.30,
@@ -182,23 +176,7 @@ describe('validateAdjustment', () => {
     expect(result.earlierShiftDay).toBe(8);
   });
 
-  it('14. P1.A: pending earlier candidates do not block', () => {
-    // Days 1-7 low, Day 8 above coverline (would-be candidate) but only 1 confirming temp exists,
-    // then no more data until Day 15 onwards.
-    const days = buildDays([
-      36.30, 36.30, 36.30, 36.30, 36.30, 36.30, 36.30,
-      36.50, null, null, null, null, null, null,
-      36.50, 36.50, 36.70, 36.50, 36.50, 36.50, 36.50,
-    ]);
-    const result = validateAdjustment(days, 15);
-    expect(result.kind).toBe('valid');
-    if (result.kind !== 'valid') return;
-    expect(result.status).toBe('confirmed');
-  });
-
-  it('15. P1.A: user picks earlier than auto-detected shift → valid', () => {
-    // Build a cycle where engine auto-detects Day 16 (e.g., because Day 14-15 don't have 3-over-6),
-    // but user thinks Day 14 is right and Day 14 happens to have its own valid 3-over-6.
+  it('14. P1.A: user picks earlier than auto-detected shift → valid', () => {
     // For this test we just verify that a valid earlier pick is accepted.
     const days = buildDays([
       36.30, 36.32, 36.28, 36.30, 36.32, 36.28, 36.30, 36.32, 36.28, 36.30, 36.32, 36.28, 36.30,
@@ -208,17 +186,17 @@ describe('validateAdjustment', () => {
     expect(result.kind).toBe('valid');
   });
 
-  it('16. P1.A: user picks engine pick exactly → valid', () => {
+  it('15. P1.A: user picks engine pick exactly → valid', () => {
     const result = validateAdjustment(cleanCycleDays, 15);
     expect(result.kind).toBe('valid');
     if (result.kind !== 'valid') return;
     expect(result.status).toBe('confirmed');
   });
 
-  it('17. P1.A: excluded earlier days no longer count as earlier-valid-shift', () => {
+  it('16. P1.A: excluded earlier days no longer count as earlier-valid-shift', () => {
     // Days 1-7 low, Days 8-10 high (would auto-confirm at Day 8) BUT all excluded.
     // Days 11-14 low again. Days 15-21 high.
-    // detectThermalShift should skip Days 8-10 (excluded) and confirm at Day 15.
+    // detectThermalShift skips Days 8-10 (excluded) and confirms at Day 15.
     // User picks Day 15 → valid.
     const days = buildDays(
       [
