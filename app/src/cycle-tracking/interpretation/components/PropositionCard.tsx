@@ -1,6 +1,6 @@
 // app/src/cycle-tracking/interpretation/components/PropositionCard.tsx
 import { useState } from 'react';
-import type { InterpretationResult, PostShiftMonitoring, UserOverrides } from '../types';
+import type { InterpretationResult, PostShiftMonitoring, UserOverrides, CycleDayInput } from '../types';
 import { PendingCard } from './PendingCard';
 import { ConfirmedCard } from './ConfirmedCard';
 import { UserConfirmedCard } from './UserConfirmedCard';
@@ -25,6 +25,7 @@ type PropositionCardProps = {
   actions: {
     confirm: () => Promise<void>;
     adjust: (overrides: UserOverrides) => Promise<void>;
+    revert: () => Promise<void>;
     dismiss: () => Promise<void>;
     resolveReview: (action: 'keep_mine' | 'accept_new' | 'reject') => Promise<void>;
     resolveFalseRise: (action: 'reject_shift' | 'keep_shift') => Promise<void>;
@@ -34,6 +35,8 @@ type PropositionCardProps = {
   onReEvaluate: () => void;
   onMarkAnovulatory: () => void;
   onMarkUninterpretable: () => void;
+  days: CycleDayInput[];
+  cycleStartDate: Date;
 };
 
 export function PropositionCard({
@@ -41,6 +44,7 @@ export function PropositionCard({
   changeNotice, keepWatchingDismissed, onKeepWatching, actions,
   cycleIsActive, maxDayNumber,
   onReEvaluate, onMarkAnovulatory, onMarkUninterpretable,
+  days, cycleStartDate,
 }: PropositionCardProps) {
   const { thermalShift } = engineResult;
   const state = interpretation?.state;
@@ -94,10 +98,15 @@ export function PropositionCard({
       {adjustFlowOpen && (
         <AdjustFlow
           currentResult={thermalShift}
-          days={[]}
+          days={days}
+          cycleStartDate={cycleStartDate}
           existingOverrides={userOverrides ?? undefined}
           onSave={async (overrides) => {
             await actions.adjust(overrides);
+            setAdjustFlowOpen(false);
+          }}
+          onRevert={async () => {
+            await actions.revert();
             setAdjustFlowOpen(false);
           }}
           onCancel={() => setAdjustFlowOpen(false)}
