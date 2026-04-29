@@ -4,6 +4,8 @@ import { getCycleInterpretation } from 'wasp/client/operations';
 import { runInterpretation } from '../sensiplan/index';
 import { monitorPostShift } from '../sensiplan/postShiftMonitoring';
 import { computeCycleDataFingerprint } from '../dataFingerprint';
+import { getActiveCoverline } from '../getActiveCoverline';
+import { collectReferenceDays } from '../sensiplan/excludedDays';
 import type {
   CycleDayInput,
   ThermalShiftResult,
@@ -38,6 +40,7 @@ type UseInterpretationReturn = {
   actions: {
     confirm: () => Promise<void>;
     adjust: (overrides: UserOverrides) => Promise<void>;
+    revert: () => Promise<void>;
     dismiss: () => Promise<void>;
     resolveReview: (action: 'keep_mine' | 'accept_new' | 'reject') => Promise<void>;
     resolveFalseRise: (action: 'reject_shift' | 'keep_shift') => Promise<void>;
@@ -118,8 +121,11 @@ export function useInterpretation(args: UseInterpretationArgs): UseInterpretatio
     // Determine active values: overrides take precedence, fall back to engine
     const activeShiftDay = overrides?.shiftDay
       ?? (shift && shift.status !== 'none' ? shift.shiftDay : null);
-    const activeCoverline = overrides?.coverlineTemp
-      ?? (shift && shift.status !== 'none' ? shift.coverlineTemp : null);
+    const activeCoverline = getActiveCoverline(
+      days,
+      { state: interpretation.state, userOverrides: overrides },
+      shift,
+    );
 
     // If we can't determine active values, we can't monitor
     if (activeShiftDay == null || activeCoverline == null) return null;
@@ -192,6 +198,12 @@ export function useInterpretation(args: UseInterpretationArgs): UseInterpretatio
     await adjustInterpretation({ interpretationId: interpretation.id, userOverrides: overrides });
   }, [interpretation]);
 
+  const revert = useCallback(async () => {
+    if (!interpretation) return;
+    const { revertInterpretation } = await import('wasp/client/operations');
+    await revertInterpretation({ interpretationId: interpretation.id });
+  }, [interpretation]);
+
   const dismiss = useCallback(async () => {
     if (!interpretation || !engineResult) return;
     const shift = engineResult.thermalShift;
@@ -213,8 +225,18 @@ export function useInterpretation(args: UseInterpretationArgs): UseInterpretatio
 
     const prev = interpretation.previousEngineResult as any;
     const keptValues = action === 'keep_mine'
-      ? (interpretation.userOverrides as UserOverrides) ??
-        (prev ? { shiftDay: prev.shiftDay, coverlineTemp: prev.coverlineTemp } : undefined)
+      ? (() => {
+          const overrides = interpretation.userOverrides as UserOverrides | null;
+          // Prefer the saved override; fall back to the engine's previous shiftDay.
+          const shiftDay = overrides?.shiftDay
+            ?? (prev && prev.status !== 'none' ? prev.shiftDay : undefined);
+          if (shiftDay == null) return undefined;
+          // Coverline is derived from raw days, not stored — recompute it now so
+          // the persisted "kept values" are Sensiplan-consistent with current data.
+          const ref = collectReferenceDays(days, shiftDay);
+          if (!ref) return undefined;
+          return { shiftDay, coverlineTemp: ref.coverlineTemp };
+        })()
       : undefined;
 
     const dismissedShiftDay = action === 'reject'
@@ -294,6 +316,7 @@ export function useInterpretation(args: UseInterpretationArgs): UseInterpretatio
     actions: {
       confirm,
       adjust,
+      revert,
       dismiss,
       resolveReview: resolveReviewAction,
       resolveFalseRise,
