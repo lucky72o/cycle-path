@@ -414,7 +414,7 @@ query getCycleInterpretation {
 
 action upsertCycleInterpretation {
   fn: import { upsertCycleInterpretation } from "@src/cycle-tracking/interpretation/interpretationOperations",
-  entities: [CycleInterpretation, Cycle]
+  entities: [CycleInterpretation, Cycle, CycleDay]
 }
 
 action deleteCycleInterpretation {

@@ -15,6 +15,7 @@ import type {
 } from 'wasp/server/operations';
 import type { CycleInterpretation } from 'wasp/entities';
 import { hasMaterialChange } from './materialChange';
+import { shouldTriggerReviewForAdjusted } from './adjustReviewTrigger';
 import { decideDismissedAction } from './dismissedDecision';
 
 // ===== OWNERSHIP HELPER =====
@@ -207,10 +208,7 @@ export const upsertCycleInterpretation: UpsertCycleInterpretation<
       });
 
     case 'CONFIRMED':
-    case 'ADJUSTED':
       if (!materialChange) {
-        // Core interpretation unchanged — silently refresh engine result,
-        // monitoring, and nudges without triggering a review
         return context.entities.CycleInterpretation.update({
           where: { id: existing.id },
           data: {
@@ -220,7 +218,6 @@ export const upsertCycleInterpretation: UpsertCycleInterpretation<
           },
         });
       }
-      // Material change — enter review
       return context.entities.CycleInterpretation.update({
         where: { id: existing.id },
         data: {
@@ -232,6 +229,58 @@ export const upsertCycleInterpretation: UpsertCycleInterpretation<
           pendingNudges: args.pendingNudges ?? undefined,
         },
       });
+
+    case 'ADJUSTED': {
+      // P1.1 + P1.2: new review-trigger rule for ADJUSTED state.
+      // Validates the user's override against current days; only triggers
+      // review if their pick is invalid OR engine has lost the shift.
+      const overrides = existing.userOverrides as { shiftDay?: number } | null;
+      const userShiftDay = overrides?.shiftDay;
+      if (userShiftDay == null) {
+        // Defensive: ADJUSTED row without shiftDay is malformed. Just refresh.
+        return context.entities.CycleInterpretation.update({
+          where: { id: existing.id },
+          data: { engineResult: args.engineResult },
+        });
+      }
+      // Re-fetch days for validation (server-trusted source of truth)
+      const cycleDays = await context.entities.CycleDay.findMany({
+        where: { cycleId: args.cycleId },
+        orderBy: { dayNumber: 'asc' },
+      });
+      const cycleDayInputs = cycleDays.map((d: any) => ({
+        dayNumber: d.dayNumber,
+        bbt: d.bbt,
+        bbtTime: d.bbtTime,
+        excludeFromInterpretation: d.excludeFromInterpretation,
+        disturbanceFactors: d.disturbanceFactors ?? [],
+        travelTimeDiff: d.travelTimeDiff,
+      }));
+      const decision = shouldTriggerReviewForAdjusted(
+        cycleDayInputs, userShiftDay, args.engineResult,
+      );
+      if (!decision.trigger) {
+        return context.entities.CycleInterpretation.update({
+          where: { id: existing.id },
+          data: {
+            engineResult: args.engineResult,
+            postShiftMonitoring: args.postShiftMonitoring ?? undefined,
+            pendingNudges: args.pendingNudges ?? undefined,
+          },
+        });
+      }
+      return context.entities.CycleInterpretation.update({
+        where: { id: existing.id },
+        data: {
+          needsReview: true,
+          reviewReason: decision.reason,
+          previousEngineResult: existing.engineResult as Prisma.InputJsonValue,
+          engineResult: args.engineResult,
+          postShiftMonitoring: args.postShiftMonitoring ?? undefined,
+          pendingNudges: args.pendingNudges ?? undefined,
+        },
+      });
+    }
 
     case 'DISMISSED': {
       const action = decideDismissedAction(
