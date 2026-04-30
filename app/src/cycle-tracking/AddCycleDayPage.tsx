@@ -80,10 +80,12 @@ export default function AddCycleDayPage() {
     }
   }, [existingDay, settings]);
 
-  // Calculate suggested next day number
-  const suggestedDayNumber = cycle && cycle.days.length > 0
-    ? Math.max(...cycle.days.map((d: any) => d.dayNumber)) + 1
-    : 1;
+  // Derive cycle day number from selected date relative to cycle start
+  const cycleDayNumber = cycle && date
+    ? Math.floor(
+        (new Date(date).getTime() - new Date(cycle.startDate).getTime()) / 86400000
+      ) + 1
+    : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -311,19 +313,29 @@ export default function AddCycleDayPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <Label htmlFor="date">Date *</Label>
-              <Input
-                id="date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                className="mt-1"
-              />
-              <p className="text-sm text-muted-foreground mt-1">
-                This will be cycle day {suggestedDayNumber}
-              </p>
+            <div className="flex items-end gap-2">
+              <div className="flex flex-col">
+                <Label htmlFor="date">Date *</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  required
+                  className="mt-1 w-auto"
+                />
+              </div>
+              {cycleDayNumber !== null && cycleDayNumber >= 1 && (
+                <>
+                  <div className="h-px w-4 bg-input mb-[18px]" />
+                  <div className="flex flex-col">
+                    <Label>Cycle Day</Label>
+                    <div className="mt-1 flex h-9 min-w-[3rem] items-center justify-center rounded-md border border-input bg-transparent px-3 py-1 text-sm">
+                      {cycleDayNumber}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <div>
