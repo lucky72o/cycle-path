@@ -262,18 +262,27 @@ export default function NewCyclePage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                <label htmlFor="startDate" className="block text-sm font-medium">
-                  Start Date *
-                </label>
-                <input
-                  type="date"
-                  id="startDate"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                />
+              <div className="flex items-end gap-2">
+                <div className="flex flex-col">
+                  <label htmlFor="startDate" className="block text-sm font-medium">
+                    Start Date *
+                  </label>
+                  <input
+                    type="date"
+                    id="startDate"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    required
+                    className="mt-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div className="h-px w-4 bg-border mb-[20px]" />
+                <div className="flex flex-col">
+                  <span className="block text-sm font-medium">Cycle Day</span>
+                  <div className="mt-1 px-3 py-2 border rounded-md min-w-[3rem] text-center">
+                    1
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
