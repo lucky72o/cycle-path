@@ -141,3 +141,47 @@ describe('getChartAnnotations — SUGGESTED/CONFIRMED', () => {
     expect(result?.coverlineTemp).toBe(makeCoverline(36.32));
   });
 });
+
+describe('getChartAnnotations — ADJUSTED', () => {
+  // 21-day cycle where the user picked day 15 as the shift day.
+  // Days 9-14 are valid lows; day 14 is the highest (anchor).
+  const adjustedDays = buildDays([
+    36.30, 36.32, 36.28, 36.30, 36.32, 36.28,
+    36.30, 36.32, 36.28, 36.30, 36.30, 36.30,
+    36.30, 36.32,
+    36.55, 36.60, 36.58,
+    36.55, 36.55, 36.55, 36.55,
+  ]);
+
+  it('uses validateAdjustment when state is ADJUSTED — even if engine has none', () => {
+    const interp = { state: 'ADJUSTED', userOverrides: { shiftDay: 15 } } as any;
+    const result = getChartAnnotations(adjustedDays, interp, engineNone);
+    expect(result).not.toBeNull();
+    expect(result?.confirmingDays[0]).toBe(15);
+    expect(result?.referenceDays).toHaveLength(6);
+  });
+
+  it('uses the user shift day, not the engine shift day, when they differ', () => {
+    const otherShift: ThermalShiftResult = {
+      ...confirmedShift,
+      shiftDay: 16,            // engine says 16
+      confirmingDays: [16, 17],
+    };
+    const interp = { state: 'ADJUSTED', userOverrides: { shiftDay: 15 } } as any;
+    const result = getChartAnnotations(adjustedDays, interp, otherShift);
+    expect(result?.confirmingDays[0]).toBe(15);
+  });
+
+  it('returns null for ADJUSTED with no userOverrides.shiftDay', () => {
+    const interp = { state: 'ADJUSTED', userOverrides: null } as any;
+    expect(getChartAnnotations(adjustedDays, interp, engineNone)).toBeNull();
+    const interp2 = { state: 'ADJUSTED', userOverrides: {} } as any;
+    expect(getChartAnnotations(adjustedDays, interp2, engineNone)).toBeNull();
+  });
+
+  it('returns null when validateAdjustment is invalid (stale ADJUSTED)', () => {
+    // userOverrides points at day 1 — too early to have 6 reference days
+    const interp = { state: 'ADJUSTED', userOverrides: { shiftDay: 1 } } as any;
+    expect(getChartAnnotations(adjustedDays, interp, engineNone)).toBeNull();
+  });
+});

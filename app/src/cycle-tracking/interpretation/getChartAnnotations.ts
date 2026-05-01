@@ -1,5 +1,6 @@
 import type { CycleDayInput, ThermalShiftResult, UserOverrides } from './types';
 import { fahrenheitToCelsius } from '../utils';
+import { validateAdjustment } from './sensiplan/validateAdjustment';
 
 export type ChartAnnotationData = {
   referenceDays: number[];   // length 6, ascending
@@ -50,7 +51,7 @@ export function pickAnchorDay(
  *   - SUGGESTED / CONFIRMED with engine status='none' → no annotations
  *   - ADJUSTED → derived from validateAdjustment(days, userOverrides.shiftDay)
  *       so the chart reflects the user's pick even when it differs from the
- *       engine's shift (or when the engine reports 'none') [implemented in Task 4]
+ *       engine's shift (or when the engine reports 'none')
  *
  * Returns ChartAnnotationData with referenceDays, anchorDay (the latest
  * matching reference low), confirmingDays (length 1-4, including shiftDay
@@ -67,8 +68,16 @@ export function getChartAnnotations(
   if (interpretation.state === 'DISMISSED') return null;
 
   if (interpretation.state === 'ADJUSTED') {
-    // Implemented in Task 2
-    return null;
+    const shiftDay = interpretation.userOverrides?.shiftDay;
+    if (shiftDay == null) return null;
+    const result = validateAdjustment(days, shiftDay);
+    if (result.kind !== 'valid') return null;
+    return {
+      referenceDays: result.referenceDays,
+      anchorDay: pickAnchorDay(days, result.referenceDays, result.coverlineTemp),
+      confirmingDays: result.confirmingDays,
+      coverlineTemp: result.coverlineTemp,
+    };
   }
 
   // SUGGESTED or CONFIRMED
