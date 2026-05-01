@@ -50,7 +50,7 @@ export function pickAnchorDay(
  *   - SUGGESTED / CONFIRMED with engine status='none' → no annotations
  *   - ADJUSTED → derived from validateAdjustment(days, userOverrides.shiftDay)
  *       so the chart reflects the user's pick even when it differs from the
- *       engine's shift (or when the engine reports 'none')
+ *       engine's shift (or when the engine reports 'none') [implemented in Task 4]
  *
  * Returns ChartAnnotationData with referenceDays, anchorDay (the latest
  * matching reference low), confirmingDays (length 1-4, including shiftDay

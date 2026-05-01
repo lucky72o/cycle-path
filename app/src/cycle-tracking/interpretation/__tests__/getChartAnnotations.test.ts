@@ -110,7 +110,7 @@ const pendingShift: ThermalShiftResult = {
 const fullCycleDays = buildDays([
   36.30, 36.32, 36.28, 36.30, 36.32, 36.28,
   36.30, 36.32, 36.28, 36.30, 36.30, 36.30,
-  36.30, 36.32,                              // day 14 = anchor
+  36.30, 36.32,                              // day 14 = anchor (day 2 also 36.32 but outside referenceDays)
   36.55, 36.60, 36.58,                       // days 15, 16, 17
 ]);
 
@@ -137,5 +137,7 @@ describe('getChartAnnotations — SUGGESTED/CONFIRMED', () => {
     const interp = { state: 'SUGGESTED', userOverrides: null } as any;
     const result = getChartAnnotations(fullCycleDays, interp, pendingShift);
     expect(result?.confirmingDays).toEqual([15]);
+    expect(result?.anchorDay).toBe(14);
+    expect(result?.coverlineTemp).toBe(makeCoverline(36.32));
   });
 });
