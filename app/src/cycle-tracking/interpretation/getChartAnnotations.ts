@@ -3,10 +3,11 @@ import { fahrenheitToCelsius } from '../utils';
 import { validateAdjustment } from './sensiplan/validateAdjustment';
 
 export type ChartAnnotationData = {
-  referenceDays: number[];   // length 6, ascending
-  anchorDay: number;         // dayNumber of the coverline anchor (highest of the 6)
-  confirmingDays: number[];  // length 1-4, ascending; index 0 is the shift day
-  coverlineTemp: number;     // °C, full precision
+  referenceDays: number[];        // length 6, ascending
+  anchorDay: number;              // dayNumber of the coverline anchor (highest of the 6)
+  confirmingDays: number[];       // length 1-4, ascending; index 0 is the shift day
+  coverlineTemp: number;          // °C, full precision
+  usedFourthDayException: boolean; // true if the engine fired the 4th-day exception path
 };
 
 /**
@@ -77,6 +78,7 @@ export function getChartAnnotations(
       anchorDay: pickAnchorDay(days, result.referenceDays, result.coverlineTemp),
       confirmingDays: result.confirmingDays,
       coverlineTemp: result.coverlineTemp,
+      usedFourthDayException: result.usedFourthDayException,
     };
   }
 
@@ -89,5 +91,6 @@ export function getChartAnnotations(
     anchorDay: pickAnchorDay(days, engineResult.referenceDays, engineResult.coverlineTemp),
     confirmingDays: engineResult.confirmingDays,
     coverlineTemp: engineResult.coverlineTemp,
+    usedFourthDayException: engineResult.usedFourthDayException,
   };
 }

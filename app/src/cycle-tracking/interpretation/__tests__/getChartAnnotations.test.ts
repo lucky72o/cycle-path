@@ -123,6 +123,7 @@ describe('getChartAnnotations — SUGGESTED/CONFIRMED', () => {
       anchorDay: 14,
       confirmingDays: [15, 16, 17],
       coverlineTemp: makeCoverline(36.32),
+      usedFourthDayException: false,
     });
   });
 
@@ -158,7 +159,8 @@ describe('getChartAnnotations — ADJUSTED', () => {
     const result = getChartAnnotations(adjustedDays, interp, engineNone);
     expect(result).not.toBeNull();
     expect(result?.confirmingDays[0]).toBe(15);
-    expect(result?.referenceDays).toHaveLength(6);
+    expect(result?.referenceDays).toEqual([9, 10, 11, 12, 13, 14]);
+    expect(result?.anchorDay).toBe(14);
   });
 
   it('uses the user shift day, not the engine shift day, when they differ', () => {
@@ -170,6 +172,7 @@ describe('getChartAnnotations — ADJUSTED', () => {
     const interp = { state: 'ADJUSTED', userOverrides: { shiftDay: 15 } } as any;
     const result = getChartAnnotations(adjustedDays, interp, otherShift);
     expect(result?.confirmingDays[0]).toBe(15);
+    expect(result?.anchorDay).toBe(14);
   });
 
   it('returns null for ADJUSTED with no userOverrides.shiftDay', () => {
