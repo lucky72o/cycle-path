@@ -79,3 +79,63 @@ describe('pickAnchorDay', () => {
     expect(() => pickAnchorDay(days, [1, 2, 3, 4, 5, 6], makeCoverline(36.99))).toThrow();
   });
 });
+
+const confirmedShift: ThermalShiftResult = {
+  status: 'confirmed',
+  shiftDay: 15,
+  coverlineTemp: makeCoverline(36.32),
+  referenceDays: [9, 10, 11, 12, 13, 14],
+  confirmingDays: [15, 16, 17],
+  skippedDays: [],
+  usedFourthDayException: false,
+  confidence: 'high',
+  confidenceReasons: [],
+  failedAttempts: [],
+};
+
+const pendingShift: ThermalShiftResult = {
+  status: 'pending',
+  shiftDay: 15,
+  coverlineTemp: makeCoverline(36.32),
+  referenceDays: [9, 10, 11, 12, 13, 14],
+  confirmingDays: [15],
+  skippedDays: [],
+  usedFourthDayException: false,
+  confidence: 'high',
+  confidenceReasons: [],
+  failedAttempts: [],
+};
+
+// Days 9-14 with day 14 = coverline temp (36.32)
+const fullCycleDays = buildDays([
+  36.30, 36.32, 36.28, 36.30, 36.32, 36.28,
+  36.30, 36.32, 36.28, 36.30, 36.30, 36.30,
+  36.30, 36.32,                              // day 14 = anchor
+  36.55, 36.60, 36.58,                       // days 15, 16, 17
+]);
+
+describe('getChartAnnotations — SUGGESTED/CONFIRMED', () => {
+  it('returns engine annotations for CONFIRMED state', () => {
+    const interp = { state: 'CONFIRMED', userOverrides: null } as any;
+    const result = getChartAnnotations(fullCycleDays, interp, confirmedShift);
+    expect(result).toEqual({
+      referenceDays: [9, 10, 11, 12, 13, 14],
+      anchorDay: 14,
+      confirmingDays: [15, 16, 17],
+      coverlineTemp: makeCoverline(36.32),
+    });
+  });
+
+  it('returns engine annotations for SUGGESTED state', () => {
+    const interp = { state: 'SUGGESTED', userOverrides: null } as any;
+    const result = getChartAnnotations(fullCycleDays, interp, confirmedShift);
+    expect(result?.anchorDay).toBe(14);
+    expect(result?.referenceDays).toEqual([9, 10, 11, 12, 13, 14]);
+  });
+
+  it('returns pending data with confirmingDays length 1', () => {
+    const interp = { state: 'SUGGESTED', userOverrides: null } as any;
+    const result = getChartAnnotations(fullCycleDays, interp, pendingShift);
+    expect(result?.confirmingDays).toEqual([15]);
+  });
+});

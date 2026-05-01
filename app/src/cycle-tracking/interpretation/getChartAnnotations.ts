@@ -39,6 +39,25 @@ export function pickAnchorDay(
   return anchor;
 }
 
+/**
+ * Select the chart-annotation data for the current interpretation state.
+ *
+ * Pure function — no side effects. The annotation source depends on the
+ * interpretation state:
+ *   - null / DISMISSED → no annotations
+ *   - SUGGESTED / CONFIRMED with engine shift → engine's referenceDays,
+ *       confirmingDays, coverlineTemp
+ *   - SUGGESTED / CONFIRMED with engine status='none' → no annotations
+ *   - ADJUSTED → derived from validateAdjustment(days, userOverrides.shiftDay)
+ *       so the chart reflects the user's pick even when it differs from the
+ *       engine's shift (or when the engine reports 'none')
+ *
+ * Returns ChartAnnotationData with referenceDays, anchorDay (the latest
+ * matching reference low), confirmingDays (length 1-4, including shiftDay
+ * at index 0), and coverlineTemp.
+ *
+ * Returns null when no annotations should render.
+ */
 export function getChartAnnotations(
   days: CycleDayInput[],
   interpretation: { state: string; userOverrides: UserOverrides | null } | null,
@@ -55,6 +74,11 @@ export function getChartAnnotations(
   // SUGGESTED or CONFIRMED
   if (!engineResult || engineResult.status === 'none') return null;
 
-  // Implemented in Task 3
-  return null;
+  // SUGGESTED or CONFIRMED with engine pending/confirmed shift
+  return {
+    referenceDays: engineResult.referenceDays,
+    anchorDay: pickAnchorDay(days, engineResult.referenceDays, engineResult.coverlineTemp),
+    confirmingDays: engineResult.confirmingDays,
+    coverlineTemp: engineResult.coverlineTemp,
+  };
 }
