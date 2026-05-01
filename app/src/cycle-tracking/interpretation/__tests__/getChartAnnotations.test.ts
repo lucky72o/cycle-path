@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { getChartAnnotations, pickAnchorDay } from '../getChartAnnotations';
 import type { CycleDayInput, ThermalShiftResult } from '../types';
-import { celsiusToFahrenheit } from '../../utils';
+import { celsiusToFahrenheit, fahrenheitToCelsius } from '../../utils';
 
 function buildDays(tempsC: (number | null)[]): CycleDayInput[] {
   return tempsC.map((tC, i) => ({
@@ -12,6 +12,17 @@ function buildDays(tempsC: (number | null)[]): CycleDayInput[] {
     disturbanceFactors: [],
     travelTimeDiff: null,
   }));
+}
+
+/**
+ * Build a `coverlineTemp` value matching the production engine's path:
+ * the engine reads stored bbt (Fahrenheit) and converts to Celsius. Tests
+ * must use the same round-trip so float-equality assertions exercise the
+ * actual production precision behavior, not a literal that coincidentally
+ * round-trips through F↔C.
+ */
+function makeCoverline(tempC: number): number {
+  return fahrenheitToCelsius(celsiusToFahrenheit(tempC));
 }
 
 const engineNone: ThermalShiftResult = {
@@ -52,19 +63,19 @@ describe('getChartAnnotations', () => {
 describe('pickAnchorDay', () => {
   it('returns the only day matching coverlineTemp', () => {
     const days = buildDays([36.30, 36.32, 36.28, 36.30, 36.32, 36.40]);
-    const anchor = pickAnchorDay(days, [1, 2, 3, 4, 5, 6], 36.40);
+    const anchor = pickAnchorDay(days, [1, 2, 3, 4, 5, 6], makeCoverline(36.40));
     expect(anchor).toBe(6);
   });
 
   it('returns the latest day when multiple days tie at coverlineTemp', () => {
     // Days 2 and 5 both at 36.40 — anchor must be the latest (5)
     const days = buildDays([36.30, 36.40, 36.28, 36.30, 36.40, 36.32]);
-    const anchor = pickAnchorDay(days, [1, 2, 3, 4, 5, 6], 36.40);
+    const anchor = pickAnchorDay(days, [1, 2, 3, 4, 5, 6], makeCoverline(36.40));
     expect(anchor).toBe(5);
   });
 
   it('throws when no day matches coverlineTemp (engine invariant violation)', () => {
     const days = buildDays([36.30, 36.32, 36.28, 36.30, 36.32, 36.30]);
-    expect(() => pickAnchorDay(days, [1, 2, 3, 4, 5, 6], 36.99)).toThrow();
+    expect(() => pickAnchorDay(days, [1, 2, 3, 4, 5, 6], makeCoverline(36.99))).toThrow();
   });
 });
