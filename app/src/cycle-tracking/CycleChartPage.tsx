@@ -274,10 +274,37 @@ export default function CycleChartPage() {
 
     // Use the wider range to ensure all data points are visible (including excluded ones)
     const min = Math.min(defaultRange.min, actualMin);
-    const max = Math.max(defaultRange.max, actualMax);
+    let max = Math.max(defaultRange.max, actualMax);
+
+    // Headroom for the thermal-shift chevrons — only when chevrons will
+    // actually render. DISMISSED / engine-none cycles must keep the existing
+    // chart layout, so we leave yAxisRange untouched in that case.
+    //
+    // Chevron apex sits ~20 px above the dot plus the number underneath, so
+    // we want ≥30 px clearance from the highest dot to the top of the plot.
+    // Solving the px↔temp equation *after* the bump widens the range gives:
+    //   bump = (HEADROOM_PX × range) / (plotHeight − HEADROOM_PX)
+    //
+    // Use the measured plotAreaHeight when the ResizeObserver has populated
+    // it. Before that fires (initial render), fall back to a deliberately
+    // small height (280 px) — smaller-than-real means a bigger-than-needed
+    // first bump, which clears the chevrons safely even if the real measured
+    // plot turns out smaller than expected.
+    if (annotationData) {
+      const HEADROOM_PX = 30;
+      const FALLBACK_PLOT_HEIGHT_PX = 280;
+      const effectivePlotHeight =
+        plotAreaHeight > 0 ? plotAreaHeight : FALLBACK_PLOT_HEIGHT_PX;
+      const range = max - min;
+      const bumpTempUnits =
+        (HEADROOM_PX * range) / (effectivePlotHeight - HEADROOM_PX);
+      if (max - actualMax < bumpTempUnits) {
+        max += bumpTempUnits;
+      }
+    }
 
     return { min, max };
-  }, [chartData, settings]);
+  }, [chartData, settings, annotationData, plotAreaHeight]);
 
   // Compute days with no BBT recording that fall between two consecutive included BBT points.
   // Used to render a small × on the connecting line at the interpolated temperature position.
