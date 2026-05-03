@@ -1,3 +1,4 @@
+// app/src/cycle-tracking/interpretation/components/ThermalShiftAnnotations.tsx
 import type { CycleDayInput } from '../types';
 import type { ChartAnnotationData } from '../getChartAnnotations';
 import { fahrenheitToCelsius } from '../../utils';
@@ -116,6 +117,10 @@ export function ThermalShiftBackgroundLayer(props: ThermalShiftLayerProps) {
  *
  * Implemented in Task 8.
  */
-export function ThermalShiftForegroundLayer(_props: ThermalShiftLayerProps) {
+export function ThermalShiftForegroundLayer(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _props: ThermalShiftLayerProps,
+) {
+  // Placeholder — Task 8 implements the chevron rendering.
   return null;
 }
