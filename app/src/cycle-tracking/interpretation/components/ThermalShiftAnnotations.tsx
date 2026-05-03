@@ -38,7 +38,7 @@ const CHEVRON_STROKE_WIDTH = 1.75;
 const CHEVRON_NUMBER_COLOR = '#047857';
 const CHEVRON_NUMBER_FONT_SIZE = 9;
 const CHEVRON_NUMBER_FONT_WEIGHT = 700;
-const CHEVRON_OFFSET_ABOVE_DOT = 18; // px from dot to chevron apex
+const CHEVRON_OFFSET_ABOVE_DOT = 18; // px: group origin offset above dot; apex (at local y=-2) lands 20 px above
 
 /**
  * Build the day→x and temp→y projection plus a `dotPosition` lookup for the
@@ -204,7 +204,7 @@ export function ThermalShiftForegroundLayer(props: ThermalShiftLayerProps) {
         <text
           y={14}
           textAnchor="middle"
-          fontFamily="ui-sans-serif, system-ui"
+          fontFamily="Satoshi, ui-sans-serif, system-ui"
           fontSize={CHEVRON_NUMBER_FONT_SIZE}
           fontWeight={CHEVRON_NUMBER_FONT_WEIGHT}
           fill={CHEVRON_NUMBER_COLOR}
