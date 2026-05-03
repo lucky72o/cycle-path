@@ -28,6 +28,11 @@ const ANCHOR_HALO_COLOR = '#8b5cf6';
 const ANCHOR_HALO_RADIUS = 11;
 const ANCHOR_HALO_OPACITY = 0.22;
 
+const BAND_LIGHT_COLOR = '#d1fae5';
+const BAND_LIGHT_OPACITY = 0.55;
+const BAND_DARK_COLOR = '#10b981';
+const BAND_DARK_OPACITY = 0.18;
+
 /**
  * Build the day→x and temp→y projection plus a `dotPosition` lookup for the
  * given props. Used by both the background and foreground layer components.
@@ -68,7 +73,28 @@ function useChartProjection(props: ThermalShiftLayerProps) {
     return { x: dayToX(dayNumber), y: tempToY(tempInDisplay) };
   };
 
-  return { cellWidth, dayToX, tempToY, dotPosition };
+  const columnRect = (
+    dayNumber: number,
+    fill: string,
+    opacity: number,
+    key: string,
+  ) => {
+    const dayIndex = dayNumber - minDay;
+    const x = plotAreaOffset + dayIndex * cellWidth;
+    return (
+      <rect
+        key={key}
+        x={x}
+        y={plotAreaTop}
+        width={cellWidth}
+        height={plotAreaHeight}
+        fill={fill}
+        opacity={opacity}
+      />
+    );
+  };
+
+  return { cellWidth, dayToX, tempToY, dotPosition, columnRect };
 }
 
 /**
@@ -77,7 +103,7 @@ function useChartProjection(props: ThermalShiftLayerProps) {
  */
 export function ThermalShiftBackgroundLayer(props: ThermalShiftLayerProps) {
   const { data } = props;
-  const { dotPosition } = useChartProjection(props);
+  const { dotPosition, columnRect } = useChartProjection(props);
 
   // Layer 1: reference-low halos — render every reference day EXCEPT the
   // anchor (the anchor gets the purple halo in Task 6).
@@ -103,6 +129,7 @@ export function ThermalShiftBackgroundLayer(props: ThermalShiftLayerProps) {
     if (!pos) return null;
     return (
       <circle
+        key="anchor-halo"
         cx={pos.x}
         cy={pos.y}
         r={ANCHOR_HALO_RADIUS}
@@ -111,6 +138,16 @@ export function ThermalShiftBackgroundLayer(props: ThermalShiftLayerProps) {
       />
     );
   })();
+
+  const lighterBand = data.confirmingDays.map((dayNumber) =>
+    columnRect(dayNumber, BAND_LIGHT_COLOR, BAND_LIGHT_OPACITY, `band-light-${dayNumber}`),
+  );
+  const darkerStripe = columnRect(
+    data.confirmingDays[0],
+    BAND_DARK_COLOR,
+    BAND_DARK_OPACITY,
+    `band-dark-${data.confirmingDays[0]}`,
+  );
 
   return (
     <svg
@@ -123,10 +160,13 @@ export function ThermalShiftBackgroundLayer(props: ThermalShiftLayerProps) {
         zIndex: 0, // mirrors fertile-window overlay; sits behind the chart
       }}
     >
+      {/* Layer 3: shift band (renders first so halos paint on top) */}
+      <g>{lighterBand}</g>
+      <g>{darkerStripe}</g>
+      {/* Layer 1: reference-low halos (blue) */}
       <g>{referenceLowHalos}</g>
       {/* Layer 2: coverline-anchor halo (purple) */}
       <g>{anchorHalo}</g>
-      {/* Band (Layer 3) added in Task 7 */}
     </svg>
   );
 }
