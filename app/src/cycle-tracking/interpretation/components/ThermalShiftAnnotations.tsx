@@ -24,6 +24,10 @@ const REFERENCE_HALO_COLOR = '#dbeafe';
 const REFERENCE_HALO_RADIUS = 9;
 const REFERENCE_HALO_OPACITY = 0.85;
 
+const ANCHOR_HALO_COLOR = '#8b5cf6';
+const ANCHOR_HALO_RADIUS = 11;
+const ANCHOR_HALO_OPACITY = 0.22;
+
 /**
  * Build the day→x and temp→y projection plus a `dotPosition` lookup for the
  * given props. Used by both the background and foreground layer components.
@@ -94,6 +98,20 @@ export function ThermalShiftBackgroundLayer(props: ThermalShiftLayerProps) {
       );
     });
 
+  const anchorHalo = (() => {
+    const pos = dotPosition(data.anchorDay);
+    if (!pos) return null;
+    return (
+      <circle
+        cx={pos.x}
+        cy={pos.y}
+        r={ANCHOR_HALO_RADIUS}
+        fill={ANCHOR_HALO_COLOR}
+        opacity={ANCHOR_HALO_OPACITY}
+      />
+    );
+  })();
+
   return (
     <svg
       className="absolute pointer-events-none"
@@ -106,7 +124,9 @@ export function ThermalShiftBackgroundLayer(props: ThermalShiftLayerProps) {
       }}
     >
       <g>{referenceLowHalos}</g>
-      {/* Band + anchor halo added in Tasks 6 & 7 */}
+      {/* Layer 2: coverline-anchor halo (purple) */}
+      <g>{anchorHalo}</g>
+      {/* Band (Layer 3) added in Task 7 */}
     </svg>
   );
 }
