@@ -33,6 +33,13 @@ const BAND_LIGHT_OPACITY = 0.55;
 const BAND_DARK_COLOR = '#10b981';
 const BAND_DARK_OPACITY = 0.18;
 
+const CHEVRON_STROKE = '#10b981';
+const CHEVRON_STROKE_WIDTH = 1.75;
+const CHEVRON_NUMBER_COLOR = '#047857';
+const CHEVRON_NUMBER_FONT_SIZE = 9;
+const CHEVRON_NUMBER_FONT_WEIGHT = 700;
+const CHEVRON_OFFSET_ABOVE_DOT = 18; // px from dot to chevron apex
+
 /**
  * Build the day→x and temp→y projection plus a `dotPosition` lookup for the
  * given props. Used by both the background and foreground layer components.
@@ -174,13 +181,53 @@ export function ThermalShiftBackgroundLayer(props: ThermalShiftLayerProps) {
 /**
  * Foreground layer: numbered chevrons. Render this AFTER <ReactApexChart /> in
  * DOM order so the chevrons paint on top of the chart's temperature line.
- *
- * Implemented in Task 8.
  */
-export function ThermalShiftForegroundLayer(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _props: ThermalShiftLayerProps,
-) {
-  // Placeholder — Task 8 implements the chevron rendering.
-  return null;
+export function ThermalShiftForegroundLayer(props: ThermalShiftLayerProps) {
+  const { data } = props;
+  const { dotPosition } = useChartProjection(props);
+
+  const chevrons = data.confirmingDays.map((dayNumber, i) => {
+    const pos = dotPosition(dayNumber);
+    if (!pos) return null;
+    const tx = pos.x;
+    const ty = pos.y - CHEVRON_OFFSET_ABOVE_DOT;
+    return (
+      <g key={`chevron-${dayNumber}`} transform={`translate(${tx},${ty})`}>
+        <path
+          d="M-5,4 L0,-2 L5,4"
+          stroke={CHEVRON_STROKE}
+          strokeWidth={CHEVRON_STROKE_WIDTH}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <text
+          y={14}
+          textAnchor="middle"
+          fontFamily="ui-sans-serif, system-ui"
+          fontSize={CHEVRON_NUMBER_FONT_SIZE}
+          fontWeight={CHEVRON_NUMBER_FONT_WEIGHT}
+          fill={CHEVRON_NUMBER_COLOR}
+        >
+          {i + 1}
+        </text>
+      </g>
+    );
+  });
+
+  return (
+    <svg
+      className="absolute pointer-events-none"
+      style={{
+        left: 0,
+        top: 0,
+        width: '100%',
+        height: '100%',
+        // No explicit zIndex — relying on DOM order. Rendered after
+        // <ReactApexChart /> so it paints on top of the chart's SVG.
+      }}
+    >
+      <g>{chevrons}</g>
+    </svg>
+  );
 }
