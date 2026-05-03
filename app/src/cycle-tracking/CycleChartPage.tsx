@@ -19,6 +19,11 @@ import { NudgeIcon } from './interpretation/components/NudgeIcon';
 import { NudgeMessage } from './interpretation/components/NudgeMessage';
 import { getPreviousCycleSummary } from 'wasp/client/operations';
 import { getActiveCoverline } from './interpretation/getActiveCoverline';
+import { getChartAnnotations } from './interpretation/getChartAnnotations';
+import {
+  ThermalShiftBackgroundLayer,
+  ThermalShiftForegroundLayer,
+} from './interpretation/components/ThermalShiftAnnotations';
 
 const DISTURBANCE_EMOJI: Record<string, string> = {
   POOR_SLEEP: '🌙',
@@ -237,6 +242,14 @@ export default function CycleChartPage() {
 
     return map;
   }, [cycle, displayDayRange]);
+
+  const annotationData = useMemo(() => {
+    return getChartAnnotations(
+      cycleDayInputs,
+      interpretation,
+      engineResult?.thermalShift ?? null,
+    );
+  }, [cycleDayInputs, interpretation, engineResult]);
 
   // Calculate dynamic Y-axis range based on actual data (including excluded points)
   const yAxisRange = useMemo(() => {
@@ -1361,7 +1374,23 @@ export default function CycleChartPage() {
                   </div>
                 );
               })()}
-              
+
+              {/* Thermal-shift annotations: BACKGROUND layer (band + halos) */}
+              {annotationData && chartData && plotAreaWidth > 0 && plotAreaTop > 0 && plotAreaHeight > 0 && yAxisRange && settings && (
+                <ThermalShiftBackgroundLayer
+                  data={annotationData}
+                  days={cycleDayInputs}
+                  temperatureUnit={settings.temperatureUnit}
+                  plotAreaOffset={plotAreaOffset}
+                  plotAreaWidth={plotAreaWidth}
+                  plotAreaTop={plotAreaTop}
+                  plotAreaHeight={plotAreaHeight}
+                  yAxisRange={yAxisRange}
+                  minDay={chartData.minDay}
+                  maxDay={chartData.maxDay}
+                />
+              )}
+
               {/* Custom Crosshair Overlay - extends through custom grid */}
               {crosshairX !== null && (
                 <div
@@ -1485,6 +1514,22 @@ export default function CycleChartPage() {
                 type="line"
                 height={400}
               />
+
+              {/* Thermal-shift annotations: FOREGROUND layer (chevrons) */}
+              {annotationData && chartData && plotAreaWidth > 0 && plotAreaTop > 0 && plotAreaHeight > 0 && yAxisRange && settings && (
+                <ThermalShiftForegroundLayer
+                  data={annotationData}
+                  days={cycleDayInputs}
+                  temperatureUnit={settings.temperatureUnit}
+                  plotAreaOffset={plotAreaOffset}
+                  plotAreaWidth={plotAreaWidth}
+                  plotAreaTop={plotAreaTop}
+                  plotAreaHeight={plotAreaHeight}
+                  yAxisRange={yAxisRange}
+                  minDay={chartData.minDay}
+                  maxDay={chartData.maxDay}
+                />
+              )}
 
               {/* Flower Markers for Peak LH Days - positioned above chart */}
               {chartData && plotAreaWidth > 0 && plotAreaTop > 0 && plotAreaHeight > 0 && yAxisRange && (
