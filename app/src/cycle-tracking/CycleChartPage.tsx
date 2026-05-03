@@ -280,8 +280,9 @@ export default function CycleChartPage() {
     // actually render. DISMISSED / engine-none cycles must keep the existing
     // chart layout, so we leave yAxisRange untouched in that case.
     //
-    // Chevron apex sits ~20 px above the dot plus the number underneath, so
-    // we want ≥30 px clearance from the highest dot to the top of the plot.
+    // Chevron apex sits 20 px above the dot, plus a small top margin (~10 px)
+    // so the apex doesn't kiss the plot border. Total ≥30 px clearance from
+    // the highest dot to the top of the plot.
     // Solving the px↔temp equation *after* the bump widens the range gives:
     //   bump = (HEADROOM_PX × range) / (plotHeight − HEADROOM_PX)
     //
@@ -290,6 +291,14 @@ export default function CycleChartPage() {
     // small height (280 px) — smaller-than-real means a bigger-than-needed
     // first bump, which clears the chevrons safely even if the real measured
     // plot turns out smaller than expected.
+    //
+    // Convergence note: this memo depends on plotAreaHeight, but the chart's
+    // plot area height is itself a function of yAxisRange (label-column width).
+    // The loop terminates because our bump shifts max by ~0.14 °C / ~0.25 °F
+    // — below the y-axis label precision (toFixed(1) / toFixed(2) at lines
+    // ~739-743), so ApexCharts renders the same label strings and does not
+    // re-measure the label column. If you upgrade ApexCharts or change the
+    // label precision, re-verify this convergence.
     if (annotationData) {
       const HEADROOM_PX = 30;
       const FALLBACK_PLOT_HEIGHT_PX = 280;
