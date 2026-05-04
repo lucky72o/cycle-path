@@ -20,25 +20,39 @@ export type ThermalShiftLayerProps = {
   maxDay: number;
 };
 
+// Reference and anchor halos use the same radius — they're distinguished by
+// colour (blue vs purple), not size. Radius 12 puts the halo ~5 px past the
+// edge of the live chart's r=7 dot (which contains a temperature label).
+const HALO_RADIUS = 12;
 const REFERENCE_HALO_COLOR = '#dbeafe';
-const REFERENCE_HALO_RADIUS = 9;
+const REFERENCE_HALO_RADIUS = HALO_RADIUS;
 const REFERENCE_HALO_OPACITY = 0.85;
 
 const ANCHOR_HALO_COLOR = '#8b5cf6';
-const ANCHOR_HALO_RADIUS = 11;
+const ANCHOR_HALO_RADIUS = HALO_RADIUS;
 const ANCHOR_HALO_OPACITY = 0.22;
 
-const BAND_LIGHT_COLOR = '#d1fae5';
-const BAND_LIGHT_OPACITY = 0.55;
-const BAND_DARK_COLOR = '#10b981';
-const BAND_DARK_OPACITY = 0.18;
+// Band colors pulled from the Time Stamp row's existing palette so the band
+// visually rhymes with the strip below the chart (CycleChartPage.tsx:1703 —
+// `bg-amber-50` default = #fffbeb, `bg-[#fde68a]` hover = amber-200).
+const BAND_LIGHT_COLOR = '#fffbeb';   // Time Stamp default (amber-50)
+const BAND_LIGHT_OPACITY = 0.95;
+const BAND_DARK_COLOR = '#fde68a';    // Time Stamp hover (amber-200)
+const BAND_DARK_OPACITY = 0.55;
 
 const CHEVRON_STROKE = '#10b981';
 const CHEVRON_STROKE_WIDTH = 1.75;
 const CHEVRON_NUMBER_COLOR = '#047857';
-const CHEVRON_NUMBER_FONT_SIZE = 9;
+// Match the dot's internal temperature label size (chartOptions.dataLabels at
+// CycleChartPage.tsx ~line 627 uses '11px'). Same size keeps the chevron's
+// number reading as a peer of the dot's number rather than a smaller annotation.
+const CHEVRON_NUMBER_FONT_SIZE = 11;
 const CHEVRON_NUMBER_FONT_WEIGHT = 700;
-const CHEVRON_OFFSET_ABOVE_DOT = 18; // px: group origin offset above dot; apex (at local y=-2) lands 20 px above
+// Group origin offset above dot center. Chevron apex (at local y=-2) lands
+// 28 px above the dot center; the number's baseline lands 11 px above the
+// dot center, leaving ~4 px of clearance between the number's bottom and the
+// dot's top edge (dot radius is 7).
+const CHEVRON_OFFSET_ABOVE_DOT = 26;
 
 /**
  * Build the day→x and temp→y projection plus a `dotPosition` lookup for the
@@ -202,7 +216,7 @@ export function ThermalShiftForegroundLayer(props: ThermalShiftLayerProps) {
           strokeLinejoin="round"
         />
         <text
-          y={14}
+          y={15}
           textAnchor="middle"
           fontFamily="Satoshi, ui-sans-serif, system-ui"
           fontSize={CHEVRON_NUMBER_FONT_SIZE}

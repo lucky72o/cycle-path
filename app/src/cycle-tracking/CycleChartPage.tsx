@@ -280,8 +280,8 @@ export default function CycleChartPage() {
     // actually render. DISMISSED / engine-none cycles must keep the existing
     // chart layout, so we leave yAxisRange untouched in that case.
     //
-    // Chevron apex sits 20 px above the dot, plus a small top margin (~10 px)
-    // so the apex doesn't kiss the plot border. Total ≥30 px clearance from
+    // Chevron apex sits 28 px above the dot, plus a small top margin (~10 px)
+    // so the apex doesn't kiss the plot border. Total ≥38 px clearance from
     // the highest dot to the top of the plot.
     // Solving the px↔temp equation *after* the bump widens the range gives:
     //   bump = (HEADROOM_PX × range) / (plotHeight − HEADROOM_PX)
@@ -300,7 +300,7 @@ export default function CycleChartPage() {
     // re-measure the label column. If you upgrade ApexCharts or change the
     // label precision, re-verify this convergence.
     if (annotationData) {
-      const HEADROOM_PX = 30;
+      const HEADROOM_PX = 38;
       const FALLBACK_PLOT_HEIGHT_PX = 280;
       const effectivePlotHeight =
         plotAreaHeight > 0 ? plotAreaHeight : FALLBACK_PLOT_HEIGHT_PX;
@@ -779,8 +779,12 @@ export default function CycleChartPage() {
   useEffect(() => {
     const updatePlotAreaDimensions = () => {
       if (chartContainerRef.current) {
-        // Find the Apex plot area (excludes y-axis labels)
-        const plotArea = chartContainerRef.current.querySelector('.apexcharts-inner');
+        // Find the Apex grid rect — this is the actual dot-placement region.
+        // `.apexcharts-inner` is ~5 px wider than `.apexcharts-grid` (it
+        // includes a small right-side gap), so using inner caused overlay
+        // dots/halos to drift off-centre by up to ~5 px at the right edge.
+        // Querying the grid keeps overlays exactly aligned with chart dots.
+        const plotArea = chartContainerRef.current.querySelector('.apexcharts-grid');
         if (plotArea) {
           const containerRect = chartContainerRef.current.getBoundingClientRect();
           const plotRect = plotArea.getBoundingClientRect();
