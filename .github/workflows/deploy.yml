@@ -29,7 +29,7 @@ jobs:
           node-version: '22'
 
       - name: Install Wasp
-        run: curl -sSL https://get.wasp.sh/installer.sh | sh -s -- -v 0.18.1
+        run: curl -sSL https://get.wasp.sh/installer.sh | sh -s -- -v 0.19.1
 
       - name: Install Flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
