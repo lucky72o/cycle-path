@@ -1,6 +1,6 @@
 app CyclePath {
   wasp: {
-    version: "^0.18.0"
+    version: "^0.19.0"
   },
 
   title: "CyclePath - Natural Fertility Tracking",
@@ -362,6 +362,11 @@ query getUserSettings {
   entities: [User, UserSettings]
 }
 
+query getPreviousCycleSummary {
+  fn: import { getPreviousCycleSummary } from "@src/cycle-tracking/operations",
+  entities: [Cycle, CycleInterpretation]
+}
+
 action createCycle {
   fn: import { createCycle } from "@src/cycle-tracking/operations",
   entities: [User, Cycle]
@@ -400,5 +405,75 @@ action updateCycle {
 action deleteCycleDay {
   fn: import { deleteCycleDay } from "@src/cycle-tracking/operations",
   entities: [Cycle, CycleDay]
+}
+
+query getCycleInterpretation {
+  fn: import { getCycleInterpretation } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action upsertCycleInterpretation {
+  fn: import { upsertCycleInterpretation } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle, CycleDay]
+}
+
+action deleteCycleInterpretation {
+  fn: import { deleteCycleInterpretation } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action confirmInterpretation {
+  fn: import { confirmInterpretation } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action adjustInterpretation {
+  fn: import { adjustInterpretation } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action revertInterpretation {
+  fn: import { revertInterpretation } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action dismissInterpretation {
+  fn: import { dismissInterpretation } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action resolveReview {
+  fn: import { resolveReview } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action resolveFalseRiseWarning {
+  fn: import { resolveFalseRiseWarning } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action resolveNudge {
+  fn: import { resolveNudge } from "@src/cycle-tracking/interpretation/interpretationOperations",
+  entities: [CycleInterpretation, Cycle]
+}
+
+action markCycleAnovulatory {
+  fn: import { markCycleAnovulatory } from "@src/cycle-tracking/cycleClassificationOperations",
+  entities: [Cycle, CycleInterpretation, CycleDay]
+}
+
+action markCycleUninterpretable {
+  fn: import { markCycleUninterpretable } from "@src/cycle-tracking/cycleClassificationOperations",
+  entities: [Cycle, CycleInterpretation, CycleDay]
+}
+
+action unmarkCycleClassification {
+  fn: import { unmarkCycleClassification } from "@src/cycle-tracking/cycleClassificationOperations",
+  entities: [Cycle]
+}
+
+action reEvaluateCycleInterpretation {
+  fn: import { reEvaluateCycleInterpretation } from "@src/cycle-tracking/cycleClassificationOperations",
+  entities: [Cycle, CycleInterpretation]
 }
 //#endregion

@@ -5,9 +5,25 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { fahrenheitToCelsius, formatDate, formatDateLong, formatDateDDMMMYYYY, getDayOfWeekAbbreviation, getDayOfWeek, getCycleDayCount, getTempNodeLabel } from './utils';
+import { fahrenheitToCelsius, celsiusToFahrenheit, formatDate, formatDateLong, formatDateDDMMMYYYY, getDayOfWeekAbbreviation, getDayOfWeek, getCycleDayCount, getTempNodeLabel } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
+import { useInterpretation } from './interpretation/hooks/useInterpretation';
+import type { CycleDayInput } from './interpretation/types';
+import { PropositionCard } from './interpretation/components/PropositionCard';
+import { AnovulatoryCard } from './interpretation/components/AnovulatoryCard';
+import { UninterpretableCard } from './interpretation/components/UninterpretableCard';
+import { CycleBadge } from './interpretation/components/CycleBadge';
+import { CrossCycleAnovulatoryBanner } from './interpretation/components/CrossCycleAnovulatoryBanner';
+import { NudgeIcon } from './interpretation/components/NudgeIcon';
+import { NudgeMessage } from './interpretation/components/NudgeMessage';
+import { getPreviousCycleSummary } from 'wasp/client/operations';
+import { getActiveCoverline } from './interpretation/getActiveCoverline';
+import { getChartAnnotations } from './interpretation/getChartAnnotations';
+import {
+  ThermalShiftBackgroundLayer,
+  ThermalShiftForegroundLayer,
+} from './interpretation/components/ThermalShiftAnnotations';
 
 const DISTURBANCE_EMOJI: Record<string, string> = {
   POOR_SLEEP: '🌙',
@@ -27,6 +43,11 @@ export default function CycleChartPage() {
   const { data: allCycles } = useQuery(getUserCycles);
   const { data: cycle, isLoading: cycleLoading } = useQuery(getCycleById, { cycleId: cycleId || '' }, { enabled: !!cycleId });
   const { data: settings, isLoading: settingsLoading } = useQuery(getUserSettings);
+  const { data: previousCycle } = useQuery(
+    getPreviousCycleSummary,
+    { cycleNumber: cycle?.cycleNumber ?? 0 },
+    { enabled: !!cycle?.isActive && typeof cycle?.cycleNumber === 'number' }
+  );
 
   // Refs and state for custom x-axis rows
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -49,6 +70,8 @@ export default function CycleChartPage() {
   const [pinnedCrosshairX, setPinnedCrosshairX] = useState<number | null>(null);
   const pinnedDayNumberRef = useRef<number | null>(null);
   const pinnedCrosshairXRef = useRef<number | null>(null);
+
+  const [expandedNudgeDay, setExpandedNudgeDay] = useState<number | null>(null);
 
   // Touch gesture tracking
   const isTouchScrollingRef = useRef<boolean>(false);
@@ -78,6 +101,40 @@ export default function CycleChartPage() {
   const excludedBBTDays = useMemo(() => {
     return allDaysWithBBT.filter((day: any) => day.excludeFromInterpretation);
   }, [allDaysWithBBT]);
+
+  // Convert cycle days to engine input format
+  const cycleDayInputs: CycleDayInput[] = useMemo(() => {
+    if (!cycle) return [];
+    return cycle.days.map((d: any) => ({
+      dayNumber: d.dayNumber,
+      bbt: d.bbt,
+      bbtTime: d.bbtTime,
+      excludeFromInterpretation: d.excludeFromInterpretation,
+      disturbanceFactors: d.disturbanceFactors ?? [],
+      travelTimeDiff: d.travelTimeDiff,
+    }));
+  }, [cycle]);
+
+  const maxDayNumber = useMemo(() => {
+    if (cycleDayInputs.length === 0) return 0;
+    return Math.max(...cycleDayInputs.map((d) => d.dayNumber));
+  }, [cycleDayInputs]);
+
+  const {
+    engineResult,
+    interpretation,
+    postShiftMonitoring,
+    isLoading: interpretationLoading,
+    keepWatchingDismissed,
+    onKeepWatching,
+    actions: interpretationActions,
+  } = useInterpretation({
+    cycleId,
+    days: cycleDayInputs,
+    cycleIsActive: cycle?.isActive ?? false,
+    markedAnovulatoryAt: (cycle as any)?.markedAnovulatoryAt ?? null,
+    markedUninterpretableAt: (cycle as any)?.markedUninterpretableAt ?? null,
+  });
 
   // Determine how many days to show on the chart.
   const displayDayRange = useMemo(() => {
@@ -186,6 +243,14 @@ export default function CycleChartPage() {
     return map;
   }, [cycle, displayDayRange]);
 
+  const annotationData = useMemo(() => {
+    return getChartAnnotations(
+      cycleDayInputs,
+      interpretation,
+      engineResult?.thermalShift ?? null,
+    );
+  }, [cycleDayInputs, interpretation, engineResult]);
+
   // Calculate dynamic Y-axis range based on actual data (including excluded points)
   const yAxisRange = useMemo(() => {
     if (!chartData || !settings) return null;
@@ -209,10 +274,46 @@ export default function CycleChartPage() {
 
     // Use the wider range to ensure all data points are visible (including excluded ones)
     const min = Math.min(defaultRange.min, actualMin);
-    const max = Math.max(defaultRange.max, actualMax);
+    let max = Math.max(defaultRange.max, actualMax);
+
+    // Headroom for the thermal-shift chevrons — only when chevrons will
+    // actually render. DISMISSED / engine-none cycles must keep the existing
+    // chart layout, so we leave yAxisRange untouched in that case.
+    //
+    // Chevron apex sits 28 px above the dot, plus a small top margin (~10 px)
+    // so the apex doesn't kiss the plot border. Total ≥38 px clearance from
+    // the highest dot to the top of the plot.
+    // Solving the px↔temp equation *after* the bump widens the range gives:
+    //   bump = (HEADROOM_PX × range) / (plotHeight − HEADROOM_PX)
+    //
+    // Use the measured plotAreaHeight when the ResizeObserver has populated
+    // it. Before that fires (initial render), fall back to a deliberately
+    // small height (280 px) — smaller-than-real means a bigger-than-needed
+    // first bump, which clears the chevrons safely even if the real measured
+    // plot turns out smaller than expected.
+    //
+    // Convergence note: this memo depends on plotAreaHeight, but the chart's
+    // plot area height is itself a function of yAxisRange (label-column width).
+    // The loop terminates because our bump shifts max by ~0.14 °C / ~0.25 °F
+    // — below the y-axis label precision (toFixed(1) / toFixed(2) at lines
+    // ~739-743), so ApexCharts renders the same label strings and does not
+    // re-measure the label column. If you upgrade ApexCharts or change the
+    // label precision, re-verify this convergence.
+    if (annotationData) {
+      const HEADROOM_PX = 38;
+      const FALLBACK_PLOT_HEIGHT_PX = 280;
+      const effectivePlotHeight =
+        plotAreaHeight > 0 ? plotAreaHeight : FALLBACK_PLOT_HEIGHT_PX;
+      const range = max - min;
+      const bumpTempUnits =
+        (HEADROOM_PX * range) / (effectivePlotHeight - HEADROOM_PX);
+      if (max - actualMax < bumpTempUnits) {
+        max += bumpTempUnits;
+      }
+    }
 
     return { min, max };
-  }, [chartData, settings]);
+  }, [chartData, settings, annotationData, plotAreaHeight]);
 
   // Compute days with no BBT recording that fall between two consecutive included BBT points.
   // Used to render a small × on the connecting line at the interpolated temperature position.
@@ -511,6 +612,48 @@ export default function CycleChartPage() {
           }
         }
       },
+      annotations: {
+        yaxis: (() => {
+          if (!interpretation || !engineResult) return [];
+          const shift = engineResult.thermalShift;
+          const state = interpretation.state;
+
+          // P2.2: derive coverline via getActiveCoverline. For ADJUSTED state, this
+          // recomputes from raw days using userOverrides.shiftDay; for SUGGESTED/CONFIRMED,
+          // it returns the engine's coverline. Fixes two bugs: (1) ADJUSTED+engine.status='none'
+          // (KeptShiftCard) no longer loses the coverline; (2) ADJUSTED with user shiftDay
+          // differing from engine draws the user's coverline, not the engine's.
+          const coverlineC = getActiveCoverline(cycleDayInputs, interpretation, shift);
+
+          const isMarked =
+            !!(cycle as any)?.markedAnovulatoryAt || !!(cycle as any)?.markedUninterpretableAt;
+          if (coverlineC == null || state === 'DISMISSED' || isMarked) return [];
+
+          // Convert to display unit
+          const coverlineDisplay = settings.temperatureUnit === 'CELSIUS'
+            ? coverlineC
+            : celsiusToFahrenheit(coverlineC);
+
+          const styleMap: Record<string, { color: string; dash: number; opacity: number }> = {
+            SUGGESTED: { color: '#8b5cf6', dash: 6, opacity: 0.6 },
+            CONFIRMED: { color: '#059669', dash: 0, opacity: 1 },
+            ADJUSTED: { color: '#d97706', dash: 0, opacity: 1 },
+          };
+          const style = styleMap[state] ?? styleMap.SUGGESTED;
+
+          return [{
+            y: coverlineDisplay,
+            borderColor: style.color,
+            strokeDashArray: style.dash,
+            opacity: style.opacity,
+            label: {
+              text: `${coverlineC.toFixed(2)}°C`,
+              position: 'right' as const,
+              style: { color: style.color, fontSize: '10px', background: 'transparent' },
+            },
+          }];
+        })(),
+      },
       colors: [
         ...Array(chartData.numSolidSegments).fill('#3b82f6'), // Blue for solid segments
         ...(chartData.hasExcludedSeries ? ['#6B7280'] : [])   // Darker grey for excluded (better text contrast)
@@ -618,7 +761,7 @@ export default function CycleChartPage() {
         enabled: false // Disabled - using custom React tooltip + native mousemove listener
       }
     };
-  }, [settings, chartData, allDaysWithBBT, cycle, navigate, yAxisRange, plotAreaWidth, plotAreaOffset]);
+  }, [settings, chartData, allDaysWithBBT, cycle, navigate, yAxisRange, plotAreaWidth, plotAreaOffset, interpretation, engineResult]);
 
   const prevCycle = useMemo(() => {
     if (!cycle || !allCycles) return null;
@@ -636,8 +779,12 @@ export default function CycleChartPage() {
   useEffect(() => {
     const updatePlotAreaDimensions = () => {
       if (chartContainerRef.current) {
-        // Find the Apex plot area (excludes y-axis labels)
-        const plotArea = chartContainerRef.current.querySelector('.apexcharts-inner');
+        // Find the Apex grid rect — this is the actual dot-placement region.
+        // `.apexcharts-inner` is ~5 px wider than `.apexcharts-grid` (it
+        // includes a small right-side gap), so using inner caused overlay
+        // dots/halos to drift off-centre by up to ~5 px at the right edge.
+        // Querying the grid keeps overlays exactly aligned with chart dots.
+        const plotArea = chartContainerRef.current.querySelector('.apexcharts-grid');
         if (plotArea) {
           const containerRect = chartContainerRef.current.getBoundingClientRect();
           const plotRect = plotArea.getBoundingClientRect();
@@ -929,8 +1076,12 @@ export default function CycleChartPage() {
       <div className="flex-1 p-4 md:p-8 max-w-6xl">
       <div className="mb-4 md:mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-xl md:text-3xl font-bold mb-2">
-            Cycle #{cycle.cycleNumber}{getCycleDayCount(cycle) > 0 && `: ${getCycleDayCount(cycle)} ${cycle.isActive ? 'days recorded' : 'days'}`}
+          <h1 className="text-xl md:text-3xl font-bold mb-2 flex items-center gap-2">
+            <span>Cycle #{cycle.cycleNumber}{getCycleDayCount(cycle) > 0 && `: ${getCycleDayCount(cycle)} ${cycle.isActive ? 'days recorded' : 'days'}`}</span>
+            <CycleBadge
+              markedAnovulatoryAt={(cycle as any).markedAnovulatoryAt ?? null}
+              markedUninterpretableAt={(cycle as any).markedUninterpretableAt ?? null}
+            />
           </h1>
           <p className="text-muted-foreground">
             Started: {formatDateLong(new Date(cycle.startDate))}
@@ -944,6 +1095,10 @@ export default function CycleChartPage() {
           </Button>
         </Link>
       </div>
+
+      {cycle.isActive && (
+        <CrossCycleAnovulatoryBanner previousCycle={previousCycle ?? null} />
+      )}
 
       <Card className="mb-6">
         <CardHeader className="flex flex-row items-center justify-between">
@@ -1259,7 +1414,23 @@ export default function CycleChartPage() {
                   </div>
                 );
               })()}
-              
+
+              {/* Thermal-shift annotations: BACKGROUND layer (band + halos) */}
+              {annotationData && chartData && plotAreaWidth > 0 && plotAreaTop > 0 && plotAreaHeight > 0 && yAxisRange && settings && (
+                <ThermalShiftBackgroundLayer
+                  data={annotationData}
+                  days={cycleDayInputs}
+                  temperatureUnit={settings.temperatureUnit}
+                  plotAreaOffset={plotAreaOffset}
+                  plotAreaWidth={plotAreaWidth}
+                  plotAreaTop={plotAreaTop}
+                  plotAreaHeight={plotAreaHeight}
+                  yAxisRange={yAxisRange}
+                  minDay={chartData.minDay}
+                  maxDay={chartData.maxDay}
+                />
+              )}
+
               {/* Custom Crosshair Overlay - extends through custom grid */}
               {crosshairX !== null && (
                 <div
@@ -1383,6 +1554,22 @@ export default function CycleChartPage() {
                 type="line"
                 height={400}
               />
+
+              {/* Thermal-shift annotations: FOREGROUND layer (chevrons) */}
+              {annotationData && chartData && plotAreaWidth > 0 && plotAreaTop > 0 && plotAreaHeight > 0 && yAxisRange && settings && (
+                <ThermalShiftForegroundLayer
+                  data={annotationData}
+                  days={cycleDayInputs}
+                  temperatureUnit={settings.temperatureUnit}
+                  plotAreaOffset={plotAreaOffset}
+                  plotAreaWidth={plotAreaWidth}
+                  plotAreaTop={plotAreaTop}
+                  plotAreaHeight={plotAreaHeight}
+                  yAxisRange={yAxisRange}
+                  minDay={chartData.minDay}
+                  maxDay={chartData.maxDay}
+                />
+              )}
 
               {/* Flower Markers for Peak LH Days - positioned above chart */}
               {chartData && plotAreaWidth > 0 && plotAreaTop > 0 && plotAreaHeight > 0 && yAxisRange && (
@@ -1963,6 +2150,31 @@ export default function CycleChartPage() {
               </Link>
             </div>
           )}
+            {/* Interpretation Proposition Card */}
+            <div className="px-4 pb-4">
+              {(cycle as any).markedAnovulatoryAt ? (
+                <AnovulatoryCard onRemoveMark={interpretationActions.unmarkClassification} />
+              ) : (cycle as any).markedUninterpretableAt ? (
+                <UninterpretableCard onRemoveMark={interpretationActions.unmarkClassification} />
+              ) : engineResult ? (
+                <PropositionCard
+                  engineResult={engineResult}
+                  interpretation={interpretation}
+                  postShiftMonitoring={postShiftMonitoring}
+                  changeNotice={null}
+                  keepWatchingDismissed={keepWatchingDismissed}
+                  onKeepWatching={onKeepWatching}
+                  actions={interpretationActions}
+                  cycleIsActive={cycle.isActive}
+                  maxDayNumber={maxDayNumber}
+                  onReEvaluate={interpretationActions.reEvaluate}
+                  onMarkAnovulatory={interpretationActions.markAnovulatory}
+                  onMarkUninterpretable={interpretationActions.markUninterpretable}
+                  days={cycleDayInputs}
+                  cycleStartDate={new Date(cycle.startDate)}
+                />
+              ) : null}
+            </div>
         </CardContent>
       </Card>
 

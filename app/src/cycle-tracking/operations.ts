@@ -5,6 +5,7 @@ import type {
   GetCycleById,
   GetCycleDays,
   GetUserSettings,
+  GetPreviousCycleSummary,
   CreateCycle,
   CreateOrUpdateCycleDay,
   UpdateUserTemperaturePreference,
@@ -193,6 +194,55 @@ export const getUserSettings: GetUserSettings<void, UserSettings> = async (_args
   }
 
   return settings;
+};
+
+/**
+ * Summarize the cycle immediately preceding the one with the given cycleNumber.
+ * Used by CrossCycleAnovulatoryBanner to decide whether to show a dismissible
+ * prompt on the current active cycle.
+ */
+type GetPreviousCycleSummaryInput = { cycleNumber: number };
+
+type PreviousCycleSummary = {
+  id: string;
+  cycleNumber: number;
+  isMarked: boolean;
+  hasConfirmedShift: boolean;
+} | null;
+
+export const getPreviousCycleSummary: GetPreviousCycleSummary<
+  GetPreviousCycleSummaryInput,
+  PreviousCycleSummary
+> = async (args, context) => {
+  if (!context.user) throw new HttpError(401, 'Not authorized');
+  if (args.cycleNumber <= 1) return null;
+
+  const prev = await context.entities.Cycle.findFirst({
+    where: {
+      userId: context.user.id,
+      cycleNumber: args.cycleNumber - 1,
+    },
+    include: {
+      interpretations: {
+        where: { type: 'THERMAL_SHIFT' },
+        select: { state: true },
+      },
+    },
+  });
+
+  if (!prev) return null;
+
+  const isMarked = !!prev.markedAnovulatoryAt || !!prev.markedUninterpretableAt;
+  const hasConfirmedShift = prev.interpretations.some(
+    (i: { state: string }) => i.state === 'CONFIRMED' || i.state === 'ADJUSTED'
+  );
+
+  return {
+    id: prev.id,
+    cycleNumber: prev.cycleNumber,
+    isMarked,
+    hasConfirmedShift,
+  };
 };
 
 // ===== ACTIONS =====

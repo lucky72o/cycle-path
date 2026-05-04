@@ -1,0 +1,3 @@
+{"type":"server-started","port":60549,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:60549","screen_dir":"/Users/olgapak/work/cycle-path/.superpowers/brainstorm/57955-1776162747/content","state_dir":"/Users/olgapak/work/cycle-path/.superpowers/brainstorm/57955-1776162747/state"}
+{"type":"screen-added","file":"/Users/olgapak/work/cycle-path/.superpowers/brainstorm/57955-1776162747/content/full-design-mockup.html"}
+{"type":"server-stopped","reason":"idle timeout"}

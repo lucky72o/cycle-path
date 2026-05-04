@@ -338,36 +338,38 @@ export default function AddCycleDayPage() {
               )}
             </div>
 
-            <div>
-              <Label htmlFor="bbt">
-                BBT ({tempUnit})
-              </Label>
-              <Input
-                id="bbt"
-                type="number"
-                step="0.01"
-                value={bbt}
-                onChange={(e) => setBbt(e.target.value)}
-                placeholder={`e.g., ${settings?.temperatureUnit === 'CELSIUS' ? '36.5' : '97.8'}`}
-                className="mt-1"
-              />
-              <p className="text-sm text-muted-foreground mt-1">
-                Basal Body Temperature (your body&apos;s lowest resting temperature)
-              </p>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="bbt">
+                  BBT ({tempUnit})
+                </Label>
+                <Input
+                  id="bbt"
+                  type="number"
+                  step="0.01"
+                  value={bbt}
+                  onChange={(e) => setBbt(e.target.value)}
+                  placeholder={`e.g., ${settings?.temperatureUnit === 'CELSIUS' ? '36.5' : '97.8'}`}
+                  className="mt-1 md:max-w-[21rem]"
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  Basal Body Temperature (your body&apos;s lowest resting temperature)
+                </p>
+              </div>
 
-            <div>
-              <Label htmlFor="bbtTime">BBT Time</Label>
-              <Input
-                id="bbtTime"
-                type="time"
-                value={bbtTime}
-                onChange={(e) => setBbtTime(e.target.value)}
-                className="mt-1"
-              />
-              <p className="text-sm text-muted-foreground mt-1">
-                Time you took your temperature reading
-              </p>
+              <div>
+                <Label htmlFor="bbtTime">BBT Time</Label>
+                <Input
+                  id="bbtTime"
+                  type="time"
+                  value={bbtTime}
+                  onChange={(e) => setBbtTime(e.target.value)}
+                  className="mt-1 md:max-w-[21rem]"
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  Time you took your temperature reading
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center space-x-2">

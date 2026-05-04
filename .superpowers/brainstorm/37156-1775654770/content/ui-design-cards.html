@@ -1,0 +1,418 @@
+<h2>Design Section 3 (continued): Proposition Cards, Nudges & Notices</h2>
+<p class="subtitle">Interactive UI elements for the interpretation engine</p>
+
+<div class="section">
+  <h3>3D. Proposition Card — All States</h3>
+  <p>The card appears below or beside the chart. It's the primary interface for the interpretation.</p>
+
+  <!-- PENDING card -->
+  <div style="margin-top: 20px;">
+    <div style="font-size: 12px; font-weight: 600; color: #8b5cf6; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">State: Suggested — Pending (mid-cycle, not enough data yet)</div>
+    <div class="mockup">
+      <div class="mockup-body" style="padding: 0; background: white; max-width: 420px;">
+        <div style="padding: 16px 20px; border-bottom: 1px solid #f1f5f9;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="width: 8px; height: 8px; border-radius: 50%; background: #8b5cf6; animation: pulse 2s infinite;"></div>
+              <span style="font-weight: 600; font-size: 14px; color: #002142;">Potential Thermal Shift Forming</span>
+            </div>
+          </div>
+        </div>
+        <div style="padding: 16px 20px; font-size: 13px; color: #334155; line-height: 1.7;">
+          <div style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px;">
+            <span style="color: #64748b;">Possible shift day:</span>
+            <span style="font-weight: 500;">Day 15</span>
+            <span style="color: #64748b;">Coverline:</span>
+            <span style="font-weight: 500;">36.4°C</span>
+            <span style="color: #64748b;">Reference temps:</span>
+            <span style="font-weight: 500;">Days 9–14 (6 valid)</span>
+            <span style="color: #64748b;">Status:</span>
+            <span style="font-weight: 500;">
+              <span style="color: #8b5cf6;">2 of 3</span> confirming temps recorded
+            </span>
+          </div>
+          <div style="margin-top: 12px; padding: 10px 12px; background: #f8fafc; border-radius: 6px; font-size: 12px; color: #64748b;">
+            Awaiting 1 more elevated temperature to confirm. Keep recording.
+          </div>
+        </div>
+        <div style="padding: 12px 20px; border-top: 1px solid #f1f5f9; display: flex; gap: 8px;">
+          <div style="padding: 6px 14px; border-radius: 6px; font-size: 12px; background: #f1f5f9; color: #94a3b8; cursor: not-allowed;">Confirm</div>
+          <div style="padding: 6px 14px; border-radius: 6px; font-size: 12px; background: #f1f5f9; color: #94a3b8; cursor: not-allowed;">Adjust</div>
+          <div style="padding: 6px 14px; border-radius: 6px; font-size: 12px; background: #fee2e2; color: #dc2626; cursor: pointer;">Dismiss</div>
+        </div>
+        <div style="padding: 0 20px 12px; font-size: 11px; color: #94a3b8; font-style: italic;">
+          Confirm and Adjust available after full confirmation.
+        </div>
+      </div>
+    </div>
+    <div style="margin-top: 6px; font-size: 11px; color: #64748b;">
+      Confirm/Adjust are greyed out until the 3-over-6 rule is fully satisfied. Only Dismiss is available — the user can reject a forming pattern they know is wrong.
+    </div>
+  </div>
+
+  <!-- CONFIRMED SUGGESTION card -->
+  <div style="margin-top: 32px;">
+    <div style="font-size: 12px; font-weight: 600; color: #8b5cf6; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">State: Suggested — Confirmed by engine (awaiting user decision)</div>
+    <div class="mockup">
+      <div class="mockup-body" style="padding: 0; background: white; max-width: 420px;">
+        <div style="padding: 16px 20px; border-bottom: 1px solid #f1f5f9;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 8px; height: 8px; border-radius: 50%; background: #8b5cf6;"></div>
+            <span style="font-weight: 600; font-size: 14px; color: #002142;">Thermal Shift Detected</span>
+            <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #dbeafe; color: #1d4ed8; font-weight: 500;">High confidence</span>
+          </div>
+        </div>
+        <div style="padding: 16px 20px; font-size: 13px; color: #334155; line-height: 1.7;">
+          <div style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px;">
+            <span style="color: #64748b;">Shift day:</span>
+            <span style="font-weight: 500;">Day 15 <span style="color:#64748b; font-size:11px;">(first higher temp)</span></span>
+            <span style="color: #64748b;">Coverline:</span>
+            <span style="font-weight: 500;">36.4°C</span>
+            <span style="color: #64748b;">Reference temps:</span>
+            <span style="font-weight: 500;">Days 9–14 (6 valid, none skipped)</span>
+          </div>
+
+          <div style="margin-top: 14px; padding: 12px; background: #faf5ff; border-radius: 6px; border: 1px solid #e9d5ff;">
+            <div style="font-size: 12px; font-weight: 600; color: #7c3aed; margin-bottom: 6px;">Confirming temperatures:</div>
+            <div style="font-size: 12px; line-height: 1.8; font-family: monospace;">
+              <div style="display: flex; justify-content: space-between;">
+                <span>Day 15: 36.55°C</span>
+                <span style="color: #64748b;">+0.15°C above coverline</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span>Day 16: 36.60°C</span>
+                <span style="color: #64748b;">+0.20°C above coverline</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span>Day 17: 36.70°C</span>
+                <span style="color: #059669; font-weight: 600;">+0.30°C ✓ clears +0.2°C</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="padding: 12px 20px; border-top: 1px solid #f1f5f9; display: flex; gap: 8px;">
+          <div style="padding: 6px 14px; border-radius: 6px; font-size: 12px; background: #059669; color: white; cursor: pointer; font-weight: 500;">Confirm</div>
+          <div style="padding: 6px 14px; border-radius: 6px; font-size: 12px; background: #f5f3ff; color: #7c3aed; cursor: pointer; border: 1px solid #e9d5ff;">Adjust</div>
+          <div style="padding: 6px 14px; border-radius: 6px; font-size: 12px; background: #fee2e2; color: #dc2626; cursor: pointer;">Dismiss</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- With 4th-day exception -->
+  <div style="margin-top: 32px;">
+    <div style="font-size: 12px; font-weight: 600; color: #d97706; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Variation: 4th-Day Exception Applied</div>
+    <div class="mockup">
+      <div class="mockup-body" style="padding: 0; background: white; max-width: 420px;">
+        <div style="padding: 16px 20px; border-bottom: 1px solid #f1f5f9;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 8px; height: 8px; border-radius: 50%; background: #8b5cf6;"></div>
+            <span style="font-weight: 600; font-size: 14px; color: #002142;">Thermal Shift Detected</span>
+            <span style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #fef3c7; color: #92400e; font-weight: 500;">Low confidence</span>
+          </div>
+        </div>
+        <div style="padding: 16px 20px; font-size: 13px; color: #334155; line-height: 1.7;">
+          <div style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px;">
+            <span style="color: #64748b;">Shift day:</span>
+            <span style="font-weight: 500;">Day 15</span>
+            <span style="color: #64748b;">Coverline:</span>
+            <span style="font-weight: 500;">36.4°C</span>
+            <span style="color: #64748b;">Reference temps:</span>
+            <span style="font-weight: 500;">Days 8–14 (6 valid, Day 10 skipped)</span>
+          </div>
+
+          <div style="margin-top: 14px; padding: 12px; background: #faf5ff; border-radius: 6px; border: 1px solid #e9d5ff;">
+            <div style="font-size: 12px; font-weight: 600; color: #7c3aed; margin-bottom: 6px;">Confirming temperatures:</div>
+            <div style="font-size: 12px; line-height: 1.8; font-family: monospace;">
+              <div style="display: flex; justify-content: space-between;">
+                <span>Day 15: 36.55°C</span>
+                <span style="color: #64748b;">+0.15°C</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span>Day 16: 36.50°C</span>
+                <span style="color: #64748b;">+0.10°C</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span>Day 17: 36.58°C</span>
+                <span style="color: #d97706;">+0.18°C — below +0.2°C threshold</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding-top: 4px; border-top: 1px dashed #e9d5ff; margin-top: 4px;">
+                <span>Day 18: 36.52°C</span>
+                <span style="color: #059669; font-weight: 600;">+0.12°C ✓ 4th-day confirms</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 10px; padding: 8px 12px; background: #fffbeb; border-radius: 6px; font-size: 11px; color: #92400e; border: 1px solid #fef3c7;">
+            ℹ️ The 3rd temperature didn't reach the +0.2°C threshold. A 4th consecutive elevated temperature was used to confirm the shift (Sensiplan 4th-day exception rule).
+          </div>
+        </div>
+        <div style="padding: 12px 20px; border-top: 1px solid #f1f5f9; display: flex; gap: 8px;">
+          <div style="padding: 6px 14px; border-radius: 6px; font-size: 12px; background: #059669; color: white; cursor: pointer; font-weight: 500;">Confirm</div>
+          <div style="padding: 6px 14px; border-radius: 6px; font-size: 12px; background: #f5f3ff; color: #7c3aed; cursor: pointer; border: 1px solid #e9d5ff;">Adjust</div>
+          <div style="padding: 6px 14px; border-radius: 6px; font-size: 12px; background: #fee2e2; color: #dc2626; cursor: pointer;">Dismiss</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEEDS REVIEW card -->
+  <div style="margin-top: 32px;">
+    <div style="font-size: 12px; font-weight: 600; color: #dc2626; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">State: Needs Review (user confirmed, but engine now disagrees)</div>
+    <div class="mockup">
+      <div class="mockup-body" style="padding: 0; background: white; max-width: 420px; border: 2px solid #fecaca;">
+        <div style="padding: 16px 20px; border-bottom: 1px solid #fecaca; background: #fef2f2;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 16px;">⚠️</span>
+            <span style="font-weight: 600; font-size: 14px; color: #991b1b;">Interpretation Needs Review</span>
+          </div>
+        </div>
+        <div style="padding: 16px 20px; font-size: 13px; color: #334155; line-height: 1.7;">
+          <div style="padding: 12px; background: #fef2f2; border-radius: 6px; margin-bottom: 14px; font-size: 12px; border: 1px solid #fecaca;">
+            <strong style="color: #991b1b;">Reason:</strong> Day 16 was marked as disturbed, changing the confirming temperatures. The engine now suggests a different shift.
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="padding: 10px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
+              <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; font-weight: 600;">Your confirmed</div>
+              <div style="font-size: 12px;">Shift: Day 15</div>
+              <div style="font-size: 12px;">Coverline: 36.4°C</div>
+            </div>
+            <div style="padding: 10px; background: #f5f3ff; border-radius: 6px; border: 1px solid #e9d5ff;">
+              <div style="font-size: 11px; color: #7c3aed; margin-bottom: 4px; font-weight: 600;">Engine now suggests</div>
+              <div style="font-size: 12px;">Shift: Day 15</div>
+              <div style="font-size: 12px;">Coverline: 36.3°C</div>
+            </div>
+          </div>
+        </div>
+        <div style="padding: 12px 20px; border-top: 1px solid #fecaca; display: flex; gap: 8px; background: #fffbfb;">
+          <div style="padding: 6px 14px; border-radius: 6px; font-size: 12px; background: #059669; color: white; cursor: pointer; font-weight: 500;">Keep Mine</div>
+          <div style="padding: 6px 14px; border-radius: 6px; font-size: 12px; background: #8b5cf6; color: white; cursor: pointer; font-weight: 500;">Accept New</div>
+          <div style="padding: 6px 14px; border-radius: 6px; font-size: 12px; background: #f5f3ff; color: #7c3aed; cursor: pointer; border: 1px solid #e9d5ff;">Adjust</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAILED ATTEMPTS expandable -->
+  <div style="margin-top: 32px;">
+    <div style="font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Failed Attempts Section (collapsed by default, expandable)</div>
+    <div class="mockup">
+      <div class="mockup-body" style="padding: 0; background: white; max-width: 420px;">
+        <!-- Collapsed -->
+        <div style="padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; border-bottom: 1px solid #f1f5f9;">
+          <span style="font-size: 12px; color: #64748b;">
+            <span style="margin-right: 4px;">▶</span> 1 earlier pattern was considered and rejected
+          </span>
+          <span style="font-size: 11px; color: #94a3b8;">tap to expand</span>
+        </div>
+        <!-- Expanded -->
+        <div style="padding: 12px 20px; border-top: 1px solid #f1f5f9;">
+          <div style="font-size: 12px; color: #64748b; margin-bottom: 8px;">
+            <span style="margin-right: 4px;">▼</span> Earlier patterns considered:
+          </div>
+          <div style="padding: 10px 12px; background: #f8fafc; border-radius: 6px; font-size: 12px; color: #475569; line-height: 1.6; border: 1px solid #e2e8f0;">
+            <div style="font-weight: 500; margin-bottom: 4px;">Day 12 — Rejected</div>
+            <div style="color: #64748b;">
+              Coverline would have been 36.3°C. Temps on Days 14–15 dropped below coverline. Pattern did not sustain.
+            </div>
+          </div>
+        </div>
+        <div style="padding: 8px 20px 12px; font-size: 11px; color: #94a3b8; font-style: italic;">
+          This section is educational — it shows what the engine evaluated along the way.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 40px;">
+  <h3>3E. Nudges — Inline Data Quality Prompts</h3>
+  <p>Nudges appear on the chart, attached to the specific day they're about. They're separate from the proposition card.</p>
+
+  <div style="display: flex; gap: 16px; margin-top: 16px;">
+    <!-- Pre-shift nudge -->
+    <div style="flex: 1;">
+      <div style="font-size: 12px; font-weight: 600; color: #d97706; margin-bottom: 8px;">Pre-shift: Suspicious outlier in low phase</div>
+      <div class="mockup">
+        <div class="mockup-body" style="padding: 16px; background: white; font-size: 13px;">
+          <div style="padding: 14px; background: #fffbeb; border-radius: 8px; border: 1px solid #fef3c7;">
+            <div style="display: flex; align-items: start; gap: 8px;">
+              <span style="font-size: 16px; line-height: 1;">💬</span>
+              <div>
+                <div style="font-weight: 600; color: #92400e; font-size: 13px; margin-bottom: 6px;">Day 9 — Temperature Check</div>
+                <div style="color: #78350f; font-size: 12px; line-height: 1.6;">
+                  This temperature (36.7°C) is noticeably higher than surrounding days and was taken outside your usual time window (recorded 9:15 AM, usual ~7:00 AM).
+                  <br><br>
+                  Was it affected by a disturbance?
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 12px;">
+                  <div style="padding: 5px 12px; border-radius: 6px; font-size: 12px; background: #fef3c7; color: #92400e; cursor: pointer; border: 1px solid #fde68a;">Yes, mark as disturbed</div>
+                  <div style="padding: 5px 12px; border-radius: 6px; font-size: 12px; background: white; color: #64748b; cursor: pointer; border: 1px solid #e2e8f0;">No, it's correct</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Post-shift nudge -->
+    <div style="flex: 1;">
+      <div style="font-size: 12px; font-weight: 600; color: #dc2626; margin-bottom: 8px;">Post-shift: Unexplained dip below coverline</div>
+      <div class="mockup">
+        <div class="mockup-body" style="padding: 16px; background: white; font-size: 13px;">
+          <div style="padding: 14px; background: #fef2f2; border-radius: 8px; border: 1px solid #fecaca;">
+            <div style="display: flex; align-items: start; gap: 8px;">
+              <span style="font-size: 16px; line-height: 1;">💬</span>
+              <div>
+                <div style="font-weight: 600; color: #991b1b; font-size: 13px; margin-bottom: 6px;">Day 20 — Below Coverline</div>
+                <div style="color: #7f1d1d; font-size: 12px; line-height: 1.6;">
+                  This temperature (36.3°C) dropped below your coverline (36.4°C) with no disturbance recorded.
+                  <br><br>
+                  Was it affected by a disturbance?
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 12px;">
+                  <div style="padding: 5px 12px; border-radius: 6px; font-size: 12px; background: #fee2e2; color: #991b1b; cursor: pointer; border: 1px solid #fecaca;">Yes, mark as disturbed</div>
+                  <div style="padding: 5px 12px; border-radius: 6px; font-size: 12px; background: white; color: #64748b; cursor: pointer; border: 1px solid #e2e8f0;">No, it's correct</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 40px;">
+  <h3>3F. Post-Shift Warning (after 2+ consecutive unexplained dips)</h3>
+  <p>This appears after the user has confirmed the dips are NOT disturbed (or ignored the nudges).</p>
+  <div class="mockup">
+    <div class="mockup-body" style="padding: 16px; background: white; max-width: 420px;">
+      <div style="padding: 16px; background: #fef2f2; border-radius: 8px; border: 2px solid #fecaca;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+          <span style="font-size: 16px;">⚠️</span>
+          <span style="font-weight: 600; color: #991b1b; font-size: 14px;">Possible False Rise</span>
+        </div>
+        <div style="color: #7f1d1d; font-size: 12px; line-height: 1.6; margin-bottom: 12px;">
+          Temperatures on Days 20–21 fell below the coverline without recorded disturbances. This may indicate the thermal shift on Day 15 was a false rise. Consider dismissing this shift and waiting for a new pattern.
+        </div>
+        <div style="padding: 8px 10px; background: #fff1f2; border-radius: 4px; font-size: 11px; color: #9f1239; margin-bottom: 12px; font-style: italic;">
+          Note: This check is a CyclePath safety feature, not a standard Sensiplan rule.
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <div style="padding: 5px 12px; border-radius: 6px; font-size: 12px; background: #fee2e2; color: #991b1b; cursor: pointer; border: 1px solid #fecaca;">Dismiss Shift</div>
+          <div style="padding: 5px 12px; border-radius: 6px; font-size: 12px; background: white; color: #64748b; cursor: pointer; border: 1px solid #e2e8f0;">Keep Shift</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 40px;">
+  <h3>3G. Change Notice (data changed the suggestion)</h3>
+  <p>Appears when the engine result changed while in SUGGESTED state. Persists until user acts.</p>
+  <div class="mockup">
+    <div class="mockup-body" style="padding: 16px; background: white; max-width: 420px;">
+      <div style="padding: 12px 16px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe; display: flex; align-items: start; gap: 8px;">
+        <span style="color: #3b82f6; font-size: 14px; line-height: 1;">ℹ️</span>
+        <div style="font-size: 12px; color: #1e40af; line-height: 1.5;">
+          <strong>Updated</strong> — New data changed the suggestion. Coverline moved from 36.4°C to 36.3°C (Day 10 was marked as disturbed, changing the reference temperatures).
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 40px;">
+  <h3>3H. Adjust Flow</h3>
+  <p>When the user taps Adjust, the card expands to show override controls.</p>
+  <div class="mockup">
+    <div class="mockup-body" style="padding: 0; background: white; max-width: 420px;">
+      <div style="padding: 16px 20px; border-bottom: 1px solid #e9d5ff; background: #faf5ff;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-weight: 600; font-size: 14px; color: #7c3aed;">Adjust Interpretation</span>
+        </div>
+      </div>
+      <div style="padding: 16px 20px; font-size: 13px; color: #334155;">
+        <!-- Shift day picker -->
+        <div style="margin-bottom: 16px;">
+          <label style="font-size: 12px; color: #64748b; font-weight: 500; display: block; margin-bottom: 6px;">Shift day</label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="padding: 8px 12px; border-radius: 6px; border: 2px solid #8b5cf6; background: #faf5ff; font-weight: 500; min-width: 80px;">Day 15</div>
+            <span style="font-size: 11px; color: #64748b;">or tap a day on the chart</span>
+          </div>
+        </div>
+        <!-- Coverline picker -->
+        <div style="margin-bottom: 16px;">
+          <label style="font-size: 12px; color: #64748b; font-weight: 500; display: block; margin-bottom: 6px;">Coverline temperature</label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="padding: 8px 12px; border-radius: 6px; border: 2px solid #8b5cf6; background: #faf5ff; font-weight: 500; min-width: 80px;">36.4°C</div>
+            <span style="font-size: 11px; color: #64748b;">or drag the line on the chart</span>
+          </div>
+        </div>
+        <!-- Live preview -->
+        <div style="padding: 12px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 12px; margin-bottom: 16px;">
+          <div style="font-weight: 500; margin-bottom: 4px; color: #64748b;">Preview with your settings:</div>
+          <div style="line-height: 1.6;">
+            Reference temps: Days 9–14<br>
+            Confirming: Days 15, 16, 17<br>
+            3rd high clearance: +0.30°C ✓
+          </div>
+        </div>
+        <!-- Engine comparison -->
+        <div style="padding: 8px 12px; background: #f5f3ff; border-radius: 6px; font-size: 11px; color: #7c3aed; border: 1px solid #e9d5ff;">
+          Engine's suggestion: Day 15, coverline 36.4°C (matches your settings)
+        </div>
+      </div>
+      <div style="padding: 12px 20px; border-top: 1px solid #e9d5ff; display: flex; gap: 8px; background: #faf5ff;">
+        <div style="padding: 6px 14px; border-radius: 6px; font-size: 12px; background: #d97706; color: white; cursor: pointer; font-weight: 500;">Save Adjustment</div>
+        <div style="padding: 6px 14px; border-radius: 6px; font-size: 12px; background: white; color: #64748b; cursor: pointer; border: 1px solid #e2e8f0;">Cancel</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 40px;">
+  <h3>3I. Card Placement on the Page</h3>
+  <p>Where does all this live relative to the chart?</p>
+  <div class="mockup">
+    <div class="mockup-header">Page Layout</div>
+    <div class="mockup-body" style="padding: 24px; background: #f8fafc;">
+      <div style="display: flex; flex-direction: column; gap: 12px; max-width: 500px;">
+        <!-- Chart area -->
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; text-align: center; min-height: 120px; display: flex; align-items: center; justify-content: center;">
+          <div style="color: #64748b;">
+            <strong>Temperature Chart</strong><br>
+            <span style="font-size: 12px;">(with coverline overlay, day highlights, nudges attached to specific days)</span>
+          </div>
+        </div>
+        <!-- Nudges (if any, positioned between chart and card) -->
+        <div style="padding: 10px 14px; background: #fffbeb; border-radius: 8px; border: 1px solid #fef3c7; font-size: 12px; color: #92400e;">
+          💬 Day 9 — Temperature is noticeably higher... <em>(nudge inline)</em>
+        </div>
+        <!-- Proposition card -->
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; text-align: center; display: flex; align-items: center; justify-content: center;">
+          <div style="color: #64748b;">
+            <strong>Proposition Card</strong><br>
+            <span style="font-size: 12px;">(thermal shift details + action buttons)</span><br>
+            <span style="font-size: 11px; color: #94a3b8;">includes collapsed failed attempts section</span>
+          </div>
+        </div>
+        <!-- Change notice (if any) -->
+        <div style="padding: 10px 14px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe; font-size: 12px; color: #1e40af;">
+          ℹ️ Updated — New data changed the suggestion... <em>(change notice)</em>
+        </div>
+        <!-- Existing chart rows -->
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; text-align: center;">
+          <div style="color: #94a3b8;">
+            <span style="font-size: 12px;">Cervical fluid bars, disturbance row, etc. (existing)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top: 8px; font-size: 12px; color: #64748b;">
+    <strong>Order:</strong> Chart → Nudges (if any) → Proposition Card → Change Notices → Existing rows. Nudges are close to the chart because they reference specific days visually. The proposition card sits between the chart and the existing data rows.
+  </div>
+</div>
