@@ -177,8 +177,8 @@ export function toDisplayTemperature(celsiusValue, unit) {
 ```
 
 **Two helpers, two purposes:**
-- `toDisplayTemperature(value, unit)` — returns a `number`. Used wherever the chart needs the value for math (plotting Y position, interpolation between points, overlay anchoring, picking values to feed `getTempNodeLabel`).
-- `formatTemperature(value, unit)` — returns a `string`, two decimals. Used wherever a human reads the value (form input prefill, tooltip text, settings preview, CSV cell).
+- `toDisplayTemperature(value, unit)` — returns a `number`. Used wherever the chart needs the value for math (plotting Y position, interpolation between points, overlay anchoring, picking values to feed `getTempNodeLabel`). Also used for any *unit-symbol-free* string output (form input prefill, tooltip number when the unit suffix is rendered separately) — call `.toFixed(2)` on the result.
+- `formatTemperature(value, unit)` — returns a `string` like `36.50°C` / `97.50°F` *with the unit suffix*. Used wherever a single human-readable string with a unit is what's needed (cycle-day card, settings preview, CSV cell). Not safe for `<input type="number">` fields, which reject the suffix.
 
 **Sites that must move to the new helper.** All currently use the soon-to-be-inverted ternary on raw `bbt`:
 
@@ -188,9 +188,9 @@ export function toDisplayTemperature(celsiusValue, unit) {
 | [`CycleChartPage.tsx:339-340`](app/src/cycle-tracking/CycleChartPage.tsx:339) — interpolating between gap days | same ternary on `p1.bbt` and `p2.bbt` | `toDisplayTemperature(p1.bbt, settings.temperatureUnit)` etc. |
 | [`CycleChartPage.tsx:633-635`](app/src/cycle-tracking/CycleChartPage.tsx:633) — coverline render Y position | `unit === 'CELSIUS' ? coverlineC : celsiusToFahrenheit(coverlineC)` | `toDisplayTemperature(coverlineC, settings.temperatureUnit)` |
 | [`CycleChartPage.tsx:1336`](app/src/cycle-tracking/CycleChartPage.tsx:1336) — peak/segment overlay anchor | same ternary | `toDisplayTemperature(...)` |
-| [`CycleChartPage.tsx:1461`](app/src/cycle-tracking/CycleChartPage.tsx:1461) — tooltip text | inline `fahrenheitToCelsius(bbtDay.bbt).toFixed(2)` ternary | `formatTemperature(bbtDay.bbt, settings.temperatureUnit)` (string output) |
+| [`CycleChartPage.tsx:1461`](app/src/cycle-tracking/CycleChartPage.tsx:1461) — tooltip number (unit suffix is rendered separately on the next line) | inline `fahrenheitToCelsius(bbtDay.bbt).toFixed(2)` ternary | `toDisplayTemperature(bbtDay.bbt, settings.temperatureUnit).toFixed(2)` — keep the `°C` / `°F` suffix concatenation as it is today. **Do not** use `formatTemperature` here, because that helper would inject a duplicate unit suffix. |
 | [`CycleChartPage.tsx:1596`](app/src/cycle-tracking/CycleChartPage.tsx:1596) — peak-day overlay Y position | same ternary | `toDisplayTemperature(...)` |
-| [`AddCycleDayPage.tsx:66`](app/src/cycle-tracking/AddCycleDayPage.tsx:66) — form prefill | `unit === 'CELSIUS' ? fahrenheitToCelsius(existingDay.bbt).toFixed(2) : existingDay.bbt.toFixed(2)` | `formatTemperature(existingDay.bbt, settings.temperatureUnit)` (or `toDisplayTemperature(...).toFixed(2)` if a numeric value is needed for the input) |
+| [`AddCycleDayPage.tsx:66`](app/src/cycle-tracking/AddCycleDayPage.tsx:66) — form prefill into `<input type="number">` | `unit === 'CELSIUS' ? fahrenheitToCelsius(existingDay.bbt).toFixed(2) : existingDay.bbt.toFixed(2)` | `toDisplayTemperature(existingDay.bbt, settings.temperatureUnit).toFixed(2)` (string of digits, no `°C`/`°F` suffix). **Must not** use `formatTemperature` here — the BBT input is `type="number"` ([line 346](app/src/cycle-tracking/AddCycleDayPage.tsx:346)) and rejects any non-numeric suffix, so a `36.50°C`-shaped string would silently fail to populate the field. |
 | [`interpretation/components/ThermalShiftAnnotations.tsx:93`](app/src/cycle-tracking/interpretation/components/ThermalShiftAnnotations.tsx:93) — annotation Y position | `unit === 'CELSIUS' ? fahrenheitToCelsius(day.bbt) : day.bbt` | `toDisplayTemperature(day.bbt, temperatureUnit)` |
 
 Other display surfaces — cycle-day card, settings preview, any CSV export — stay on `formatTemperature` because they emit strings, not numeric positions. None of them currently bypass the helper, but they should be re-checked during the verification grep.
@@ -201,35 +201,67 @@ Other display surfaces — cycle-day card, settings preview, any CSV export — 
 - `grep -rn "celsiusToFahrenheit(.*\.bbt" app/src` returns no matches. (All such conversions go through `toDisplayTemperature` or `formatTemperature`.)
 - `grep -rn "temperatureUnit === 'CELSIUS' \?" app/src/cycle-tracking/CycleChartPage.tsx` returns no matches in chart code.
 
-### Interpretation-state fingerprint — precision must match the engine
+### Interpretation-state fingerprint — match the engine exactly
 
-[`interpretation/dataFingerprint.ts`](app/src/cycle-tracking/interpretation/dataFingerprint.ts) computes a stable hash of cycle data so that dismissed interpretations can auto-recover when the data underlying them changes. Today it rounds `bbt` to **2 decimal places** before hashing:
+[`interpretation/dataFingerprint.ts`](app/src/cycle-tracking/interpretation/dataFingerprint.ts) computes a stable hash of cycle data so dismissed interpretations can auto-recover when the data underlying them changes. The contract is: *if the engine would now produce a different result, the fingerprint must change.* Today the function rounds `bbt` to 2 decimal places before hashing:
 
 ```ts
 t: d.bbt !== null ? Number(d.bbt.toFixed(2)) : null,
 ```
 
-Why this is fine in Fahrenheit storage: 2 decimal places of °F is `0.01 °F ≈ 0.0056 °C`, which is ~36× finer than the `0.2 °C` engine threshold, so any edit big enough to flip the thermal-shift verdict also changes the fingerprint.
+Any rounding step inside the fingerprint creates a class of edits where the rounded value is unchanged but the engine result flips. Bumping the precision shrinks that class but does not eliminate it — for any chosen `N` decimal places, two raw values `(threshold − 5×10⁻ⁿ⁻¹)` and `(threshold + 5×10⁻ⁿ⁻¹)` straddle the engine threshold yet round to the same string. Concretely at 3 dp: `36.6996` vs `36.7004` both round to `36.700` and produce the same fingerprint, while the engine flips its shift verdict between them.
 
-Why this **breaks under Celsius storage:** 2 decimal places of °C is `0.01 °C`, which is only 20× finer than the threshold, but more importantly it creates threshold-aligned edges. An edit from `36.699 °C` (engine: shift not confirmed, delta = 0.199) to `36.700 °C` (engine: shift confirmed, delta = 0.200) both round to `36.70` and produce the **same fingerprint** — so a previously-dismissed interpretation would not auto-recover even though the engine result has flipped.
+The engine uses raw float values at full precision. The only way to guarantee the fingerprint matches the engine is to feed the fingerprint the same raw value the engine sees.
 
-**Fix:** bump the precision to **3 decimal places** (`d.bbt.toFixed(3)`).
+**Fix:** remove the BBT rounding entirely. Hash the raw stored float.
 
-- 3 dp = `0.001 °C`, 200× finer than the threshold. Any engine-meaningful edit changes the fingerprint.
-- Still well above realistic thermometer resolution (`0.05 °C`), so meaningless input jitter does not produce spurious fingerprint changes.
-- Trivial change; no schema or downstream consumer impact (fingerprint is opaque).
+```ts
+// before:
+t: d.bbt !== null ? Number(d.bbt.toFixed(2)) : null,
+// after:
+t: d.bbt,  // raw stored Celsius float, no rounding
+```
 
-**Regression test:** add a test in [`__tests__/dataFingerprint.test.ts`](app/src/cycle-tracking/interpretation/__tests__/dataFingerprint.test.ts):
+**Why this is safe (no spurious fingerprint changes):**
 
-> *"a 0.001 °C edit across the threshold edge produces a different fingerprint"* — two cycles identical except day N has `bbt: 36.699` vs `bbt: 36.700`; expect `computeCycleDataFingerprint(a) !== computeCycleDataFingerprint(b)`.
+- The input boundary controls how floats are produced. `convertToCelsiusForStorage` is either pass-through (Celsius input) or one full-precision multiply/subtract (Fahrenheit input). The same user input always produces the same float.
+- Re-saving a cycle day without editing BBT writes the same float — the form prefills from `existingDay.bbt`, the user sees the same number, and the same value goes back to the database.
+- `JSON.stringify` produces a deterministic decimal representation of any IEEE-754 float, so the hash is stable across runs and platforms.
 
-### Chart Y-axis range
+There is no realistic source of float jitter for the same logical value. The risk the old rounding step was protecting against does not exist in this codebase.
 
-Wherever the Y-axis range is defined today (currently in Fahrenheit), define it in Celsius:
+**Regression test:** add to [`__tests__/dataFingerprint.test.ts`](app/src/cycle-tracking/interpretation/__tests__/dataFingerprint.test.ts):
 
-- Canonical range: roughly `35.5 °C – 37.5 °C` with the existing buffer/auto-bump behaviour preserved.
-- For °F users, convert tick values to Fahrenheit at render time only.
-- The "yAxisRange bump convergence" routine (per recent commits) operates entirely in Celsius and emits Celsius bounds; the renderer converts.
+> *"any BBT edit across the threshold edge produces a different fingerprint, regardless of decimal precision"* — table-driven, with at least these pairs (cover line `36.50 °C` for all):
+> - `36.699` vs `36.700` (the 3 dp edge case)
+> - `36.6996` vs `36.7004` (the case 3 dp would have collapsed)
+> - `36.69999` vs `36.70001` (well into float territory)
+>
+> Each pair must produce different fingerprints.
+
+**Why not just keep some rounding "for safety":**
+
+- 2 dp collapses `36.699` and `36.700` (the literal handbook-precision case).
+- 3 dp collapses `36.6996` and `36.7004`.
+- N dp collapses any pair within `5×10⁻ⁿ⁻¹` of the threshold.
+- Float-precision (no rounding) collapses nothing meaningful — the engine and the fingerprint see the same value.
+
+The fingerprint should mirror the engine's input, not approximate it.
+
+### Chart Y-axis range and the chart's coordinate system
+
+**The chart's internal coordinate system is the user's display unit, not Celsius.** ApexCharts plots series values, axis tick positions, axis bounds, overlay anchors, and coverline annotations on a single linear axis — all of those numbers must be in the same unit. Today everything in the chart is Fahrenheit. After migration the chart code switches to "everything is whatever `settings.temperatureUnit` is": series values, `yAxisRange.min/max`, overlay positions, coverline. Tick labels and tooltip text already reflect the same unit because they read the same numbers.
+
+The migration is therefore:
+
+- Series values come from `toDisplayTemperature(day.bbt, unit)` (Display boundary table). Already specified.
+- The Y-axis range derivation routine — including the existing buffer/auto-bump-convergence behaviour — continues to operate on the *display-unit* values it gets from the points it sees. The routine itself does not need a unit-awareness change; it sees the same shape of input as before, just sourced via `toDisplayTemperature` instead of via the old inline ternary. Its output (`yAxisRange.min/max`) is therefore in display unit and matches the series values.
+- Coverline render position uses `toDisplayTemperature(coverlineC, unit)` (Display boundary table). Same coordinate system.
+- All overlay/annotation Y positions use `toDisplayTemperature(...)` (Display boundary table). Same coordinate system.
+
+**Why not the alternative (chart-in-Celsius, label-only conversion)?** That would require splitting axis numbers from axis labels via `yaxis.labels.formatter`, splitting tooltip numbers from tooltip text, and rewriting overlay/coverline positioning from "compare against display-unit `yAxisRange`" to "always Celsius". It's more code change and more risk of one site falling out of sync, for the same end-user result. The display-unit-coordinate approach matches what the chart already does.
+
+**Engine output → chart input is the only conversion crossing.** `coverlineC` from the engine is Celsius; the chart immediately runs it through `toDisplayTemperature` at the render boundary. Same for any other engine-derived overlay value (peak day temperature, threshold delta annotations, etc.). The conversion never happens twice.
 
 ## Testing
 
@@ -298,19 +330,24 @@ A future post-launch backfill (if/when production has real data) is out of scope
 | Coverline annotation misaligned because annotation Y-coordinate uses cached F value. | Audit annotation code together with chart code; coverline is already computed in C, so this is a render-only adjustment. |
 | One of the eight engine `fahrenheitToCelsius()` call sites missed during refactor → that rule silently re-converts a °C value as if it were °F. | Engine-files grep `grep -rn "fahrenheitToCelsius" app/src/cycle-tracking/interpretation/` returns zero matches as a verification gate. Engine tests that exercise each rule must be present before the refactor (existing coverage already covers all eight). |
 | One of the three BBT write paths missed → new rows land in Fahrenheit while column is now Celsius. | All three writers (AddCycleDayPage, NewCyclePage, CSV import) call `convertToCelsiusForStorage`. Verification: grep `bbt:` writes in operations.ts and ensure each comes from the helper. |
-| Fingerprint stays at 2 dp → dismissed interpretations fail to auto-recover near threshold. | Bump to 3 dp; new fingerprint test covers `36.699` vs `36.700`. |
+| Fingerprint rounds BBT before hashing → any chosen precision leaves a band of threshold-straddling pairs that hash-collide, so dismissed interpretations fail to auto-recover near the threshold. | Remove BBT rounding from the fingerprint entirely; hash the raw stored float. New fingerprint test covers multiple pair widths (`36.699/36.700`, `36.6996/36.7004`, `36.69999/36.70001`). |
+| Chart coordinate-system unit drift: series in display unit but `yAxisRange` in Celsius (or vice-versa) so points and axis disagree. | Spec specifies the chart coordinate system is uniformly the user's display unit. Both series and `yAxisRange` derive from `toDisplayTemperature` outputs. Smoke test with both unit settings catches mismatches. |
+| Form prefill uses `formatTemperature` and silently fails to populate `<input type="number">` because of the unit suffix. | Display boundary table requires `toDisplayTemperature(...).toFixed(2)` for the input prefill. Smoke test step "edit existing day" catches this. |
 
 ## Verification (definition of done)
 
 - All existing interpretation tests pass with Celsius fixtures.
 - Three new precision-edge thermal-shift tests pass.
-- New fingerprint regression test (`36.699 → 36.700` produces different fingerprint) passes.
+- New fingerprint regression tests pass: `36.699/36.700`, `36.6996/36.7004`, and `36.69999/36.70001` each produce different fingerprints. The fingerprint function uses the raw `bbt` float with no rounding step.
+- Chart smoke test with `temperatureUnit = CELSIUS`: series points sit on tick lines, coverline lines up with the `36.50 °C` reading, peak/overlay anchors land on their points.
+- Chart smoke test with `temperatureUnit = FAHRENHEIT`: same checks, axis labels read in °F, all coordinates consistent.
+- Edit-existing-day smoke test on both unit settings: the BBT input field populates with the stored value (e.g. `36.50` or `97.70`), no `°C`/`°F` suffix in the field.
 - `grep -rn "fahrenheitToCelsius" app/src/cycle-tracking/interpretation/` returns no matches (engine files only — the helper itself stays in `utils.ts` for display callers).
 - `grep -rn "fahrenheitToCelsius(.*\.bbt" app/src` returns no matches anywhere (display code now reads `bbt` as Celsius; F → C on a `bbt` value is meaningless after migration).
 - `grep -rn "celsiusToFahrenheit(.*\.bbt" app/src` returns no matches outside `toDisplayTemperature` / `formatTemperature` (no inline C → F conversions on stored values).
 - `grep -rn "temperatureUnit === 'CELSIUS'" app/src/cycle-tracking/CycleChartPage.tsx` returns no matches in the chart's plotting / interpolation / overlay / coverline / tooltip blocks (all replaced by `toDisplayTemperature` / `formatTemperature`).
 - All three BBT write paths (`AddCycleDayPage`, `NewCyclePage`, CSV import) flow through `convertToCelsiusForStorage`.
-- All chart numeric-math sites listed in the Display boundary table now call `toDisplayTemperature(...)`; tooltip sites call `formatTemperature(...)`.
+- All chart numeric-math sites listed in the Display boundary table now call `toDisplayTemperature(...)`. The tooltip site (CycleChartPage.tsx:1461) and the form prefill site (AddCycleDayPage.tsx:66) call `toDisplayTemperature(...).toFixed(2)`. The cycle-day card and settings preview continue to use `formatTemperature(...)` (with unit suffix).
 - Manual smoke test passes for both °C and °F users.
 - Schema comment in [`app/schema.prisma`](app/schema.prisma) documents Celsius as canonical and links to this spec.
 - `CycleDayInput.bbt` JSDoc in [`interpretation/types.ts`](app/src/cycle-tracking/interpretation/types.ts) updated from "Fahrenheit" to "Celsius".
