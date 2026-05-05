@@ -343,6 +343,22 @@ describe('buildCycleDayCreateData', () => {
     expect('hadIntercourse' in data).toBe(false);
     expect('excludeFromInterpretation' in data).toBe(false);
   });
+
+  it('always provides disturbanceFactors (defaults to []) — schema has no DB default', () => {
+    const data = buildCycleDayCreateData(
+      { notes: 'hi' },
+      { cycleId: 'cycle-1', dayNumber: 5, entryDate: ENTRY_DATE, dayOfWeek: DAY_OF_WEEK }
+    );
+    expect(data.disturbanceFactors).toEqual([]);
+  });
+
+  it('passes a provided disturbanceFactors through unchanged', () => {
+    const data = buildCycleDayCreateData(
+      { disturbanceFactors: ['TRAVEL', 'STRESS'] },
+      { cycleId: 'cycle-1', dayNumber: 5, entryDate: ENTRY_DATE, dayOfWeek: DAY_OF_WEEK }
+    );
+    expect(data.disturbanceFactors).toEqual(['TRAVEL', 'STRESS']);
+  });
 });
 ```
 
@@ -414,11 +430,15 @@ export function buildCycleDayCreateData(
   args: CycleDayPartialArgs,
   identity: { cycleId: string; dayNumber: number; entryDate: Date; dayOfWeek: string }
 ): Prisma.CycleDayUncheckedCreateInput {
+  // disturbanceFactors is a non-nullable String[] in the schema with no DB-level
+  // DEFAULT, so the create path must always provide a value. Default to [] when
+  // the caller didn't pass one (e.g. the Notes Sheet creating a blank-day row).
   const data: Prisma.CycleDayUncheckedCreateInput = {
     cycleId: identity.cycleId,
     dayNumber: identity.dayNumber,
     date: identity.entryDate,
     dayOfWeek: identity.dayOfWeek,
+    disturbanceFactors: args.disturbanceFactors ?? [],
   };
   if ('bbt' in args)                       data.bbt = args.bbt;
   if ('bbtTime' in args)                   data.bbtTime = args.bbtTime;
@@ -428,7 +448,6 @@ export function buildCycleDayCreateData(
   if ('cervicalSensation' in args)         data.cervicalSensation = args.cervicalSensation;
   if ('opkStatus' in args)                 data.opkStatus = args.opkStatus;
   if ('menstrualFlow' in args)             data.menstrualFlow = args.menstrualFlow;
-  if ('disturbanceFactors' in args)        data.disturbanceFactors = args.disturbanceFactors;
   if ('travelTimeDiff' in args)            data.travelTimeDiff = args.travelTimeDiff;
   if ('notes' in args)                     data.notes = normalizeNote(args.notes);
   return data;
@@ -441,7 +460,7 @@ export function buildCycleDayCreateData(
 cd app && npm test -- cycleDayDataBuilders
 ```
 
-Expected: 7 tests pass.
+Expected: 9 tests pass.
 
 ### 3b — Wire the operation through the builders
 
@@ -551,7 +570,9 @@ Expected: zero TS errors. If any caller of `createOrUpdateCycleDay` complained a
 - [ ] **Step 8: Commit**
 
 ```bash
-git add app/src/cycle-tracking/operations.ts
+git add app/src/cycle-tracking/cycleDayDataBuilders.ts \
+        app/src/cycle-tracking/__tests__/cycleDayDataBuilders.test.ts \
+        app/src/cycle-tracking/operations.ts
 git commit -m "refactor(cycle-day): make createOrUpdateCycleDay update path field-conditional and add notes"
 ```
 
