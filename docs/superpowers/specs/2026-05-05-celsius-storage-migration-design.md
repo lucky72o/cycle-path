@@ -74,18 +74,27 @@ No column rename, no type change. Existing dev/staging rows are dropped via Pris
 
 ### Engine layer (the simplifying change)
 
-**[`app/src/cycle-tracking/interpretation/sensiplan/thermalShift.ts`](app/src/cycle-tracking/interpretation/sensiplan/thermalShift.ts)**
+Every interpretation/rule file currently calls `fahrenheitToCelsius()` at the start because `bbt` is stored in °F. After the migration, `bbt` is already Celsius and **every one of these `fahrenheitToCelsius()` calls must be removed**. Missing any one of these would silently corrupt that path: a stored value of `36.5` °C would be re-converted as if it were °F, producing `2.5` °C and breaking that rule's logic.
 
-- Remove every `fahrenheitToCelsius()` call. Read `cycleDay.bbt` directly — it is already Celsius.
-- `THRESHOLD_C = 0.2` constant remains exactly as is.
-- The function signature `detectThermalShift()` stays the same; only the body shrinks.
+Files and call sites to update (the full list, verified by grep):
 
-**[`app/src/cycle-tracking/interpretation/getActiveCoverline.ts`](app/src/cycle-tracking/interpretation/getActiveCoverline.ts)**
+| File | Call sites today | Action |
+|---|---|---|
+| [`interpretation/sensiplan/thermalShift.ts`](app/src/cycle-tracking/interpretation/sensiplan/thermalShift.ts) | lines 43, 134 | Remove `fahrenheitToCelsius()`; read `bbt` directly. `THRESHOLD_C = 0.2` stays. |
+| [`interpretation/getActiveCoverline.ts`](app/src/cycle-tracking/interpretation/getActiveCoverline.ts) | inside `collectReferenceDays()` | Remove conversion; coverline math unchanged. |
+| [`interpretation/sensiplan/excludedDays.ts`](app/src/cycle-tracking/interpretation/sensiplan/excludedDays.ts) | line 55 | Remove conversion. |
+| [`interpretation/sensiplan/postShiftMonitoring.ts`](app/src/cycle-tracking/interpretation/sensiplan/postShiftMonitoring.ts) | line 45 | Remove conversion. |
+| [`interpretation/sensiplan/nudges.ts`](app/src/cycle-tracking/interpretation/sensiplan/nudges.ts) | lines 31, 71, 104, 114 | Remove all four conversions. |
+| [`interpretation/sensiplan/validateAdjustment.ts`](app/src/cycle-tracking/interpretation/sensiplan/validateAdjustment.ts) | lines 116, 183 | Remove both conversions. |
+| [`interpretation/getChartAnnotations.ts`](app/src/cycle-tracking/interpretation/getChartAnnotations.ts) | line 32 | Remove conversion (annotation anchor selection compares to coverline, which is Celsius). |
+| [`interpretation/components/AdjustFlow.tsx`](app/src/cycle-tracking/interpretation/components/AdjustFlow.tsx) | line 29 | Remove conversion in the `tempC` accessor; the field is already Celsius. |
+| [`interpretation/types.ts`](app/src/cycle-tracking/interpretation/types.ts) | line 8 (comment) | Update comment from "Fahrenheit (as stored in DB)" to "Celsius (as stored in DB)". |
 
-- `collectReferenceDays()` reads `bbt` directly as Celsius.
-- Coverline math (max of 6 reference days) is unchanged.
+`fahrenheitToCelsius()` itself **stays** in `utils.ts` — it is still needed by the display layer for callers that want a converted value (see Display boundary). Engine code, however, no longer imports it.
 
-After this layer is done, no rule code references Fahrenheit at all.
+[`interpretation/components/ThermalShiftAnnotations.tsx`](app/src/cycle-tracking/interpretation/components/ThermalShiftAnnotations.tsx) (line 93) is a display-layer call — it converts a stored value to the user's preferred unit. Its logic must invert: today it converts F → C for Celsius users; after migration it must convert C → F for Fahrenheit users. Treat it together with the Display boundary section.
+
+After this layer is done, no engine/rule code references Fahrenheit at all.
 
 ### Conversion layer
 
@@ -97,19 +106,41 @@ Two helper changes:
    - If `unit === CELSIUS` → return parsed number unchanged.
    - If `unit === FAHRENHEIT` → return `(value − 32) × 5/9` at full float precision. No rounding.
 
-2. **Reverse the formatters:**
+2. **Reverse `formatTemperature`:**
    - `formatTemperature(celsiusValue: number, unit: TemperatureUnit): string` — input is now Celsius. If unit is Fahrenheit, convert via `c × 9/5 + 32`, then `.toFixed(2)`. If Celsius, `.toFixed(2)` directly.
-   - `getTempNodeLabel(celsiusValue, unit)` — same shape, `.toFixed(1)`.
 
-Both helpers handle `null`/`undefined` input the same way they do today.
+3. **Preserve `getTempNodeLabel` semantics — do NOT change its signature or rounding rule.**
+   The current contract is intentional and tested: `getTempNodeLabel` takes an *already-converted display temperature* and emits a compact label that shows only the tenths digit (`98.3 → "3"`) or the integer part on `.0` values (`98.0 → "98"`). Changing it to `.toFixed(1)` would crowd the chart with full temperatures like `36.7` / `98.1` and break [`__tests__/getTempNodeLabel.test.ts`](app/src/cycle-tracking/__tests__/getTempNodeLabel.test.ts).
+   - The function itself stays unchanged.
+   - **Callers** must convert from canonical Celsius first, then pass the display-unit value in. Example:
+     ```ts
+     const display = settings.temperatureUnit === 'CELSIUS'
+       ? day.bbt
+       : celsiusToFahrenheit(day.bbt);
+     getTempNodeLabel(display);
+     ```
+   - Today the chart passes `day.bbt` (Fahrenheit) directly to `getTempNodeLabel` for °F users and converts for °C users. After migration the conversion direction is reversed.
 
-### Input boundary
+All three helpers handle `null`/`undefined` input the same way they do today.
 
-**[`app/src/cycle-tracking/pages/AddCycleDayPage.tsx`](app/src/cycle-tracking/pages/AddCycleDayPage.tsx)** (and any other place a BBT value is submitted)
+### Input boundary — every BBT writer, not just AddCycleDayPage
 
-- Replace `convertToFahrenheitForStorage` with `convertToCelsiusForStorage` at the form submit handler.
-- The form's input field continues to display the user's chosen unit and validates against unit-appropriate ranges. Only the value sent to the server changes.
-- No UI/UX change visible to the user.
+There are **three** code paths that write a BBT value into the database. All three must use the new helper, otherwise newly-created rows will continue to land in Fahrenheit while the column is now interpreted as Celsius.
+
+1. **[`AddCycleDayPage.tsx`](app/src/cycle-tracking/AddCycleDayPage.tsx)** (line ~101)
+   - Today: `convertToFahrenheitForStorage(bbtValue, settings.temperatureUnit)`.
+   - After: `convertToCelsiusForStorage(bbtValue, settings.temperatureUnit)`.
+   - Also update the **prefill path** (line ~66) which reads `existingDay.bbt`, currently runs `fahrenheitToCelsius()` for °C users and uses the raw value for °F users; after migration it must do the reverse — use raw for °C users, `celsiusToFahrenheit()` for °F users.
+
+2. **[`NewCyclePage.tsx`](app/src/cycle-tracking/NewCyclePage.tsx)** (line ~189)
+   - Today: bypasses the helper and calls `celsiusToFahrenheit(parseFloat(bbt))` inline for °C users.
+   - After: use `convertToCelsiusForStorage(parseFloat(bbt), settings.temperatureUnit)` so this path is consistent with `AddCycleDayPage`.
+
+3. **CSV import in [`operations.ts`](app/src/cycle-tracking/operations.ts)** (`importCycleCsv`, line ~605–615)
+   - Today: detects unit via `inferTemperatureUnit`, then converts °C inputs to °F via `celsiusToFahrenheit`.
+   - After: invert. If detected unit is °F, convert to °C via `fahrenheitToCelsius` at full precision. If detected °C, store as-is. The unit-inference function itself does not change.
+
+The user-visible UI stays identical — input fields still display the user's chosen unit, validation ranges still match the unit. Only the value persisted to the database changes.
 
 ### Display boundary
 
@@ -123,6 +154,28 @@ Every place that today reads `cycleDay.bbt` and formats it:
 
 All routed through `formatTemperature` / `getTempNodeLabel`. A grep audit (see Verification) confirms no widget reads `cycleDay.bbt` directly and formats inline.
 
+### Interpretation-state fingerprint — precision must match the engine
+
+[`interpretation/dataFingerprint.ts`](app/src/cycle-tracking/interpretation/dataFingerprint.ts) computes a stable hash of cycle data so that dismissed interpretations can auto-recover when the data underlying them changes. Today it rounds `bbt` to **2 decimal places** before hashing:
+
+```ts
+t: d.bbt !== null ? Number(d.bbt.toFixed(2)) : null,
+```
+
+Why this is fine in Fahrenheit storage: 2 decimal places of °F is `0.01 °F ≈ 0.0056 °C`, which is ~36× finer than the `0.2 °C` engine threshold, so any edit big enough to flip the thermal-shift verdict also changes the fingerprint.
+
+Why this **breaks under Celsius storage:** 2 decimal places of °C is `0.01 °C`, which is only 20× finer than the threshold, but more importantly it creates threshold-aligned edges. An edit from `36.699 °C` (engine: shift not confirmed, delta = 0.199) to `36.700 °C` (engine: shift confirmed, delta = 0.200) both round to `36.70` and produce the **same fingerprint** — so a previously-dismissed interpretation would not auto-recover even though the engine result has flipped.
+
+**Fix:** bump the precision to **3 decimal places** (`d.bbt.toFixed(3)`).
+
+- 3 dp = `0.001 °C`, 200× finer than the threshold. Any engine-meaningful edit changes the fingerprint.
+- Still well above realistic thermometer resolution (`0.05 °C`), so meaningless input jitter does not produce spurious fingerprint changes.
+- Trivial change; no schema or downstream consumer impact (fingerprint is opaque).
+
+**Regression test:** add a test in [`__tests__/dataFingerprint.test.ts`](app/src/cycle-tracking/interpretation/__tests__/dataFingerprint.test.ts):
+
+> *"a 0.001 °C edit across the threshold edge produces a different fingerprint"* — two cycles identical except day N has `bbt: 36.699` vs `bbt: 36.700`; expect `computeCycleDataFingerprint(a) !== computeCycleDataFingerprint(b)`.
+
 ### Chart Y-axis range
 
 Wherever the Y-axis range is defined today (currently in Fahrenheit), define it in Celsius:
@@ -135,16 +188,23 @@ Wherever the Y-axis range is defined today (currently in Fahrenheit), define it 
 
 ### Fixture rewrite
 
-Existing tests in [`app/src/cycle-tracking/interpretation/`](app/src/cycle-tracking/interpretation/) and elsewhere likely encode BBT fixture values in Fahrenheit. Rewrite them in Celsius using the canonical Sensiplan handbook style:
+Existing tests fall into two groups, both verified by grep:
 
-```ts
-// before:
-const day1 = { bbt: 97.5, /* ... */ };
-// after:
-const day1 = { bbt: 36.39, /* ... */ };  // pre-shift baseline
-```
+1. **Tests already authored in Celsius via `celsiusToFahrenheit()` wrapper.**
+   Files: [`validateAdjustment.test.ts`](app/src/cycle-tracking/interpretation/__tests__/validateAdjustment.test.ts), [`getActiveCoverline.test.ts`](app/src/cycle-tracking/interpretation/__tests__/getActiveCoverline.test.ts), [`getChartAnnotations.test.ts`](app/src/cycle-tracking/interpretation/__tests__/getChartAnnotations.test.ts), [`adjustReviewTrigger.test.ts`](app/src/cycle-tracking/interpretation/__tests__/adjustReviewTrigger.test.ts).
+   These have helpers like `bbt: tC === null ? null : celsiusToFahrenheit(tC)`. Simply drop the wrapper: `bbt: tC`.
 
-Use realistic Sensiplan-handbook sequences in tests where possible (e.g. baseline `36.45–36.55 °C`, shift to `36.70 °C`, third reading `36.75 °C`).
+2. **Tests with raw numeric Fahrenheit fixtures.**
+   Files: [`thermalShift.test.ts`](app/src/cycle-tracking/interpretation/__tests__/thermalShift.test.ts), [`excludedDays.test.ts`](app/src/cycle-tracking/interpretation/__tests__/excludedDays.test.ts), [`postShiftMonitoring.test.ts`](app/src/cycle-tracking/interpretation/__tests__/postShiftMonitoring.test.ts), [`integration.test.ts`](app/src/cycle-tracking/interpretation/__tests__/integration.test.ts), [`nudges.test.ts`](app/src/cycle-tracking/interpretation/__tests__/nudges.test.ts), [`measurementTime.test.ts`](app/src/cycle-tracking/interpretation/__tests__/measurementTime.test.ts), [`classificationDecisions.test.ts`](app/src/cycle-tracking/interpretation/__tests__/classificationDecisions.test.ts), [`dataFingerprint.test.ts`](app/src/cycle-tracking/interpretation/__tests__/dataFingerprint.test.ts).
+   Rewrite the numbers in Celsius using canonical Sensiplan-handbook style:
+   ```ts
+   // before:
+   const day1 = { bbt: 97.5, /* ... */ };
+   // after:
+   const day1 = { bbt: 36.39, /* ... */ };  // pre-shift baseline
+   ```
+
+Use realistic handbook sequences in any rewritten fixture (e.g. baseline `36.45 – 36.55 °C`, shift day `36.70 °C`, third reading `36.75 °C`). The chart-node label test [`getTempNodeLabel.test.ts`](app/src/cycle-tracking/__tests__/getTempNodeLabel.test.ts) takes display-temp inputs and is unit-agnostic — leave it as is.
 
 ### New precision-edge tests
 
@@ -185,18 +245,24 @@ A future post-launch backfill (if/when production has real data) is out of scope
 |---|---|
 | A widget reads `cycleDay.bbt` directly and formats it inline, missing the canonical unit flip. | Grep audit on `\.bbt` reads outside `formatTemperature` / `getTempNodeLabel` / engine code. Optionally, an ESLint rule. |
 | Round-trip drift surprises a Fahrenheit user (e.g. `97.55 → 36.41666… → 97.55000000001`). | `.toFixed(2)` at the display layer kills any visible drift. Float drift is ~1e-13 °F. |
-| Tests still pass for the wrong reason (e.g. fixture happens to also work in F). | The three new precision-edge tests catch silent regressions. |
+| Tests still pass for the wrong reason (e.g. fixture happens to also work in F). | The new precision-edge tests catch silent regressions. |
 | Y-axis range looks off after flipping canonical unit. | Smoke test on both unit settings before merge. |
 | Coverline annotation misaligned because annotation Y-coordinate uses cached F value. | Audit annotation code together with chart code; coverline is already computed in C, so this is a render-only adjustment. |
+| One of the eight engine `fahrenheitToCelsius()` call sites missed during refactor → that rule silently re-converts a °C value as if it were °F. | Engine-files grep `grep -rn "fahrenheitToCelsius" app/src/cycle-tracking/interpretation/` returns zero matches as a verification gate. Engine tests that exercise each rule must be present before the refactor (existing coverage already covers all eight). |
+| One of the three BBT write paths missed → new rows land in Fahrenheit while column is now Celsius. | All three writers (AddCycleDayPage, NewCyclePage, CSV import) call `convertToCelsiusForStorage`. Verification: grep `bbt:` writes in operations.ts and ensure each comes from the helper. |
+| Fingerprint stays at 2 dp → dismissed interpretations fail to auto-recover near threshold. | Bump to 3 dp; new fingerprint test covers `36.699` vs `36.700`. |
 
 ## Verification (definition of done)
 
 - All existing interpretation tests pass with Celsius fixtures.
-- Three new precision-edge tests pass.
-- Grep audit returns no raw `\.bbt` reads outside the formatter helpers and the engine.
+- Three new precision-edge thermal-shift tests pass.
+- New fingerprint regression test (`36.699 → 36.700` produces different fingerprint) passes.
+- `grep -rn "fahrenheitToCelsius" app/src/cycle-tracking/interpretation/` returns no matches (engine files only — the helper itself stays in `utils.ts` for display callers).
+- All three BBT write paths (`AddCycleDayPage`, `NewCyclePage`, CSV import) flow through `convertToCelsiusForStorage`.
+- Grep audit shows no `cycleDay.bbt` / `day.bbt` reads outside `formatTemperature`, `getTempNodeLabel`, the engine, and the explicit display-time conversions in chart components.
 - Manual smoke test passes for both °C and °F users.
-- No remaining usage of `fahrenheitToCelsius` inside rule-engine files (it can remain in `utils.ts` as a public conversion helper used by display code, if needed).
 - Schema comment in [`app/schema.prisma`](app/schema.prisma) documents Celsius as canonical and links to this spec.
+- `CycleDayInput.bbt` JSDoc in [`interpretation/types.ts`](app/src/cycle-tracking/interpretation/types.ts) updated from "Fahrenheit" to "Celsius".
 
 ## References
 
