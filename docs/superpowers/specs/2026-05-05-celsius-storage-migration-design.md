@@ -40,7 +40,8 @@ Today the codebase stores `CycleDay.bbt` as `Float` interpreted as Fahrenheit. T
 - Schema field `CycleDay.bbt` reinterpreted as Celsius (same `Float` type, same column).
 - Removal of F → C conversions inside rule engine code.
 - Rename of `convertToFahrenheitForStorage` → `convertToCelsiusForStorage`; behaviour reversed.
-- Rewrite of `formatTemperature` and `getTempNodeLabel` to take Celsius input and convert outwards.
+- Rewrite of `formatTemperature` to take Celsius input and convert outwards.
+- New shared helper `toDisplayTemperature(celsiusValue, unit)` that returns the user-unit number for math and rendering. Existing inline `unit === 'CELSIUS' ? fahrenheitToCelsius(bbt) : bbt` ternaries in `CycleChartPage.tsx` are replaced with calls to this helper. `getTempNodeLabel` is unchanged and continues to take a display-unit number from its caller.
 - Y-axis range definition flipped to Celsius-canonical, converted for °F users at render time.
 - Test fixtures rewritten in Celsius to match Sensiplan handbook examples.
 - Three new precision-edge regression tests.
@@ -100,7 +101,7 @@ After this layer is done, no engine/rule code references Fahrenheit at all.
 
 **[`app/src/cycle-tracking/utils.ts`](app/src/cycle-tracking/utils.ts)**
 
-Two helper changes:
+Four helper changes (one renamed, one reversed, one new, one left alone):
 
 1. **Rename + reverse:** `convertToFahrenheitForStorage(value, unit)` → `convertToCelsiusForStorage(value, unit)`.
    - If `unit === CELSIUS` → return parsed number unchanged.
@@ -109,19 +110,18 @@ Two helper changes:
 2. **Reverse `formatTemperature`:**
    - `formatTemperature(celsiusValue: number, unit: TemperatureUnit): string` — input is now Celsius. If unit is Fahrenheit, convert via `c × 9/5 + 32`, then `.toFixed(2)`. If Celsius, `.toFixed(2)` directly.
 
-3. **Preserve `getTempNodeLabel` semantics — do NOT change its signature or rounding rule.**
+3. **New: `toDisplayTemperature(celsiusValue, unit): number`** — see the Display boundary section for the signature, callers, and rationale. Distinct from `formatTemperature` because the chart needs a `number` for plotting/positioning math; only the tooltip/label sites want a `string`.
+
+4. **Preserve `getTempNodeLabel` semantics — do NOT change its signature or rounding rule.**
    The current contract is intentional and tested: `getTempNodeLabel` takes an *already-converted display temperature* and emits a compact label that shows only the tenths digit (`98.3 → "3"`) or the integer part on `.0` values (`98.0 → "98"`). Changing it to `.toFixed(1)` would crowd the chart with full temperatures like `36.7` / `98.1` and break [`__tests__/getTempNodeLabel.test.ts`](app/src/cycle-tracking/__tests__/getTempNodeLabel.test.ts).
    - The function itself stays unchanged.
-   - **Callers** must convert from canonical Celsius first, then pass the display-unit value in. Example:
+   - **Callers** must convert from canonical Celsius to display unit first, using `toDisplayTemperature`. Example:
      ```ts
-     const display = settings.temperatureUnit === 'CELSIUS'
-       ? day.bbt
-       : celsiusToFahrenheit(day.bbt);
-     getTempNodeLabel(display);
+     getTempNodeLabel(toDisplayTemperature(day.bbt, settings.temperatureUnit));
      ```
-   - Today the chart passes `day.bbt` (Fahrenheit) directly to `getTempNodeLabel` for °F users and converts for °C users. After migration the conversion direction is reversed.
+   - Today the chart passes `day.bbt` (Fahrenheit) directly to `getTempNodeLabel` for °F users and converts inline for °C users. After migration, every call goes through `toDisplayTemperature` with no inline ternary.
 
-All three helpers handle `null`/`undefined` input the same way they do today.
+All four helpers handle `null`/`undefined` input the same way they do today.
 
 ### Input boundary — every BBT writer, not just AddCycleDayPage
 
@@ -144,15 +144,62 @@ The user-visible UI stays identical — input fields still display the user's ch
 
 ### Display boundary
 
-Every place that today reads `cycleDay.bbt` and formats it:
+The chart code today contains many copies of the same ternary, e.g.:
 
-- Cycle chart (Y-axis labels, plotted points, tooltips, node labels).
-- Cycle day card / form preview.
-- CSV / data export (if present today).
-- Coverline annotation render (computed coverline is already Celsius internally; format on render).
-- Settings page preview.
+```ts
+const temp = settings.temperatureUnit === 'CELSIUS'
+  ? fahrenheitToCelsius(day.bbt)
+  : day.bbt;
+```
 
-All routed through `formatTemperature` / `getTempNodeLabel`. A grep audit (see Verification) confirms no widget reads `cycleDay.bbt` directly and formats inline.
+After migration the conversion direction must flip in every one of those copies. Rather than ask each call site to remember to flip the ternary correctly, the spec introduces a shared helper and routes every site through it.
+
+**New helper in [`utils.ts`](app/src/cycle-tracking/utils.ts):**
+
+```ts
+/**
+ * Convert a stored canonical-Celsius temperature to the user's preferred display unit.
+ * Returns a raw number (no rounding) suitable for plotting, interpolation, and
+ * positioning math. For human-readable strings, use formatTemperature instead.
+ */
+export function toDisplayTemperature(
+  celsiusValue: number,
+  unit: TemperatureUnit
+): number;
+export function toDisplayTemperature(
+  celsiusValue: number | null | undefined,
+  unit: TemperatureUnit
+): number | null;
+export function toDisplayTemperature(celsiusValue, unit) {
+  if (celsiusValue == null) return null;
+  return unit === 'CELSIUS' ? celsiusValue : celsiusToFahrenheit(celsiusValue);
+}
+```
+
+**Two helpers, two purposes:**
+- `toDisplayTemperature(value, unit)` — returns a `number`. Used wherever the chart needs the value for math (plotting Y position, interpolation between points, overlay anchoring, picking values to feed `getTempNodeLabel`).
+- `formatTemperature(value, unit)` — returns a `string`, two decimals. Used wherever a human reads the value (form input prefill, tooltip text, settings preview, CSV cell).
+
+**Sites that must move to the new helper.** All currently use the soon-to-be-inverted ternary on raw `bbt`:
+
+| Location | Today's pattern | After |
+|---|---|---|
+| [`CycleChartPage.tsx:178`](app/src/cycle-tracking/CycleChartPage.tsx:178) — plotting points | `tempUnit === 'CELSIUS' ? fahrenheitToCelsius(day.bbt!) : day.bbt!` | `toDisplayTemperature(day.bbt!, tempUnit)` |
+| [`CycleChartPage.tsx:339-340`](app/src/cycle-tracking/CycleChartPage.tsx:339) — interpolating between gap days | same ternary on `p1.bbt` and `p2.bbt` | `toDisplayTemperature(p1.bbt, settings.temperatureUnit)` etc. |
+| [`CycleChartPage.tsx:633-635`](app/src/cycle-tracking/CycleChartPage.tsx:633) — coverline render Y position | `unit === 'CELSIUS' ? coverlineC : celsiusToFahrenheit(coverlineC)` | `toDisplayTemperature(coverlineC, settings.temperatureUnit)` |
+| [`CycleChartPage.tsx:1336`](app/src/cycle-tracking/CycleChartPage.tsx:1336) — peak/segment overlay anchor | same ternary | `toDisplayTemperature(...)` |
+| [`CycleChartPage.tsx:1461`](app/src/cycle-tracking/CycleChartPage.tsx:1461) — tooltip text | inline `fahrenheitToCelsius(bbtDay.bbt).toFixed(2)` ternary | `formatTemperature(bbtDay.bbt, settings.temperatureUnit)` (string output) |
+| [`CycleChartPage.tsx:1596`](app/src/cycle-tracking/CycleChartPage.tsx:1596) — peak-day overlay Y position | same ternary | `toDisplayTemperature(...)` |
+| [`AddCycleDayPage.tsx:66`](app/src/cycle-tracking/AddCycleDayPage.tsx:66) — form prefill | `unit === 'CELSIUS' ? fahrenheitToCelsius(existingDay.bbt).toFixed(2) : existingDay.bbt.toFixed(2)` | `formatTemperature(existingDay.bbt, settings.temperatureUnit)` (or `toDisplayTemperature(...).toFixed(2)` if a numeric value is needed for the input) |
+| [`interpretation/components/ThermalShiftAnnotations.tsx:93`](app/src/cycle-tracking/interpretation/components/ThermalShiftAnnotations.tsx:93) — annotation Y position | `unit === 'CELSIUS' ? fahrenheitToCelsius(day.bbt) : day.bbt` | `toDisplayTemperature(day.bbt, temperatureUnit)` |
+
+Other display surfaces — cycle-day card, settings preview, any CSV export — stay on `formatTemperature` because they emit strings, not numeric positions. None of them currently bypass the helper, but they should be re-checked during the verification grep.
+
+**Verification gates** (added to the Verification section):
+
+- `grep -rn "fahrenheitToCelsius(.*\.bbt" app/src` returns no matches. (After the migration, no display code should be calling F → C on a `bbt` value — the value is already °C.)
+- `grep -rn "celsiusToFahrenheit(.*\.bbt" app/src` returns no matches. (All such conversions go through `toDisplayTemperature` or `formatTemperature`.)
+- `grep -rn "temperatureUnit === 'CELSIUS' \?" app/src/cycle-tracking/CycleChartPage.tsx` returns no matches in chart code.
 
 ### Interpretation-state fingerprint — precision must match the engine
 
@@ -243,7 +290,8 @@ A future post-launch backfill (if/when production has real data) is out of scope
 
 | Risk | Mitigation |
 |---|---|
-| A widget reads `cycleDay.bbt` directly and formats it inline, missing the canonical unit flip. | Grep audit on `\.bbt` reads outside `formatTemperature` / `getTempNodeLabel` / engine code. Optionally, an ESLint rule. |
+| A chart call site keeps the old `unit === 'CELSIUS' ? fahrenheitToCelsius(bbt) : bbt` ternary and silently inverts (Celsius users see °C-as-°C math, Fahrenheit users see broken numbers). | Replace every chart ternary with `toDisplayTemperature(...)` (per the Display boundary table). Verification grep below catches any leftover. |
+| A widget reads `cycleDay.bbt` directly and formats it inline, missing the canonical unit flip. | Grep audit on `\.bbt` reads outside `formatTemperature` / `toDisplayTemperature` / `getTempNodeLabel` / engine code. |
 | Round-trip drift surprises a Fahrenheit user (e.g. `97.55 → 36.41666… → 97.55000000001`). | `.toFixed(2)` at the display layer kills any visible drift. Float drift is ~1e-13 °F. |
 | Tests still pass for the wrong reason (e.g. fixture happens to also work in F). | The new precision-edge tests catch silent regressions. |
 | Y-axis range looks off after flipping canonical unit. | Smoke test on both unit settings before merge. |
@@ -258,8 +306,11 @@ A future post-launch backfill (if/when production has real data) is out of scope
 - Three new precision-edge thermal-shift tests pass.
 - New fingerprint regression test (`36.699 → 36.700` produces different fingerprint) passes.
 - `grep -rn "fahrenheitToCelsius" app/src/cycle-tracking/interpretation/` returns no matches (engine files only — the helper itself stays in `utils.ts` for display callers).
+- `grep -rn "fahrenheitToCelsius(.*\.bbt" app/src` returns no matches anywhere (display code now reads `bbt` as Celsius; F → C on a `bbt` value is meaningless after migration).
+- `grep -rn "celsiusToFahrenheit(.*\.bbt" app/src` returns no matches outside `toDisplayTemperature` / `formatTemperature` (no inline C → F conversions on stored values).
+- `grep -rn "temperatureUnit === 'CELSIUS'" app/src/cycle-tracking/CycleChartPage.tsx` returns no matches in the chart's plotting / interpolation / overlay / coverline / tooltip blocks (all replaced by `toDisplayTemperature` / `formatTemperature`).
 - All three BBT write paths (`AddCycleDayPage`, `NewCyclePage`, CSV import) flow through `convertToCelsiusForStorage`.
-- Grep audit shows no `cycleDay.bbt` / `day.bbt` reads outside `formatTemperature`, `getTempNodeLabel`, the engine, and the explicit display-time conversions in chart components.
+- All chart numeric-math sites listed in the Display boundary table now call `toDisplayTemperature(...)`; tooltip sites call `formatTemperature(...)`.
 - Manual smoke test passes for both °C and °F users.
 - Schema comment in [`app/schema.prisma`](app/schema.prisma) documents Celsius as canonical and links to this spec.
 - `CycleDayInput.bbt` JSDoc in [`interpretation/types.ts`](app/src/cycle-tracking/interpretation/types.ts) updated from "Fahrenheit" to "Celsius".
