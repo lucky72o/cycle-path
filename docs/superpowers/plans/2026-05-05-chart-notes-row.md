@@ -546,7 +546,7 @@ Expected: every existing test still passes (this is a refactor; old callers send
 cd app && npx tsc --noEmit 2>&1 | head -50
 ```
 
-(If `build` is heavy, alternative: `cd app && npx tsc --noEmit`.) Expected: zero TS errors. If any caller of `createOrUpdateCycleDay` complained about now-optional `hadIntercourse`/`excludeFromInterpretation`, that's a *good* shift — they were over-specified — but no compile error should result because making required → optional is non-breaking.
+Expected: zero TS errors. If any caller of `createOrUpdateCycleDay` complained about now-optional `hadIntercourse`/`excludeFromInterpretation`, that's a *good* shift — they were over-specified — but no compile error should result because making required → optional is non-breaking.
 
 - [ ] **Step 8: Commit**
 
