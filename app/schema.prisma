@@ -152,9 +152,10 @@ model UserSettings {
   id              String          @id @default(uuid())
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
-  
+
   temperatureUnit TemperatureUnit @default(FAHRENHEIT)
-  
+  notesRowExpanded Boolean        @default(false)
+
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId          String          @unique
 }
@@ -200,6 +201,7 @@ model CycleDay {
   menstrualFlow               MenstrualFlow?
   disturbanceFactors          String[]
   travelTimeDiff              Int?
+  notes                       String?
 
   @@unique([cycleId, dayNumber])
   @@index([cycleId, date])
