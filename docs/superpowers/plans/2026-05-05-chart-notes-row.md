@@ -543,7 +543,7 @@ Expected: every existing test still passes (this is a refactor; old callers send
 - [ ] **Step 7: Type-check**
 
 ```bash
-cd app && npm run build 2>&1 | head -50
+cd app && npx tsc --noEmit 2>&1 | head -50
 ```
 
 (If `build` is heavy, alternative: `cd app && npx tsc --noEmit`.) Expected: zero TS errors. If any caller of `createOrUpdateCycleDay` complained about now-optional `hadIntercourse`/`excludeFromInterpretation`, that's a *good* shift — they were over-specified — but no compile error should result because making required → optional is non-breaking.
@@ -660,7 +660,7 @@ Expected: no matches. If any are left, fix them now.
 - [ ] **Step 6: Type-check + tests**
 
 ```bash
-cd app && npm run build 2>&1 | tail -30
+cd app && npx tsc --noEmit 2>&1 | tail -30
 cd app && npm test
 ```
 
@@ -1538,9 +1538,29 @@ const NOTES_ROW_HEIGHT = notesRowExpanded ? 120 : 28;
 const LOWER_TABLE_PADDING_BOTTOM = 262 + NOTES_ROW_HEIGHT;
 ```
 
-- [ ] **Step 2: Add the toggle handler — optimistic flip + revert on failure**
+- [ ] **Step 2: Mount the Toaster provider in the app root (one-time setup)**
 
-The cycle-tracking pages don't currently use a toast library; `react-hot-toast` is already a dependency (used by the admin pages). Import it here and reuse it:
+`react-hot-toast` is a dependency but no `<Toaster />` is mounted yet, so `toast.error(...)` would silently no-op. Add the provider to `app/src/client/App.tsx`.
+
+At the top of [app/src/client/App.tsx](app/src/client/App.tsx), add the import next to the existing imports:
+
+```tsx
+import { Toaster } from 'react-hot-toast';
+```
+
+In the JSX returned by `App()`, add `<Toaster />` just before the closing fragment (right after `<CookieConsentBanner />`):
+
+```tsx
+      <CookieConsentBanner />
+      <Toaster position="bottom-center" toastOptions={{ duration: 3000 }} />
+    </>
+```
+
+This single mount serves the chart toggle revert toast in this plan, and incidentally unblocks any other code in the app that already calls `toast.*` (admin code has a TODO about the missing provider).
+
+- [ ] **Step 3: Add the toggle handler — optimistic flip + revert on failure**
+
+The cycle-tracking pages don't currently use a toast library; `react-hot-toast` is the existing dependency. Import it here:
 
 ```tsx
 import toast from 'react-hot-toast';
@@ -1570,7 +1590,7 @@ const toggleNotesRow = async () => {
 };
 ```
 
-- [ ] **Step 3: Wire the label as the toggle target**
+- [ ] **Step 4: Wire the label as the toggle target**
 
 Replace the Notes label block (from Task 7 Step 2) with one that includes a chevron, `cursor: pointer`, and a click handler. Replace the inner `<div>`:
 
@@ -1605,7 +1625,7 @@ Replace the Notes label block (from Task 7 Step 2) with one that includes a chev
 </div>
 ```
 
-- [ ] **Step 4: Make the grid row honour the dynamic height**
+- [ ] **Step 5: Make the grid row honour the dynamic height**
 
 In the Notes Grid Row block (from Task 7 Step 4), replace the hard-coded `height: '28px'` on the *outer* `style` with `height: \`${NOTES_ROW_HEIGHT}px\``:
 
@@ -1641,7 +1661,7 @@ The inner stone background (`top: 0.5px, height: calc(100% - 1px)`) already uses
 />
 ```
 
-- [ ] **Step 5: Render vertical text in expanded mode (alongside the pencil in collapsed mode)**
+- [ ] **Step 6: Render vertical text in expanded mode (alongside the pencil in collapsed mode)**
 
 Replace the pencil-only render block from Task 7 Step 4 with a state-aware render. Inside the cell, where you currently render the pencil:
 
@@ -1683,7 +1703,7 @@ Replace the pencil-only render block from Task 7 Step 4 with a state-aware rende
 
 Note `pointerEvents: 'none'` on both the text and pencil — the *cell wrapper* is the click target; the inner content shouldn't intercept.
 
-- [ ] **Step 6: Type-check and run the dev server**
+- [ ] **Step 7: Type-check and run the dev server**
 
 ```bash
 cd app && npx tsc --noEmit
@@ -1697,16 +1717,18 @@ Manually verify:
 - Open the same account in another browser/incognito: the same state shows up (cross-device persistence works).
 - Toggle a few times rapidly: the optimistic flip is immediate; if the server rejects (e.g. simulate by stopping the API), the row eventually reverts.
 
-- [ ] **Step 7: Smoke-test the chart container's bottom padding**
+- [ ] **Step 8: Smoke-test the chart container's bottom padding**
 
 Look at the page just below the chart while toggling — there should be no overlap between the Notes row and any element below the chart in either the collapsed or expanded state. The expanded 120 px row needs that extra 92 px of padding to not bleed into the next section.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add app/src/cycle-tracking/CycleChartPage.tsx
+git add app/src/client/App.tsx app/src/cycle-tracking/CycleChartPage.tsx
 git commit -m "feat(chart): add expand/collapse toggle and vertical text for Notes row"
 ```
+
+(The `App.tsx` change adds the `<Toaster />` provider used by Step 3.)
 
 ---
 
