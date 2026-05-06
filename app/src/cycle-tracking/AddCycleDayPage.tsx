@@ -48,6 +48,7 @@ export default function AddCycleDayPage() {
   const [menstrualFlow, setMenstrualFlow] = useState<MenstrualFlowOption | ''>('');
   const [disturbanceFactors, setDisturbanceFactors] = useState<string[]>([]);
   const [travelTimeDiff, setTravelTimeDiff] = useState<number>(0);
+  const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Find the existing day if we're editing
@@ -77,6 +78,7 @@ export default function AddCycleDayPage() {
       setMenstrualFlow((existingDay.menstrualFlow as MenstrualFlowOption | undefined) || '');
       setDisturbanceFactors(existingDay.disturbanceFactors ?? []);
       setTravelTimeDiff(existingDay.travelTimeDiff ?? 0);
+      setNotes(existingDay.notes ?? '');
     }
   }, [existingDay, settings]);
 
@@ -113,7 +115,8 @@ export default function AddCycleDayPage() {
         opkStatus: opkStatus || null,
         menstrualFlow: menstrualFlow || null,
         disturbanceFactors,
-        travelTimeDiff: disturbanceFactors.includes('TRAVEL') ? travelTimeDiff : null
+        travelTimeDiff: disturbanceFactors.includes('TRAVEL') ? travelTimeDiff : null,
+        notes: notes.trim() || null,
       });
 
       // Reset form (only if adding, not editing)
@@ -128,6 +131,7 @@ export default function AddCycleDayPage() {
         setMenstrualFlow('');
         setDisturbanceFactors([]);
         setTravelTimeDiff(0);
+        setNotes('');
       }
       
       // Redirect back to chart if that's where the edit was initiated, otherwise days page
@@ -545,6 +549,28 @@ export default function AddCycleDayPage() {
                     )}
                   </React.Fragment>
                 ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold cursor-default">Notes</h3>
+              <div className="space-y-1">
+                <textarea
+                  rows={5}
+                  maxLength={150}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full rounded-md border border-slate-300 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  placeholder="Anything else worth remembering — symptoms, mood, sleep, events…"
+                />
+                <div
+                  className={`text-xs text-right ${
+                    notes.length >= 150 ? 'text-red-600' :
+                    notes.length > 130  ? 'text-amber-600' : 'text-slate-500'
+                  }`}
+                >
+                  {notes.length} / 150
+                </div>
               </div>
             </div>
 
