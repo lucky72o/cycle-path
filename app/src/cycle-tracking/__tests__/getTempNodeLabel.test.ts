@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { roundTo1Decimal, getTempNodeLabel } from '../utils';
+import { roundTo1Decimal, getTempNodeLabel, formatLocalIsoDate, resolveCycleDayIsoDate } from '../utils';
 
 describe('roundTo1Decimal', () => {
   it.each([
@@ -18,6 +18,78 @@ describe('roundTo1Decimal', () => {
     [37.06, 37.1],
   ])('rounds %f to %f', (input, expected) => {
     expect(roundTo1Decimal(input)).toBe(expected);
+  });
+});
+
+describe('formatLocalIsoDate', () => {
+  it('formats a plain local-midnight date as YYYY-MM-DD', () => {
+    // new Date(year, monthIdx, day) constructs at LOCAL midnight regardless
+    // of timezone, so this assertion holds in any TZ the test runs in.
+    expect(formatLocalIsoDate(new Date(2025, 0, 1))).toBe('2025-01-01');
+    expect(formatLocalIsoDate(new Date(2026, 11, 31))).toBe('2026-12-31');
+  });
+
+  it('zero-pads month and day', () => {
+    expect(formatLocalIsoDate(new Date(2025, 2, 5))).toBe('2025-03-05');
+    expect(formatLocalIsoDate(new Date(2025, 8, 9))).toBe('2025-09-09');
+  });
+
+  it('returns the local date even when the local time would shift the UTC date', () => {
+    // 23:30 local on March 1 — in any TZ east of UTC, toISOString() rolls to
+    // March 2. The helper must NOT do that — it returns the calendar date the
+    // user is sitting in, not what UTC happens to be at that instant.
+    const lateEvening = new Date(2025, 2, 1, 23, 30, 0);
+    expect(formatLocalIsoDate(lateEvening)).toBe('2025-03-01');
+
+    // 00:30 local on March 1 — in any TZ west of UTC, toISOString() rolls to
+    // Feb 28. Helper must still report March 1.
+    const earlyMorning = new Date(2025, 2, 1, 0, 30, 0);
+    expect(formatLocalIsoDate(earlyMorning)).toBe('2025-03-01');
+  });
+
+  it('survives setDate arithmetic across a DST boundary', () => {
+    // Simulate the "padded chart day" path: cycle starts March 1 (in many
+    // northern-hemisphere zones, this is BEFORE the spring-forward DST
+    // change). Click day 35, which lands in April (AFTER the change).
+    // setDate operates in local time — local midnight stays local midnight
+    // through the DST hop. The helper reads local fields, so the saved
+    // date matches the user's intended calendar day, not the UTC drift.
+    const cycleStart = new Date(2025, 2, 1); // March 1 local
+    const padded = new Date(cycleStart);
+    padded.setDate(cycleStart.getDate() + 34); // advance 34 days → April 4 local
+    expect(formatLocalIsoDate(padded)).toBe('2025-04-04');
+  });
+});
+
+describe('resolveCycleDayIsoDate', () => {
+  it('returns the existing date stringified in UTC, not shifted to local', () => {
+    // The server stored 2025-04-04T00:00:00Z. A user in any TZ — including
+    // west of UTC where local fields would say 2025-04-03 — must see the
+    // exact stored UTC date returned, otherwise a note-only save would
+    // rewrite the row's `date` to the wrong calendar day.
+    const cycleStart = new Date('2025-03-01T00:00:00.000Z');
+    expect(
+      resolveCycleDayIsoDate(cycleStart, 35, '2025-04-04T00:00:00.000Z'),
+    ).toBe('2025-04-04');
+  });
+
+  it('handles a Date object as existingDate the same way as a string', () => {
+    const cycleStart = new Date('2025-03-01T00:00:00.000Z');
+    const existing = new Date('2025-04-04T00:00:00.000Z');
+    expect(resolveCycleDayIsoDate(cycleStart, 35, existing)).toBe('2025-04-04');
+  });
+
+  it('falls back to local-calendar arithmetic when there is no existing day', () => {
+    // Padded chart day: cycle starts March 1 local, day 35 is April 4 local.
+    // formatLocalIsoDate (not toISOString) protects against DST drift.
+    const cycleStart = new Date(2025, 2, 1);
+    expect(resolveCycleDayIsoDate(cycleStart, 35, null)).toBe('2025-04-04');
+  });
+
+  it('treats null and undefined existingDate the same', () => {
+    const cycleStart = new Date(2025, 2, 1);
+    expect(resolveCycleDayIsoDate(cycleStart, 1, undefined)).toBe('2025-03-01');
+    expect(resolveCycleDayIsoDate(cycleStart, 1, null)).toBe('2025-03-01');
   });
 });
 

@@ -20,8 +20,8 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const { updateUserTemperaturePreference } = await import('wasp/client/operations');
-      await updateUserTemperaturePreference({ temperatureUnit });
+      const { updateUserSettings } = await import('wasp/client/operations');
+      await updateUserSettings({ temperatureUnit });
       alert('Settings saved successfully!');
     } catch (err: any) {
       console.error('Failed to save settings:', err);

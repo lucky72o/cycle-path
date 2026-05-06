@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { Toaster } from 'react-hot-toast';
 import { Outlet, useLocation } from 'react-router-dom';
 import { routes } from 'wasp/client/router';
 import { useAuth } from 'wasp/client/auth';
@@ -58,6 +59,7 @@ export default function App() {
         )}
       </div>
       <CookieConsentBanner />
+      <Toaster position="bottom-center" toastOptions={{ duration: 3000 }} />
     </>
   );
 }

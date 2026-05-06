@@ -8,7 +8,7 @@ import type {
   GetPreviousCycleSummary,
   CreateCycle,
   CreateOrUpdateCycleDay,
-  UpdateUserTemperaturePreference,
+  UpdateUserSettings,
   EndCycle,
   DeleteCycle,
   UpdateCycle,
@@ -16,7 +16,14 @@ import type {
   ImportCycleCsv
 } from 'wasp/server/operations';
 import type { Cycle, CycleDay, UserSettings } from 'wasp/entities';
+import { Prisma } from '@prisma/client';
 import { celsiusToFahrenheit, getDayOfWeek } from './utils';
+import { isNoteTooLong, NOTE_MAX_LENGTH } from './notesValidation';
+import {
+  buildCycleDayUpdateData,
+  buildCycleDayCreateData,
+  type CycleDayPartialArgs,
+} from './cycleDayDataBuilders';
 
 // TemperatureUnit type - matches Prisma enum
 // Will be available from '@prisma/client' after running migration
@@ -321,20 +328,10 @@ export const createCycle: CreateCycle<CreateCycleArgs, CycleWithDays> = async (a
 /**
  * Create or update a cycle day entry
  */
-type CreateOrUpdateCycleDayArgs = {
+type CreateOrUpdateCycleDayArgs = CycleDayPartialArgs & {
   cycleId: string;
   dayNumber?: number;
   date: string;
-  bbt?: number;
-  bbtTime?: string;
-  hadIntercourse: boolean;
-  excludeFromInterpretation: boolean;
-  cervicalAppearance?: 'NONE' | 'STICKY' | 'CREAMY' | 'WATERY' | 'EGGWHITE' | null;
-  cervicalSensation?: 'DRY' | 'DAMP' | 'WET' | 'SLIPPERY' | null;
-  opkStatus?: 'low' | 'rising' | 'peak' | 'declining' | null;
-  menstrualFlow?: 'SPOTTING' | 'LIGHT' | 'MEDIUM' | 'HEAVY' | 'VERY_HEAVY' | null;
-  disturbanceFactors?: string[];
-  travelTimeDiff?: number | null;
 };
 
 export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleDayArgs, CycleDay> = async (args, context) => {
@@ -360,6 +357,10 @@ export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleD
     throw new HttpError(404, 'Cycle not found');
   }
 
+  if (isNoteTooLong(args.notes)) {
+    throw new HttpError(400, `Note must be at most ${NOTE_MAX_LENGTH} characters`);
+  }
+
   const entryDate = new Date(args.date);
   const dayOfWeek = getDayOfWeek(entryDate);
 
@@ -383,43 +384,18 @@ export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleD
   let updatedDay: CycleDay;
   
   if (existingDay) {
-    // Update existing day
     updatedDay = await context.entities.CycleDay.update({
       where: { id: existingDay.id },
-      data: {
-        date: entryDate,
-        dayOfWeek,
-        bbt: args.bbt,
-        bbtTime: args.bbtTime,
-        hadIntercourse: args.hadIntercourse,
-        excludeFromInterpretation: args.excludeFromInterpretation,
-        cervicalAppearance: args.cervicalAppearance,
-        cervicalSensation: args.cervicalSensation,
-        opkStatus: args.opkStatus,
-        menstrualFlow: args.menstrualFlow,
-        disturbanceFactors: args.disturbanceFactors ?? [],
-        travelTimeDiff: args.travelTimeDiff ?? null
-      }
+      data: buildCycleDayUpdateData(args, entryDate, dayOfWeek),
     });
   } else {
-    // Create new day
     updatedDay = await context.entities.CycleDay.create({
-      data: {
+      data: buildCycleDayCreateData(args, {
         cycleId: args.cycleId,
         dayNumber,
-        date: entryDate,
+        entryDate,
         dayOfWeek,
-        bbt: args.bbt,
-        bbtTime: args.bbtTime,
-        hadIntercourse: args.hadIntercourse,
-        excludeFromInterpretation: args.excludeFromInterpretation,
-        cervicalAppearance: args.cervicalAppearance,
-        cervicalSensation: args.cervicalSensation,
-        opkStatus: args.opkStatus,
-        menstrualFlow: args.menstrualFlow,
-        disturbanceFactors: args.disturbanceFactors ?? [],
-        travelTimeDiff: args.travelTimeDiff ?? null
-      }
+      }),
     });
   }
 
@@ -770,30 +746,41 @@ export const importCycleCsv: ImportCycleCsv<ImportCycleCsvArgs, ImportSummary> =
 };
 
 /**
- * Update user's temperature preference
+ * Update user settings (temperature unit, notes row expanded state, etc.)
  */
-type UpdateUserTemperaturePreferenceArgs = { temperatureUnit: TemperatureUnit };
-export const updateUserTemperaturePreference: UpdateUserTemperaturePreference<UpdateUserTemperaturePreferenceArgs, UserSettings> = async (args, context) => {
+type UpdateUserSettingsArgs = {
+  temperatureUnit?: TemperatureUnit;
+  notesRowExpanded?: boolean;
+};
+
+export const updateUserSettings: UpdateUserSettings<UpdateUserSettingsArgs, UserSettings> = async (args, context) => {
   if (!context.user) {
     throw new HttpError(401, 'Not authorized');
   }
 
-  // Get or create settings
+  // Build the create/update payloads conditionally.
+  const data: Prisma.UserSettingsUncheckedUpdateInput = {};
+  if ('temperatureUnit' in args)  data.temperatureUnit = args.temperatureUnit;
+  if ('notesRowExpanded' in args) data.notesRowExpanded = args.notesRowExpanded;
+
+  // Reject empty calls — every call should change at least one field.
+  if (Object.keys(data).length === 0) {
+    throw new HttpError(400, 'No settings provided');
+  }
+
   let settings = await context.entities.UserSettings.findUnique({
     where: { userId: context.user.id }
   });
 
   if (!settings) {
+    const createData = data as Prisma.UserSettingsUncheckedCreateInput;
     settings = await context.entities.UserSettings.create({
-      data: {
-        userId: context.user.id,
-        temperatureUnit: args.temperatureUnit
-      }
+      data: { ...createData, userId: context.user.id }
     });
   } else {
     settings = await context.entities.UserSettings.update({
       where: { userId: context.user.id },
-      data: { temperatureUnit: args.temperatureUnit }
+      data
     });
   }
 

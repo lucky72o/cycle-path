@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { fahrenheitToCelsius, celsiusToFahrenheit, formatDate, formatDateLong, formatDateDDMMMYYYY, getDayOfWeekAbbreviation, getDayOfWeek, getCycleDayCount, getTempNodeLabel } from './utils';
+import { fahrenheitToCelsius, celsiusToFahrenheit, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviation, getDayOfWeek, getCycleDayCount, getTempNodeLabel } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 import { useInterpretation } from './interpretation/hooks/useInterpretation';
@@ -17,6 +17,7 @@ import { CycleBadge } from './interpretation/components/CycleBadge';
 import { CrossCycleAnovulatoryBanner } from './interpretation/components/CrossCycleAnovulatoryBanner';
 import { NudgeIcon } from './interpretation/components/NudgeIcon';
 import { NudgeMessage } from './interpretation/components/NudgeMessage';
+import { NoteEditorSheet } from './components/NoteEditorSheet';
 import { getPreviousCycleSummary } from 'wasp/client/operations';
 import { getActiveCoverline } from './interpretation/getActiveCoverline';
 import { getChartAnnotations } from './interpretation/getChartAnnotations';
@@ -24,6 +25,7 @@ import {
   ThermalShiftBackgroundLayer,
   ThermalShiftForegroundLayer,
 } from './interpretation/components/ThermalShiftAnnotations';
+import toast from 'react-hot-toast';
 
 const DISTURBANCE_EMOJI: Record<string, string> = {
   POOR_SLEEP: '🌙',
@@ -49,6 +51,42 @@ export default function CycleChartPage() {
     { enabled: !!cycle?.isActive && typeof cycle?.cycleNumber === 'number' }
   );
 
+  // Notes row expand/collapse state — synced from server settings.
+  const [notesRowExpanded, setNotesRowExpanded] = useState<boolean>(false);
+  // Sync local state with the server-confirmed value whenever it loads/changes
+  // (e.g. settings refetched, another tab updated them). The local state is the
+  // source of truth for rendering; the query value is just the seed. We
+  // intentionally syncing-into-state here so optimistic flips work — see
+  // toggleNotesRow below. We also intentionally depend only on the boolean field,
+  // not the whole settings object, so noise refetches that produce equal values
+  // don't trigger spurious re-renders.
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (settings) {
+      setNotesRowExpanded(settings.notesRowExpanded);
+    }
+  }, [settings?.notesRowExpanded]);
+
+  const toggleNotesRow = async () => {
+    const previous = notesRowExpanded;
+    const next = !previous;
+
+    // Optimistic flip — UI updates immediately.
+    setNotesRowExpanded(next);
+
+    try {
+      const { updateUserSettings } = await import('wasp/client/operations');
+      await updateUserSettings({ notesRowExpanded: next });
+      // Wasp's entities-based cache invalidation will refetch getUserSettings;
+      // the useEffect above re-syncs local state with the confirmed value.
+    } catch (e: any) {
+      // Revert local state and let the user know.
+      setNotesRowExpanded(previous);
+      console.error('Failed to toggle notes row:', e);
+      toast.error('Could not save row preference. Try again.');
+    }
+  };
+
   // Refs and state for custom x-axis rows
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [hoveredDayNumber, setHoveredDayNumber] = useState<number | null>(null);
@@ -72,6 +110,7 @@ export default function CycleChartPage() {
   const pinnedCrosshairXRef = useRef<number | null>(null);
 
   const [expandedNudgeDay, setExpandedNudgeDay] = useState<number | null>(null);
+  const [editorOpenForDay, setEditorOpenForDay] = useState<number | null>(null);
 
   // Touch gesture tracking
   const isTouchScrollingRef = useRef<boolean>(false);
@@ -399,6 +438,8 @@ export default function CycleChartPage() {
 
   // Helper functions for cervical fluid bars
   const CF_ROW_HEIGHT = 28;
+  const NOTES_ROW_HEIGHT = notesRowExpanded ? 120 : 28;
+  const LOWER_TABLE_PADDING_BOTTOM = 262 + NOTES_ROW_HEIGHT;
 
   const getCFBarHeight = (appearance: string): number => {
     switch (appearance) {
@@ -1186,7 +1227,7 @@ export default function CycleChartPage() {
             <div
               ref={chartContainerRef}
               className="relative min-w-[800px]"
-              style={{ paddingTop: '108px', paddingBottom: '262px' }}
+              style={{ paddingTop: '108px', paddingBottom: `${LOWER_TABLE_PADDING_BOTTOM}px` }}
               onMouseMove={(e) => {
                 const rect = chartContainerRef.current?.getBoundingClientRect();
                 if (rect) {
@@ -2069,6 +2110,46 @@ export default function CycleChartPage() {
                     </div>
                   </div>
 
+                  {/* Notes Row Label - positioned below Disturbance (+262px) */}
+                  <div
+                    className="absolute left-0"
+                    style={{
+                      width: `${plotAreaOffset}px`,
+                      top: `${plotAreaTop + chartHeight + 262}px`,
+                      zIndex: 2
+                    }}
+                  >
+                    {/* Label height is fixed at 28px; only the grid row below expands when notesRowExpanded. */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => { void toggleNotesRow(); }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          void toggleNotesRow();
+                        }
+                      }}
+                      className="flex items-center justify-end px-3 text-xs font-medium border-b border-slate-300 border-r border-slate-300"
+                      style={{ height: '28px', backgroundColor: '#f8fafc', cursor: 'pointer', pointerEvents: 'auto' }}
+                    >
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          transform: notesRowExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                          transition: 'transform 120ms ease',
+                          marginRight: '4px',
+                          color: '#64748b',
+                          fontSize: '10px'
+                        }}
+                      >
+                        ▶
+                      </span>
+                      <span>Notes</span>
+                      <span className="ml-1 text-slate-400 cursor-help" title="Free-text notes for this day (max 150 characters). Click row label to expand.">ⓘ</span>
+                    </div>
+                  </div>
+
                   {/* Disturbance Grid Row */}
                   <div
                     className="absolute"
@@ -2138,6 +2219,97 @@ export default function CycleChartPage() {
                       );
                     })}
                   </div>
+
+                  {/* Notes Grid Row - positioned below Disturbance (+262px) */}
+                  <div
+                    className="absolute"
+                    style={{
+                      left: 0,
+                      right: 0,
+                      top: `${plotAreaTop + chartHeight + 262}px`,
+                      height: `${NOTES_ROW_HEIGHT}px`,
+                      zIndex: 1
+                    }}
+                  >
+                    {Array.from({ length: chartData.maxDay - chartData.minDay + 1 }, (_, i) => {
+                      const dayNumber = chartData.minDay + i;
+                      const dayData = allCycleDaysMap.get(dayNumber);
+                      const note: string | null = dayData?.notes ?? null;
+                      const numDays = chartData.maxDay - chartData.minDay + 1;
+                      const cellWidth = plotAreaWidth / numDays;
+                      const leftEdge = plotAreaOffset + (i * cellWidth);
+
+                      return (
+                        <div
+                          key={dayNumber}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setEditorOpenForDay(dayNumber)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setEditorOpenForDay(dayNumber);
+                            }
+                          }}
+                          className="absolute flex items-center justify-center"
+                          style={{
+                            left: `${leftEdge}px`,
+                            width: `${cellWidth}px`,
+                            top: 0,
+                            height: `${NOTES_ROW_HEIGHT}px`,
+                            backgroundColor: 'white',
+                            cursor: 'pointer',
+                            pointerEvents: 'auto'
+                          }}
+                        >
+                          <div
+                            className="absolute"
+                            style={{
+                              top: '0.5px',
+                              left: '0.5px',
+                              width: 'calc(100% - 1px)',
+                              height: 'calc(100% - 1px)',
+                              backgroundColor: '#f5f5f4',
+                              borderRadius: '2px'
+                            }}
+                          />
+                          {note !== null && note !== '' && (
+                            notesRowExpanded ? (
+                              <div
+                                className="absolute"
+                                style={{
+                                  top: 4,
+                                  bottom: 4,
+                                  left: 0,
+                                  right: 0,
+                                  writingMode: 'vertical-rl',
+                                  transform: 'rotate(180deg)',
+                                  fontSize: '9.5px',
+                                  lineHeight: 1.15,
+                                  color: '#78350f',
+                                  padding: '4px 2px',
+                                  overflow: 'hidden',
+                                  whiteSpace: 'nowrap',
+                                  textOverflow: 'ellipsis',
+                                  zIndex: 1,
+                                  pointerEvents: 'none'
+                                }}
+                              >
+                                {note}
+                              </div>
+                            ) : (
+                              <span
+                                className="relative z-10"
+                                style={{ color: '#78350f', fontSize: '12px', lineHeight: 1, pointerEvents: 'none' }}
+                              >
+                                ✎
+                              </span>
+                            )
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </>
               )}
             </div>
@@ -2177,6 +2349,42 @@ export default function CycleChartPage() {
             </div>
         </CardContent>
       </Card>
+
+      {editorOpenForDay !== null && cycle && chartData && (() => {
+        const dayNumber = editorOpenForDay;
+        const day = allCycleDaysMap.get(dayNumber);
+        const cycleStart = new Date(cycle.startDate);
+        // resolveCycleDayIsoDate handles both branches:
+        //   - existing day → preserve stored UTC date (avoid shifting to a
+        //     different calendar day in TZ west of UTC)
+        //   - padded day → local-calendar arithmetic + local-calendar
+        //     formatting (avoid DST drift via toISOString)
+        const isoDate = resolveCycleDayIsoDate(cycleStart, dayNumber, day?.date);
+        const dayDate = day?.date
+          ? new Date(day.date)
+          : (() => {
+              const d = new Date(cycleStart);
+              d.setDate(cycleStart.getDate() + (dayNumber - 1));
+              return d;
+            })();
+        const shortDate = dayDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+
+        return (
+          <NoteEditorSheet
+            open
+            onOpenChange={(o) => !o && setEditorOpenForDay(null)}
+            cycleId={cycle.id}
+            dayNumber={dayNumber}
+            date={isoDate}
+            shortDate={shortDate}
+            existingNote={day?.notes ?? null}
+            saveNote={async ({ cycleId, dayNumber, date, notes }) => {
+              const { createOrUpdateCycleDay } = await import('wasp/client/operations');
+              await createOrUpdateCycleDay({ cycleId, dayNumber, date, notes });
+            }}
+          />
+        );
+      })()}
 
       {/* Cycle Navigation */}
       <div className="flex justify-between items-center">
