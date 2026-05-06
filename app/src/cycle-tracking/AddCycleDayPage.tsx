@@ -9,6 +9,7 @@ import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
 import { Info } from 'lucide-react';
 import { formatDateForInput, convertToFahrenheitForStorage, fahrenheitToCelsius, formatTemperature } from './utils';
+import { NOTE_MAX_LENGTH } from './notesValidation';
 import SideNav from './SideNav';
 
 export default function AddCycleDayPage() {
@@ -555,9 +556,11 @@ export default function AddCycleDayPage() {
             <div className="space-y-3">
               <h3 className="text-lg font-semibold cursor-default">Notes</h3>
               <div className="space-y-1">
+                <Label htmlFor="notes" className="sr-only">Notes</Label>
                 <textarea
+                  id="notes"
                   rows={5}
-                  maxLength={150}
+                  maxLength={NOTE_MAX_LENGTH}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full rounded-md border border-slate-300 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
@@ -565,11 +568,11 @@ export default function AddCycleDayPage() {
                 />
                 <div
                   className={`text-xs text-right ${
-                    notes.length >= 150 ? 'text-red-600' :
-                    notes.length > 130  ? 'text-amber-600' : 'text-slate-500'
+                    notes.length >= NOTE_MAX_LENGTH ? 'text-red-600' :
+                    notes.length > 130                ? 'text-amber-600' : 'text-slate-500'
                   }`}
                 >
-                  {notes.length} / 150
+                  {notes.length} / {NOTE_MAX_LENGTH}
                 </div>
               </div>
             </div>
