@@ -53,6 +53,14 @@ export default function CycleChartPage() {
 
   // Notes row expand/collapse state — synced from server settings.
   const [notesRowExpanded, setNotesRowExpanded] = useState<boolean>(false);
+  // Sync local state with the server-confirmed value whenever it loads/changes
+  // (e.g. settings refetched, another tab updated them). The local state is the
+  // source of truth for rendering; the query value is just the seed. We
+  // intentionally syncing-into-state here so optimistic flips work — see
+  // toggleNotesRow below. We also intentionally depend only on the boolean field,
+  // not the whole settings object, so noise refetches that produce equal values
+  // don't trigger spurious re-renders.
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => {
     if (settings) {
       setNotesRowExpanded(settings.notesRowExpanded);
@@ -2111,10 +2119,11 @@ export default function CycleChartPage() {
                       zIndex: 2
                     }}
                   >
+                    {/* Label height is fixed at 28px; only the grid row below expands when notesRowExpanded. */}
                     <div
                       role="button"
                       tabIndex={0}
-                      onClick={toggleNotesRow}
+                      onClick={() => { void toggleNotesRow(); }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
