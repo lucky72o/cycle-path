@@ -44,7 +44,8 @@ Today the codebase stores `CycleDay.bbt` as `Float` interpreted as Fahrenheit. T
 - New shared helper `toDisplayTemperature(celsiusValue, unit)` that returns the user-unit number for math and rendering. Existing inline `unit === 'CELSIUS' ? fahrenheitToCelsius(bbt) : bbt` ternaries in `CycleChartPage.tsx` are replaced with calls to this helper. `getTempNodeLabel` is unchanged and continues to take a display-unit number from its caller.
 - Y-axis range remains display-unit based, derived from `toDisplayTemperature` outputs (the chart's coordinate system is uniformly the user's display unit; see Chart Y-axis range section).
 - Test fixtures rewritten in Celsius to match Sensiplan handbook examples.
-- Three new precision-edge regression tests.
+- New regression tests: three precision-edge tests for the engine threshold; three no-op-edit preservation tests for the form; multi-pair fingerprint test.
+- AddCycleDayPage submit handler preserves `existingDay.bbt` raw when the BBT input string is unchanged from prefill.
 
 ## Scope (out)
 
@@ -127,10 +128,27 @@ All four helpers handle `null`/`undefined` input the same way they do today.
 
 There are **three** code paths that write a BBT value into the database. All three must use the new helper, otherwise newly-created rows will continue to land in Fahrenheit while the column is now interpreted as Celsius.
 
-1. **[`AddCycleDayPage.tsx`](app/src/cycle-tracking/AddCycleDayPage.tsx)** (line ~101)
-   - Today: `convertToFahrenheitForStorage(bbtValue, settings.temperatureUnit)`.
-   - After: `convertToCelsiusForStorage(bbtValue, settings.temperatureUnit)`.
-   - Also update the **prefill path** (line ~66) which reads `existingDay.bbt`, currently runs `fahrenheitToCelsius()` for °C users and uses the raw value for °F users; after migration it must do the reverse — use raw for °C users, `celsiusToFahrenheit()` for °F users.
+1. **[`AddCycleDayPage.tsx`](app/src/cycle-tracking/AddCycleDayPage.tsx)** (lines ~66 and ~99–101)
+   - **Submit path** (line ~101): replace `convertToFahrenheitForStorage(bbtValue, settings.temperatureUnit)` with `convertToCelsiusForStorage(bbtValue, settings.temperatureUnit)`.
+   - **Prefill path** (line ~66): use `toDisplayTemperature(existingDay.bbt, settings.temperatureUnit).toFixed(2)` (already specified in the Display boundary table).
+   - **No-op edit preservation — required.** The prefill formats through `.toFixed(2)`, which loses precision below the second decimal. If the user opens an existing day, edits something other than BBT, and saves, the form must persist `existingDay.bbt` raw (the original full-precision Celsius float). Otherwise a stored value of e.g. `36.6996 °C` prefills as `"36.70"`, parses on submit as `36.7`, and the float silently changes — flipping both the engine threshold result *and* the (no-rounding) fingerprint, even though the user never touched the BBT field.
+
+     **How to implement:** when prefilling, capture the prefilled string (`prefilledBbt`). On submit, branch:
+     ```ts
+     // submit handler
+     const bbtChanged = bbt !== prefilledBbt;
+     const bbtForStorage =
+       existingDay && !bbtChanged
+         ? existingDay.bbt                                     // preserve raw stored value
+         : bbt
+           ? convertToCelsiusForStorage(parseFloat(bbt), settings.temperatureUnit)
+           : undefined;
+     ```
+     - `prefilledBbt` is the exact string we placed in the input (`"36.70"`, `""`, etc.). String equality is the right check — it captures both "user never touched the field" and "user typed something then typed it back".
+     - If there is no `existingDay` (i.e. creating a new day), the preservation branch does not apply; we always parse the entered string.
+     - If the user clears the field, `bbt === ""` and `prefilledBbt !== ""`; the change is detected, `bbtForStorage` becomes `undefined`, BBT is removed.
+
+     **Test for this** (added to the Testing section): edit-existing-day flow with a stored value of `36.6996 °C` and only the cervical observation changed. After save, `existingDay.bbt` is unchanged (`36.6996`, not `36.7`).
 
 2. **[`NewCyclePage.tsx`](app/src/cycle-tracking/NewCyclePage.tsx)** (line ~189)
    - Today: bypasses the helper and calls `celsiusToFahrenheit(parseFloat(bbt))` inline for °C users.
@@ -230,10 +248,10 @@ t: d.bbt,  // raw stored Celsius float, no rounding
 **Why this is safe (no spurious fingerprint changes):**
 
 - The input boundary controls how floats are produced. `convertToCelsiusForStorage` is either pass-through (Celsius input) or one full-precision multiply/subtract (Fahrenheit input). The same user input always produces the same float.
-- Re-saving a cycle day without editing BBT writes the same float — the form prefills from `existingDay.bbt`, the user sees the same number, and the same value goes back to the database.
+- Re-saving a cycle day **without editing BBT** writes the same float — *only because* the AddCycleDayPage submit path is required (see Input boundary, AddCycleDayPage entry) to detect a no-op BBT edit and persist `existingDay.bbt` raw, bypassing the parse / round-trip through `.toFixed(2)`. Without that preservation rule, prefilled values like `"36.70"` would get re-parsed as `36.7`, mutating a stored `36.6996` even though the user never touched the field.
 - `JSON.stringify` produces a deterministic decimal representation of any IEEE-754 float, so the hash is stable across runs and platforms.
 
-There is no realistic source of float jitter for the same logical value. The risk the old rounding step was protecting against does not exist in this codebase.
+The fingerprint's no-rounding correctness depends on the form's no-op-preservation rule. They must ship together.
 
 **Regression test:** add to [`__tests__/dataFingerprint.test.ts`](app/src/cycle-tracking/interpretation/__tests__/dataFingerprint.test.ts):
 
@@ -292,7 +310,7 @@ Use realistic handbook sequences in any rewritten fixture (e.g. baseline `36.45 
 
 ### New precision-edge tests
 
-Three regression tests guarding the property the user explicitly raised:
+Three regression tests guarding the engine threshold property:
 
 1. **`thermalShift — false-positive guard at 0.199 °C above cover line`**
    Cover line `36.50 °C`, third reading `36.699 °C` → must NOT confirm.
@@ -302,6 +320,19 @@ Three regression tests guarding the property the user explicitly raised:
 
 3. **`thermalShift — Fahrenheit user input at threshold edge`**
    Simulate the input pipeline end-to-end: a Fahrenheit user enters `97.97 °F` for the third reading; cover line is `36.50 °C`. The input-boundary helper produces `(97.97 − 32) × 5/9 = 36.65 °C`, which is `0.15 °C` above the cover line — under the `0.2 °C` threshold. Must NOT confirm. Exercises the input-boundary conversion + engine threshold together.
+
+### No-op edit preservation tests
+
+In `AddCycleDayPage.test.tsx` (or a new test file co-located with the page):
+
+4. **`AddCycleDayPage — no-op BBT edit preserves raw stored float (Celsius user)`**
+   Existing day stored with `bbt = 36.6996`. Render the edit form; expect the BBT input to read `"36.70"`. Change the cervical observation only and submit. Assert the operation receives `bbt: 36.6996` (raw stored value), not `36.7`.
+
+5. **`AddCycleDayPage — no-op BBT edit preserves raw stored float (Fahrenheit user)`**
+   Same shape, with a stored Celsius value whose °F display rounds at the second decimal — e.g. stored `bbt = 36.65555…`, display `(36.65555 × 9/5 + 32) = 97.98°F`, prefilled `"97.98"`. Submit unchanged; assert raw `36.65555…` is persisted.
+
+6. **`AddCycleDayPage — actual BBT edit reparses and stores new value`**
+   Existing day stored with `bbt = 36.6996`. Render, then change the input from `"36.70"` to `"36.85"`. Submit. Assert the operation receives the freshly converted value, not `existingDay.bbt`.
 
 ### Manual smoke test
 
@@ -338,6 +369,7 @@ A future post-launch backfill (if/when production has real data) is out of scope
 | Fingerprint rounds BBT before hashing → any chosen precision leaves a band of threshold-straddling pairs that hash-collide, so dismissed interpretations fail to auto-recover near the threshold. | Remove BBT rounding from the fingerprint entirely; hash the raw stored float. New fingerprint test covers multiple pair widths (`36.699/36.700`, `36.6996/36.7004`, `36.69999/36.70001`). |
 | Chart coordinate-system unit drift: series in display unit but `yAxisRange` in Celsius (or vice-versa) so points and axis disagree. | Spec specifies the chart coordinate system is uniformly the user's display unit. Both series and `yAxisRange` derive from `toDisplayTemperature` outputs. Smoke test with both unit settings catches mismatches. |
 | Form prefill uses `formatTemperature` and silently fails to populate `<input type="number">` because of the unit suffix. | Display boundary table requires `toDisplayTemperature(...).toFixed(2)` for the input prefill. Smoke test step "edit existing day" catches this. |
+| No-op BBT edit silently rewrites raw float: stored `36.6996` prefills as `"36.70"`, parses on submit as `36.7`, mutating engine input even though the user never touched the field. | AddCycleDayPage submit path required to detect "BBT input string unchanged from prefill" and persist `existingDay.bbt` raw in that case. Regression test in `AddCycleDayPage.test.tsx` covers this. |
 
 ## Verification (definition of done)
 
@@ -352,6 +384,7 @@ A future post-launch backfill (if/when production has real data) is out of scope
 - `grep -rn "celsiusToFahrenheit(.*\.bbt" app/src` returns no matches outside `toDisplayTemperature` / `formatTemperature` (no inline C → F conversions on stored values).
 - `grep -rn "temperatureUnit === 'CELSIUS'" app/src/cycle-tracking/CycleChartPage.tsx` returns no matches in the chart's plotting / interpolation / overlay / coverline / tooltip blocks (all replaced by `toDisplayTemperature` / `formatTemperature`).
 - All three BBT write paths (`AddCycleDayPage`, `NewCyclePage`, CSV import) flow through `convertToCelsiusForStorage`.
+- AddCycleDayPage submit handler preserves `existingDay.bbt` raw when the BBT input string equals the prefilled string. New regression test covers a no-op edit on a stored `36.6996 °C` value (Celsius user) and an analogous case for a Fahrenheit user (stored value whose °F display rounds at the second decimal).
 - All chart numeric-math sites listed in the Display boundary table now call `toDisplayTemperature(...)`. The tooltip site (CycleChartPage.tsx:1461) and the form prefill site (AddCycleDayPage.tsx:66) call `toDisplayTemperature(...).toFixed(2)`. The cycle-day card and settings preview continue to use `formatTemperature(...)` (with unit suffix).
 - Manual smoke test passes for both °C and °F users.
 - Schema comment in [`app/schema.prisma`](app/schema.prisma) documents Celsius as canonical and links to this spec.
