@@ -55,13 +55,18 @@ export function NoteEditorSheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset internal state when the sheet (re)opens for a different day
+  // Reset internal state when the sheet (re)opens for a different day.
+  // The local form state is intentionally synced from props here so that the
+  // same component instance can serve consecutive open/close cycles for
+  // different days without remounting and discarding its internal state setup.
   useEffect(() => {
     if (open) {
+      /* eslint-disable react-hooks/set-state-in-effect */
       setText(existingNote ?? '');
       setConfirmDiscard(false);
       setConfirmDelete(false);
       setError(null);
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [open, existingNote]);
 
