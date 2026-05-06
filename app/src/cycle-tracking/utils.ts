@@ -72,6 +72,22 @@ export function getDayOfWeek(date: Date): string {
 }
 
 /**
+ * Format a Date as `YYYY-MM-DD` using its **local-calendar** fields (not UTC).
+ *
+ * Use this when the date will be sent to a server that expects an ISO date
+ * string but the value originated from local-time arithmetic (e.g. `setDate`,
+ * `getDate`). `Date.prototype.toISOString` converts to UTC and can drift to
+ * the previous/next day for any local timestamp not at UTC midnight — most
+ * dangerous across DST boundaries where the offset changes mid-cycle.
+ */
+export function formatLocalIsoDate(date: Date): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
  * Format date for display as DD MMM YYYY (e.g., "24 Oct 2025")
  */
 export function formatDateDDMMMYYYY(date: Date): string {
