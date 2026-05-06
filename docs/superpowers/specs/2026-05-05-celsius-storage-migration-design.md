@@ -44,8 +44,9 @@ Today the codebase stores `CycleDay.bbt` as `Float` interpreted as Fahrenheit. T
 - New shared helper `toDisplayTemperature(celsiusValue, unit)` that returns the user-unit number for math and rendering. Existing inline `unit === 'CELSIUS' ? fahrenheitToCelsius(bbt) : bbt` ternaries in `CycleChartPage.tsx` are replaced with calls to this helper. `getTempNodeLabel` is unchanged and continues to take a display-unit number from its caller.
 - Y-axis range remains display-unit based, derived from `toDisplayTemperature` outputs (the chart's coordinate system is uniformly the user's display unit; see Chart Y-axis range section).
 - Test fixtures rewritten in Celsius to match Sensiplan handbook examples.
-- New regression tests: three precision-edge tests for the engine threshold; three no-op-edit preservation tests for the form; multi-pair fingerprint test.
-- AddCycleDayPage submit handler preserves `existingDay.bbt` raw when the BBT input string is unchanged from prefill.
+- New regression tests: three precision-edge tests for the engine threshold; four form-behaviour tests (no-op preserve for °C user, no-op preserve for °F user, genuine edit reparses, clear persists `null`); multi-pair fingerprint test.
+- AddCycleDayPage submit handler preserves `existingDay.bbt` raw when the BBT input string is unchanged from prefill, and sends explicit `null` (not `undefined`) when the user clears the field.
+- `bbt` payload type widened to `number | null` in `operations.ts` and `cycleDayDataBuilders.ts`.
 
 ## Scope (out)
 
@@ -137,18 +138,30 @@ There are **three** code paths that write a BBT value into the database. All thr
      ```ts
      // submit handler
      const bbtChanged = bbt !== prefilledBbt;
-     const bbtForStorage =
+     const bbtForStorage: number | null | undefined =
        existingDay && !bbtChanged
          ? existingDay.bbt                                     // preserve raw stored value
-         : bbt
-           ? convertToCelsiusForStorage(parseFloat(bbt), settings.temperatureUnit)
-           : undefined;
+         : bbt === ''
+           ? null                                              // user explicitly cleared the field
+           : bbt
+             ? convertToCelsiusForStorage(parseFloat(bbt), settings.temperatureUnit)
+             : undefined;
      ```
      - `prefilledBbt` is the exact string we placed in the input (`"36.70"`, `""`, etc.). String equality is the right check — it captures both "user never touched the field" and "user typed something then typed it back".
      - If there is no `existingDay` (i.e. creating a new day), the preservation branch does not apply; we always parse the entered string.
-     - If the user clears the field, `bbt === ""` and `prefilledBbt !== ""`; the change is detected, `bbtForStorage` becomes `undefined`, BBT is removed.
+     - If the user clears the field on an existing day, `bbt === ""` and `prefilledBbt !== ""` — `bbtForStorage` is `null`, **not** `undefined`. See "Clearing semantics" below for why this distinction matters.
 
-     **Test for this** (added to the Testing section): edit-existing-day flow with a stored value of `36.6996 °C` and only the cervical observation changed. After save, `existingDay.bbt` is unchanged (`36.6996`, not `36.7`).
+     **Clearing semantics — `null` vs `undefined`:** Prisma treats `undefined` in an update as "do not modify this field" and treats `null` as "set this field to NULL". The current `createOrUpdateCycleDay` payload type at [`operations.ts:330`](app/src/cycle-tracking/operations.ts:330) declares `bbt?: number`, and [`cycleDayDataBuilders.ts:31`](app/src/cycle-tracking/cycleDayDataBuilders.ts:31) writes `data.bbt = args.bbt` only when `'bbt' in args`. If the form sends `bbt: undefined` to clear the field, the builder passes `undefined` through and the column is *not* cleared. To actually clear BBT we must:
+
+     - Widen the payload field type from `bbt?: number` to `bbt?: number | null` in:
+       - [`operations.ts:330`](app/src/cycle-tracking/operations.ts:330) (`createOrUpdateCycleDay` args type)
+       - [`cycleDayDataBuilders.ts:5`](app/src/cycle-tracking/cycleDayDataBuilders.ts:5) (builder args type, both update and create variants)
+     - Send `bbt: null` (not `undefined`) from the AddCycleDayPage submit handler when the user clears the field on an existing day. The builder's `'bbt' in args` guard is preserved, so callers that simply omit `bbt` (e.g. patching unrelated fields) still produce a no-op for the BBT column.
+     - Same logic for `bbtTime` if the user clears the time field — out of scope here, but worth flagging while the form is being touched.
+
+     **Tests for this** (added to the Testing section):
+     - No-op edit on a `36.6996 °C` stored value preserves the raw float.
+     - Clearing the BBT input on an existing day persists `bbt: null` and the column reads `NULL` after save.
 
 2. **[`NewCyclePage.tsx`](app/src/cycle-tracking/NewCyclePage.tsx)** (line ~189)
    - Today: bypasses the helper and calls `celsiusToFahrenheit(parseFloat(bbt))` inline for °C users.
@@ -222,7 +235,7 @@ Other display surfaces — cycle-day card, settings preview, any CSV export — 
 
 - `grep -rn "fahrenheitToCelsius(.*\.bbt" app/src` returns no matches. (After the migration, no display code should be calling F → C on a `bbt` value — the value is already °C.)
 - `grep -rn "celsiusToFahrenheit(.*\.bbt" app/src` returns no matches. (All such conversions go through `toDisplayTemperature` or `formatTemperature`.)
-- `grep -rn "temperatureUnit === 'CELSIUS' \?" app/src/cycle-tracking/CycleChartPage.tsx` returns no matches in chart code.
+- **Manual audit** of the chart math blocks listed in the Display boundary table (plotting at `:178`, interpolation at `:339`, coverline at `:633`, peak/segment overlay at `:1336`, peak overlay at `:1596`). Each should now read through `toDisplayTemperature(...)` and have **no inline `temperatureUnit === 'CELSIUS' ? ... : ...` ternary that wraps a temperature *number*.** A blanket `grep "temperatureUnit === 'CELSIUS'"` across `CycleChartPage.tsx` will *not* be empty after the migration — legitimate display-unit branches remain (e.g. unit suffix `?'°C':'°F'` at [`:555`](app/src/cycle-tracking/CycleChartPage.tsx:555), tick label precision `?value.toFixed(1):value.toFixed(2)` at [`:750`](app/src/cycle-tracking/CycleChartPage.tsx:750)), so this gate is a manual audit of the listed line ranges, not a blanket grep.
 
 ### Interpretation-state fingerprint — match the engine exactly
 
@@ -334,6 +347,9 @@ In `AddCycleDayPage.test.tsx` (or a new test file co-located with the page):
 6. **`AddCycleDayPage — actual BBT edit reparses and stores new value`**
    Existing day stored with `bbt = 36.6996`. Render, then change the input from `"36.70"` to `"36.85"`. Submit. Assert the operation receives the freshly converted value, not `existingDay.bbt`.
 
+7. **`AddCycleDayPage — clearing the BBT input persists null`**
+   Existing day stored with `bbt = 36.50`. Render, clear the input (`""`). Submit. Assert the operation receives `bbt: null` (not `undefined` — `undefined` would be a no-op against Prisma) and that the column reads `NULL` after save. Covers the `Prisma update.undefined === no-op` trap.
+
 ### Manual smoke test
 
 Before merge, log in as both a °C user and a °F user, enter a full cycle (10–14 days with a clear shift), and confirm:
@@ -370,6 +386,7 @@ A future post-launch backfill (if/when production has real data) is out of scope
 | Chart coordinate-system unit drift: series in display unit but `yAxisRange` in Celsius (or vice-versa) so points and axis disagree. | Spec specifies the chart coordinate system is uniformly the user's display unit. Both series and `yAxisRange` derive from `toDisplayTemperature` outputs. Smoke test with both unit settings catches mismatches. |
 | Form prefill uses `formatTemperature` and silently fails to populate `<input type="number">` because of the unit suffix. | Display boundary table requires `toDisplayTemperature(...).toFixed(2)` for the input prefill. Smoke test step "edit existing day" catches this. |
 | No-op BBT edit silently rewrites raw float: stored `36.6996` prefills as `"36.70"`, parses on submit as `36.7`, mutating engine input even though the user never touched the field. | AddCycleDayPage submit path required to detect "BBT input string unchanged from prefill" and persist `existingDay.bbt` raw in that case. Regression test in `AddCycleDayPage.test.tsx` covers this. |
+| Form clears the BBT field but the column does not become NULL because `bbt: undefined` is a Prisma no-op. | Widen payload type to `bbt?: number \| null`; submit handler sends explicit `null` on clear. Regression test asserts the column reads NULL after a clear-and-save. |
 
 ## Verification (definition of done)
 
@@ -382,7 +399,7 @@ A future post-launch backfill (if/when production has real data) is out of scope
 - `grep -rn "fahrenheitToCelsius" app/src/cycle-tracking/interpretation/` returns no matches (engine files only — the helper itself stays in `utils.ts` for display callers).
 - `grep -rn "fahrenheitToCelsius(.*\.bbt" app/src` returns no matches anywhere (display code now reads `bbt` as Celsius; F → C on a `bbt` value is meaningless after migration).
 - `grep -rn "celsiusToFahrenheit(.*\.bbt" app/src` returns no matches outside `toDisplayTemperature` / `formatTemperature` (no inline C → F conversions on stored values).
-- `grep -rn "temperatureUnit === 'CELSIUS'" app/src/cycle-tracking/CycleChartPage.tsx` returns no matches in the chart's plotting / interpolation / overlay / coverline / tooltip blocks (all replaced by `toDisplayTemperature` / `formatTemperature`).
+- Manual audit of `CycleChartPage.tsx` math blocks (lines listed in the Display boundary table): each now calls `toDisplayTemperature(...)` with no inline `temperatureUnit === 'CELSIUS' ? ... : ...` ternary wrapping a temperature *number*. Legitimate display-unit branches for label text (`'°C'/'°F'`) and tick precision (`toFixed(1)/toFixed(2)`) remain — they are not in scope.
 - All three BBT write paths (`AddCycleDayPage`, `NewCyclePage`, CSV import) flow through `convertToCelsiusForStorage`.
 - AddCycleDayPage submit handler preserves `existingDay.bbt` raw when the BBT input string equals the prefilled string. New regression test covers a no-op edit on a stored `36.6996 °C` value (Celsius user) and an analogous case for a Fahrenheit user (stored value whose °F display rounds at the second decimal).
 - All chart numeric-math sites listed in the Display boundary table now call `toDisplayTemperature(...)`. The tooltip site (CycleChartPage.tsx:1461) and the form prefill site (AddCycleDayPage.tsx:66) call `toDisplayTemperature(...).toFixed(2)`. The cycle-day card and settings preview continue to use `formatTemperature(...)` (with unit suffix).
