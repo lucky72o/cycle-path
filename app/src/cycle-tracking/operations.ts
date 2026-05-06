@@ -17,6 +17,8 @@ import type {
 } from 'wasp/server/operations';
 import type { Cycle, CycleDay, UserSettings } from 'wasp/entities';
 import { celsiusToFahrenheit, getDayOfWeek } from './utils';
+import { isNoteTooLong, NOTE_MAX_LENGTH } from './notesValidation';
+import { buildCycleDayUpdateData, buildCycleDayCreateData } from './cycleDayDataBuilders';
 
 // TemperatureUnit type - matches Prisma enum
 // Will be available from '@prisma/client' after running migration
@@ -327,14 +329,15 @@ type CreateOrUpdateCycleDayArgs = {
   date: string;
   bbt?: number;
   bbtTime?: string;
-  hadIntercourse: boolean;
-  excludeFromInterpretation: boolean;
+  hadIntercourse?: boolean;
+  excludeFromInterpretation?: boolean;
   cervicalAppearance?: 'NONE' | 'STICKY' | 'CREAMY' | 'WATERY' | 'EGGWHITE' | null;
   cervicalSensation?: 'DRY' | 'DAMP' | 'WET' | 'SLIPPERY' | null;
   opkStatus?: 'low' | 'rising' | 'peak' | 'declining' | null;
   menstrualFlow?: 'SPOTTING' | 'LIGHT' | 'MEDIUM' | 'HEAVY' | 'VERY_HEAVY' | null;
   disturbanceFactors?: string[];
   travelTimeDiff?: number | null;
+  notes?: string | null;
 };
 
 export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleDayArgs, CycleDay> = async (args, context) => {
@@ -360,6 +363,10 @@ export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleD
     throw new HttpError(404, 'Cycle not found');
   }
 
+  if (isNoteTooLong(args.notes)) {
+    throw new HttpError(400, `Note must be at most ${NOTE_MAX_LENGTH} characters`);
+  }
+
   const entryDate = new Date(args.date);
   const dayOfWeek = getDayOfWeek(entryDate);
 
@@ -383,43 +390,18 @@ export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleD
   let updatedDay: CycleDay;
   
   if (existingDay) {
-    // Update existing day
     updatedDay = await context.entities.CycleDay.update({
       where: { id: existingDay.id },
-      data: {
-        date: entryDate,
-        dayOfWeek,
-        bbt: args.bbt,
-        bbtTime: args.bbtTime,
-        hadIntercourse: args.hadIntercourse,
-        excludeFromInterpretation: args.excludeFromInterpretation,
-        cervicalAppearance: args.cervicalAppearance,
-        cervicalSensation: args.cervicalSensation,
-        opkStatus: args.opkStatus,
-        menstrualFlow: args.menstrualFlow,
-        disturbanceFactors: args.disturbanceFactors ?? [],
-        travelTimeDiff: args.travelTimeDiff ?? null
-      }
+      data: buildCycleDayUpdateData(args, entryDate, dayOfWeek),
     });
   } else {
-    // Create new day
     updatedDay = await context.entities.CycleDay.create({
-      data: {
+      data: buildCycleDayCreateData(args, {
         cycleId: args.cycleId,
         dayNumber,
-        date: entryDate,
+        entryDate,
         dayOfWeek,
-        bbt: args.bbt,
-        bbtTime: args.bbtTime,
-        hadIntercourse: args.hadIntercourse,
-        excludeFromInterpretation: args.excludeFromInterpretation,
-        cervicalAppearance: args.cervicalAppearance,
-        cervicalSensation: args.cervicalSensation,
-        opkStatus: args.opkStatus,
-        menstrualFlow: args.menstrualFlow,
-        disturbanceFactors: args.disturbanceFactors ?? [],
-        travelTimeDiff: args.travelTimeDiff ?? null
-      }
+      }),
     });
   }
 
