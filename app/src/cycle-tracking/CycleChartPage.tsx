@@ -2270,9 +2270,13 @@ export default function CycleChartPage() {
         const dayNumber = editorOpenForDay;
         const day = allCycleDaysMap.get(dayNumber);
         const cycleStart = new Date(cycle.startDate);
-        const dayDate = day?.date
-          ? new Date(day.date)
-          : new Date(cycleStart.getTime() + (dayNumber - 1) * 86_400_000);
+        let dayDate: Date;
+        if (day?.date) {
+          dayDate = new Date(day.date);
+        } else {
+          dayDate = new Date(cycleStart);
+          dayDate.setDate(cycleStart.getDate() + (dayNumber - 1));
+        }
         const isoDate = dayDate.toISOString().split('T')[0];
         const shortDate = dayDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
