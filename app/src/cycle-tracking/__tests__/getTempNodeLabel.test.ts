@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { roundTo1Decimal, getTempNodeLabel, formatLocalIsoDate } from '../utils';
+import { roundTo1Decimal, getTempNodeLabel, formatLocalIsoDate, resolveCycleDayIsoDate } from '../utils';
 
 describe('roundTo1Decimal', () => {
   it.each([
@@ -58,6 +58,38 @@ describe('formatLocalIsoDate', () => {
     const padded = new Date(cycleStart);
     padded.setDate(cycleStart.getDate() + 34); // advance 34 days → April 4 local
     expect(formatLocalIsoDate(padded)).toBe('2025-04-04');
+  });
+});
+
+describe('resolveCycleDayIsoDate', () => {
+  it('returns the existing date stringified in UTC, not shifted to local', () => {
+    // The server stored 2025-04-04T00:00:00Z. A user in any TZ — including
+    // west of UTC where local fields would say 2025-04-03 — must see the
+    // exact stored UTC date returned, otherwise a note-only save would
+    // rewrite the row's `date` to the wrong calendar day.
+    const cycleStart = new Date('2025-03-01T00:00:00.000Z');
+    expect(
+      resolveCycleDayIsoDate(cycleStart, 35, '2025-04-04T00:00:00.000Z'),
+    ).toBe('2025-04-04');
+  });
+
+  it('handles a Date object as existingDate the same way as a string', () => {
+    const cycleStart = new Date('2025-03-01T00:00:00.000Z');
+    const existing = new Date('2025-04-04T00:00:00.000Z');
+    expect(resolveCycleDayIsoDate(cycleStart, 35, existing)).toBe('2025-04-04');
+  });
+
+  it('falls back to local-calendar arithmetic when there is no existing day', () => {
+    // Padded chart day: cycle starts March 1 local, day 35 is April 4 local.
+    // formatLocalIsoDate (not toISOString) protects against DST drift.
+    const cycleStart = new Date(2025, 2, 1);
+    expect(resolveCycleDayIsoDate(cycleStart, 35, null)).toBe('2025-04-04');
+  });
+
+  it('treats null and undefined existingDate the same', () => {
+    const cycleStart = new Date(2025, 2, 1);
+    expect(resolveCycleDayIsoDate(cycleStart, 1, undefined)).toBe('2025-03-01');
+    expect(resolveCycleDayIsoDate(cycleStart, 1, null)).toBe('2025-03-01');
   });
 });
 

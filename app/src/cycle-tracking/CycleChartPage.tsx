@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { fahrenheitToCelsius, celsiusToFahrenheit, formatDate, formatDateLong, formatDateDDMMMYYYY, formatLocalIsoDate, getDayOfWeekAbbreviation, getDayOfWeek, getCycleDayCount, getTempNodeLabel } from './utils';
+import { fahrenheitToCelsius, celsiusToFahrenheit, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviation, getDayOfWeek, getCycleDayCount, getTempNodeLabel } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 import { useInterpretation } from './interpretation/hooks/useInterpretation';
@@ -2354,19 +2354,19 @@ export default function CycleChartPage() {
         const dayNumber = editorOpenForDay;
         const day = allCycleDaysMap.get(dayNumber);
         const cycleStart = new Date(cycle.startDate);
-        let dayDate: Date;
-        if (day?.date) {
-          dayDate = new Date(day.date);
-        } else {
-          dayDate = new Date(cycleStart);
-          dayDate.setDate(cycleStart.getDate() + (dayNumber - 1));
-        }
-        // Use local-calendar formatting (NOT toISOString) because dayDate
-        // was built with local-time setDate. toISOString would convert to
-        // UTC and drift across the day boundary in any TZ where the offset
-        // changed between cycleStart and the padded day (e.g. London Feb→Apr
-        // across BST), saving the note against the wrong calendar date.
-        const isoDate = formatLocalIsoDate(dayDate);
+        // resolveCycleDayIsoDate handles both branches:
+        //   - existing day → preserve stored UTC date (avoid shifting to a
+        //     different calendar day in TZ west of UTC)
+        //   - padded day → local-calendar arithmetic + local-calendar
+        //     formatting (avoid DST drift via toISOString)
+        const isoDate = resolveCycleDayIsoDate(cycleStart, dayNumber, day?.date);
+        const dayDate = day?.date
+          ? new Date(day.date)
+          : (() => {
+              const d = new Date(cycleStart);
+              d.setDate(cycleStart.getDate() + (dayNumber - 1));
+              return d;
+            })();
         const shortDate = dayDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
         return (

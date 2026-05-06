@@ -88,6 +88,34 @@ export function formatLocalIsoDate(date: Date): string {
 }
 
 /**
+ * Resolve the ISO `YYYY-MM-DD` date to send to `createOrUpdateCycleDay` when
+ * editing a chart cell — handles two distinct cases:
+ *
+ *   1. The cell already has a `CycleDay` record. We must preserve the stored
+ *      UTC date verbatim. Going through local-time formatting would shift the
+ *      date by one in any TZ west of UTC, and the server's update path
+ *      rewrites `date`/`dayOfWeek` even on a note-only save, corrupting the
+ *      row's calendar position.
+ *
+ *   2. The cell is a padded chart day with no stored record. We compute the
+ *      date from `cycleStart` via local-calendar arithmetic and format it
+ *      with local fields, matching the user's intended calendar day in the
+ *      chart they're looking at.
+ */
+export function resolveCycleDayIsoDate(
+  cycleStart: Date,
+  dayNumber: number,
+  existingDate: Date | string | null | undefined,
+): string {
+  if (existingDate) {
+    return new Date(existingDate).toISOString().split('T')[0];
+  }
+  const d = new Date(cycleStart);
+  d.setDate(cycleStart.getDate() + (dayNumber - 1));
+  return formatLocalIsoDate(d);
+}
+
+/**
  * Format date for display as DD MMM YYYY (e.g., "24 Oct 2025")
  */
 export function formatDateDDMMMYYYY(date: Date): string {
