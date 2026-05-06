@@ -17,6 +17,7 @@ import { CycleBadge } from './interpretation/components/CycleBadge';
 import { CrossCycleAnovulatoryBanner } from './interpretation/components/CrossCycleAnovulatoryBanner';
 import { NudgeIcon } from './interpretation/components/NudgeIcon';
 import { NudgeMessage } from './interpretation/components/NudgeMessage';
+import { NoteEditorSheet } from './components/NoteEditorSheet';
 import { getPreviousCycleSummary } from 'wasp/client/operations';
 import { getActiveCoverline } from './interpretation/getActiveCoverline';
 import { getChartAnnotations } from './interpretation/getChartAnnotations';
@@ -72,6 +73,7 @@ export default function CycleChartPage() {
   const pinnedCrosshairXRef = useRef<number | null>(null);
 
   const [expandedNudgeDay, setExpandedNudgeDay] = useState<number | null>(null);
+  const [editorOpenForDay, setEditorOpenForDay] = useState<number | null>(null);
 
   // Touch gesture tracking
   const isTouchScrollingRef = useRef<boolean>(false);
@@ -399,6 +401,8 @@ export default function CycleChartPage() {
 
   // Helper functions for cervical fluid bars
   const CF_ROW_HEIGHT = 28;
+  const NOTES_ROW_HEIGHT = 28; // collapsed; expanded handled in Task 8
+  const LOWER_TABLE_PADDING_BOTTOM = 262 + NOTES_ROW_HEIGHT;
 
   const getCFBarHeight = (appearance: string): number => {
     switch (appearance) {
@@ -1186,7 +1190,7 @@ export default function CycleChartPage() {
             <div
               ref={chartContainerRef}
               className="relative min-w-[800px]"
-              style={{ paddingTop: '108px', paddingBottom: '262px' }}
+              style={{ paddingTop: '108px', paddingBottom: `${LOWER_TABLE_PADDING_BOTTOM}px` }}
               onMouseMove={(e) => {
                 const rect = chartContainerRef.current?.getBoundingClientRect();
                 if (rect) {
@@ -2069,6 +2073,24 @@ export default function CycleChartPage() {
                     </div>
                   </div>
 
+                  {/* Notes Row Label - positioned below Disturbance (+262px) */}
+                  <div
+                    className="absolute left-0"
+                    style={{
+                      width: `${plotAreaOffset}px`,
+                      top: `${plotAreaTop + chartHeight + 262}px`,
+                      zIndex: 2
+                    }}
+                  >
+                    <div
+                      className="flex items-center justify-end px-3 text-xs font-medium border-b border-slate-300 border-r border-slate-300"
+                      style={{ height: '28px', backgroundColor: '#f8fafc', cursor: 'default', pointerEvents: 'auto' }}
+                    >
+                      <span>Notes</span>
+                      <span className="ml-1 text-slate-400 cursor-help" title="Free-text notes for this day (max 150 characters)">ⓘ</span>
+                    </div>
+                  </div>
+
                   {/* Disturbance Grid Row */}
                   <div
                     className="absolute"
@@ -2138,6 +2160,72 @@ export default function CycleChartPage() {
                       );
                     })}
                   </div>
+
+                  {/* Notes Grid Row - positioned below Disturbance (+262px) */}
+                  <div
+                    className="absolute"
+                    style={{
+                      left: 0,
+                      right: 0,
+                      top: `${plotAreaTop + chartHeight + 262}px`,
+                      height: '28px',
+                      zIndex: 1
+                    }}
+                  >
+                    {Array.from({ length: chartData.maxDay - chartData.minDay + 1 }, (_, i) => {
+                      const dayNumber = chartData.minDay + i;
+                      const dayData = allCycleDaysMap.get(dayNumber);
+                      const note: string | null = dayData?.notes ?? null;
+                      const numDays = chartData.maxDay - chartData.minDay + 1;
+                      const cellWidth = plotAreaWidth / numDays;
+                      const leftEdge = plotAreaOffset + (i * cellWidth);
+
+                      return (
+                        <div
+                          key={dayNumber}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setEditorOpenForDay(dayNumber)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setEditorOpenForDay(dayNumber);
+                            }
+                          }}
+                          className="absolute flex items-center justify-center"
+                          style={{
+                            left: `${leftEdge}px`,
+                            width: `${cellWidth}px`,
+                            top: 0,
+                            height: '28px',
+                            backgroundColor: 'white',
+                            cursor: 'pointer',
+                            pointerEvents: 'auto'
+                          }}
+                        >
+                          <div
+                            className="absolute"
+                            style={{
+                              top: '0.5px',
+                              left: '0.5px',
+                              width: 'calc(100% - 1px)',
+                              height: '27px',
+                              backgroundColor: '#f5f5f4',
+                              borderRadius: '2px'
+                            }}
+                          />
+                          {note !== null && note !== '' && (
+                            <span
+                              className="relative z-10"
+                              style={{ color: '#78350f', fontSize: '12px', lineHeight: 1 }}
+                            >
+                              ✎
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </>
               )}
             </div>
@@ -2177,6 +2265,33 @@ export default function CycleChartPage() {
             </div>
         </CardContent>
       </Card>
+
+      {editorOpenForDay !== null && cycle && chartData && (() => {
+        const dayNumber = editorOpenForDay;
+        const day = allCycleDaysMap.get(dayNumber);
+        const cycleStart = new Date(cycle.startDate);
+        const dayDate = day?.date
+          ? new Date(day.date)
+          : new Date(cycleStart.getTime() + (dayNumber - 1) * 86_400_000);
+        const isoDate = dayDate.toISOString().split('T')[0];
+        const shortDate = dayDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+
+        return (
+          <NoteEditorSheet
+            open
+            onOpenChange={(o) => !o && setEditorOpenForDay(null)}
+            cycleId={cycle.id}
+            dayNumber={dayNumber}
+            date={isoDate}
+            shortDate={shortDate}
+            existingNote={day?.notes ?? null}
+            saveNote={async ({ cycleId, dayNumber, date, notes }) => {
+              const { createOrUpdateCycleDay } = await import('wasp/client/operations');
+              await createOrUpdateCycleDay({ cycleId, dayNumber, date, notes });
+            }}
+          />
+        );
+      })()}
 
       {/* Cycle Navigation */}
       <div className="flex justify-between items-center">
