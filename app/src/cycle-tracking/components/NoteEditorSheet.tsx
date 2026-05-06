@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../../components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../../components/ui/sheet';
 import { Textarea } from '../../components/ui/textarea';
 import { Button } from '../../components/ui/button';
 import { NOTE_MAX_LENGTH, normalizeNote } from '../notesValidation';
@@ -140,6 +140,9 @@ export function NoteEditorSheet({
       >
         <SheetHeader>
           <SheetTitle>Note · Day {dayNumber} ({shortDate})</SheetTitle>
+          <SheetDescription className="sr-only">
+            Edit a free-text note for this day. Up to {NOTE_MAX_LENGTH} characters.
+          </SheetDescription>
         </SheetHeader>
 
         <div className="mt-4 space-y-2">
