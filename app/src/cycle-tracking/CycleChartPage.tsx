@@ -25,6 +25,7 @@ import {
   ThermalShiftBackgroundLayer,
   ThermalShiftForegroundLayer,
 } from './interpretation/components/ThermalShiftAnnotations';
+import toast from 'react-hot-toast';
 
 const DISTURBANCE_EMOJI: Record<string, string> = {
   POOR_SLEEP: '🌙',
@@ -49,6 +50,34 @@ export default function CycleChartPage() {
     { cycleNumber: cycle?.cycleNumber ?? 0 },
     { enabled: !!cycle?.isActive && typeof cycle?.cycleNumber === 'number' }
   );
+
+  // Notes row expand/collapse state — synced from server settings.
+  const [notesRowExpanded, setNotesRowExpanded] = useState<boolean>(false);
+  useEffect(() => {
+    if (settings) {
+      setNotesRowExpanded(settings.notesRowExpanded);
+    }
+  }, [settings?.notesRowExpanded]);
+
+  const toggleNotesRow = async () => {
+    const previous = notesRowExpanded;
+    const next = !previous;
+
+    // Optimistic flip — UI updates immediately.
+    setNotesRowExpanded(next);
+
+    try {
+      const { updateUserSettings } = await import('wasp/client/operations');
+      await updateUserSettings({ notesRowExpanded: next });
+      // Wasp's entities-based cache invalidation will refetch getUserSettings;
+      // the useEffect above re-syncs local state with the confirmed value.
+    } catch (e: any) {
+      // Revert local state and let the user know.
+      setNotesRowExpanded(previous);
+      console.error('Failed to toggle notes row:', e);
+      toast.error('Could not save row preference. Try again.');
+    }
+  };
 
   // Refs and state for custom x-axis rows
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -401,7 +430,7 @@ export default function CycleChartPage() {
 
   // Helper functions for cervical fluid bars
   const CF_ROW_HEIGHT = 28;
-  const NOTES_ROW_HEIGHT = 28; // collapsed; expanded handled in Task 8
+  const NOTES_ROW_HEIGHT = notesRowExpanded ? 120 : 28;
   const LOWER_TABLE_PADDING_BOTTOM = 262 + NOTES_ROW_HEIGHT;
 
   const getCFBarHeight = (appearance: string): number => {
@@ -2083,11 +2112,32 @@ export default function CycleChartPage() {
                     }}
                   >
                     <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={toggleNotesRow}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          void toggleNotesRow();
+                        }
+                      }}
                       className="flex items-center justify-end px-3 text-xs font-medium border-b border-slate-300 border-r border-slate-300"
-                      style={{ height: '28px', backgroundColor: '#f8fafc', cursor: 'default', pointerEvents: 'auto' }}
+                      style={{ height: '28px', backgroundColor: '#f8fafc', cursor: 'pointer', pointerEvents: 'auto' }}
                     >
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          transform: notesRowExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                          transition: 'transform 120ms ease',
+                          marginRight: '4px',
+                          color: '#64748b',
+                          fontSize: '10px'
+                        }}
+                      >
+                        ▶
+                      </span>
                       <span>Notes</span>
-                      <span className="ml-1 text-slate-400 cursor-help" title="Free-text notes for this day (max 150 characters)">ⓘ</span>
+                      <span className="ml-1 text-slate-400 cursor-help" title="Free-text notes for this day (max 150 characters). Click row label to expand.">ⓘ</span>
                     </div>
                   </div>
 
@@ -2168,7 +2218,7 @@ export default function CycleChartPage() {
                       left: 0,
                       right: 0,
                       top: `${plotAreaTop + chartHeight + 262}px`,
-                      height: '28px',
+                      height: `${NOTES_ROW_HEIGHT}px`,
                       zIndex: 1
                     }}
                   >
@@ -2197,7 +2247,7 @@ export default function CycleChartPage() {
                             left: `${leftEdge}px`,
                             width: `${cellWidth}px`,
                             top: 0,
-                            height: '28px',
+                            height: `${NOTES_ROW_HEIGHT}px`,
                             backgroundColor: 'white',
                             cursor: 'pointer',
                             pointerEvents: 'auto'
@@ -2209,18 +2259,43 @@ export default function CycleChartPage() {
                               top: '0.5px',
                               left: '0.5px',
                               width: 'calc(100% - 1px)',
-                              height: '27px',
+                              height: 'calc(100% - 1px)',
                               backgroundColor: '#f5f5f4',
                               borderRadius: '2px'
                             }}
                           />
                           {note !== null && note !== '' && (
-                            <span
-                              className="relative z-10"
-                              style={{ color: '#78350f', fontSize: '12px', lineHeight: 1 }}
-                            >
-                              ✎
-                            </span>
+                            notesRowExpanded ? (
+                              <div
+                                className="absolute"
+                                style={{
+                                  top: 4,
+                                  bottom: 4,
+                                  left: 0,
+                                  right: 0,
+                                  writingMode: 'vertical-rl',
+                                  transform: 'rotate(180deg)',
+                                  fontSize: '9.5px',
+                                  lineHeight: 1.15,
+                                  color: '#78350f',
+                                  padding: '4px 2px',
+                                  overflow: 'hidden',
+                                  whiteSpace: 'nowrap',
+                                  textOverflow: 'ellipsis',
+                                  zIndex: 1,
+                                  pointerEvents: 'none'
+                                }}
+                              >
+                                {note}
+                              </div>
+                            ) : (
+                              <span
+                                className="relative z-10"
+                                style={{ color: '#78350f', fontSize: '12px', lineHeight: 1, pointerEvents: 'none' }}
+                              >
+                                ✎
+                              </span>
+                            )
                           )}
                         </div>
                       );
