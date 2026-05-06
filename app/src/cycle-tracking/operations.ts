@@ -758,15 +758,15 @@ export const updateUserSettings: UpdateUserSettings<UpdateUserSettingsArgs, User
     throw new HttpError(401, 'Not authorized');
   }
 
-  // Reject empty calls — every call should change at least one field.
-  if (!('temperatureUnit' in args) && !('notesRowExpanded' in args)) {
-    throw new HttpError(400, 'No settings provided');
-  }
-
   // Build the create/update payloads conditionally.
   const data: Prisma.UserSettingsUncheckedUpdateInput = {};
   if ('temperatureUnit' in args)  data.temperatureUnit = args.temperatureUnit;
   if ('notesRowExpanded' in args) data.notesRowExpanded = args.notesRowExpanded;
+
+  // Reject empty calls — every call should change at least one field.
+  if (Object.keys(data).length === 0) {
+    throw new HttpError(400, 'No settings provided');
+  }
 
   let settings = await context.entities.UserSettings.findUnique({
     where: { userId: context.user.id }
