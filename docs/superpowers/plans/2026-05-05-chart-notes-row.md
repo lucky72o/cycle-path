@@ -501,7 +501,7 @@ Two changes vs. today: `hadIntercourse` and `excludeFromInterpretation` are now 
 Just below the `if (!cycle)` block (around line 361), add:
 
 ```ts
-import { isNoteTooLong, normalizeNote, NOTE_MAX_LENGTH } from './notesValidation';
+import { isNoteTooLong, NOTE_MAX_LENGTH } from './notesValidation';
 // ^ at the top of the file with the other imports
 
 // ... inside the function, after the cycle ownership check ...
@@ -1207,7 +1207,7 @@ export function NoteEditorSheet({
 cd app && npm test -- NoteEditorSheet
 ```
 
-Expected: all 10 tests pass. If a Sheet-portal test fails (e.g. role text not found), the radix dialog renders into a portal — the testing-library `screen` queries should still see it because `screen` defaults to `document.body`. If it doesn't, try `screen.getByText` against `document` directly, or wrap render in `render(..., { container: document.body })`.
+Expected: all 11 tests pass. If a Sheet-portal test fails (e.g. role text not found), the radix dialog renders into a portal — the testing-library `screen` queries should still see it because `screen` defaults to `document.body`. If it doesn't, try `screen.getByText` against `document` directly, or wrap render in `render(..., { container: document.body })`.
 
 - [ ] **Step 7: Type-check**
 
