@@ -165,7 +165,7 @@ There are **three** code paths that write a BBT value into the database. All thr
 
 2. **[`NewCyclePage.tsx`](app/src/cycle-tracking/NewCyclePage.tsx)** (line ~189)
    - Today: bypasses the helper and calls `celsiusToFahrenheit(parseFloat(bbt))` inline for °C users.
-   - After: use `convertToCelsiusForStorage(parseFloat(bbt), settings.temperatureUnit)` so this path is consistent with `AddCycleDayPage`.
+   - After: use `convertToCelsiusForStorage(parseFloat(bbt), tempUnit)` so this path is consistent with `AddCycleDayPage`. Pass the component's local [`tempUnit`](app/src/cycle-tracking/NewCyclePage.tsx:38) variable (`= settings?.temperatureUnit || 'FAHRENHEIT'`) — *not* `settings.temperatureUnit`, which is `possibly 'undefined'` under strict because `settings` itself can be undefined while loading.
 
 3. **CSV import in [`operations.ts`](app/src/cycle-tracking/operations.ts)** (`importCycleCsv`, line ~605–615)
    - Today: detects unit via `inferTemperatureUnit`, then converts °C inputs to °F via `celsiusToFahrenheit`.
@@ -212,6 +212,22 @@ export function toDisplayTemperature(
 
 Note: the implementation signature must carry explicit types — `app/tsconfig.json` has `"strict": true`, so the previously-shown shorthand `(celsiusValue, unit) => ...` would fail with implicit-any errors. Two narrow overloads plus the wider implementation signature are required.
 
+Calling `.toFixed(2)` on the result also requires care under strict. The nullable overload returns `number | null`, so `toDisplayTemperature(day.bbt, unit).toFixed(2)` will not type-check — `.toFixed` doesn't exist on `null`. Two acceptable patterns:
+
+```ts
+// (a) guard at the call site
+const display = toDisplayTemperature(existingDay.bbt, settings.temperatureUnit);
+if (display != null) setBbt(display.toFixed(2));
+
+// (b) narrow first via the existing null check on bbt
+if (existingDay.bbt != null) {
+  setBbt(toDisplayTemperature(existingDay.bbt, settings.temperatureUnit).toFixed(2));
+  // ^ here the non-nullable overload picks up because the argument is `number`
+}
+```
+
+Pattern (b) is cleaner where there is already a `bbt != null` branch in the surrounding code (which is the case at `AddCycleDayPage.tsx:65–66`).
+
 **Two helpers, two purposes:**
 - `toDisplayTemperature(value, unit)` — returns a `number`. Used wherever the chart needs the value for math (plotting Y position, interpolation between points, overlay anchoring, picking values to feed `getTempNodeLabel`). Also used for any *unit-symbol-free* string output (form input prefill, tooltip number when the unit suffix is rendered separately) — call `.toFixed(2)` on the result.
 - `formatTemperature(value, unit)` — returns a `string` like `36.50°C` / `97.50°F` *with the unit suffix*. Used wherever a single human-readable string with a unit is what's needed (cycle-day card, settings preview, CSV cell). Not safe for `<input type="number">` fields, which reject the suffix.
@@ -226,7 +242,7 @@ Note: the implementation signature must carry explicit types — `app/tsconfig.j
 | [`CycleChartPage.tsx:1336`](app/src/cycle-tracking/CycleChartPage.tsx:1336) — peak/segment overlay anchor | same ternary | `toDisplayTemperature(...)` |
 | [`CycleChartPage.tsx:1461`](app/src/cycle-tracking/CycleChartPage.tsx:1461) — tooltip number (unit suffix is rendered separately on the next line) | inline `fahrenheitToCelsius(bbtDay.bbt).toFixed(2)` ternary | `toDisplayTemperature(bbtDay.bbt, settings.temperatureUnit).toFixed(2)` — keep the `°C` / `°F` suffix concatenation as it is today. **Do not** use `formatTemperature` here, because that helper would inject a duplicate unit suffix. |
 | [`CycleChartPage.tsx:1596`](app/src/cycle-tracking/CycleChartPage.tsx:1596) — peak-day overlay Y position | same ternary | `toDisplayTemperature(...)` |
-| [`AddCycleDayPage.tsx:66`](app/src/cycle-tracking/AddCycleDayPage.tsx:66) — form prefill into `<input type="number">` | `unit === 'CELSIUS' ? fahrenheitToCelsius(existingDay.bbt).toFixed(2) : existingDay.bbt.toFixed(2)` | `toDisplayTemperature(existingDay.bbt, settings.temperatureUnit).toFixed(2)` (string of digits, no `°C`/`°F` suffix). **Must not** use `formatTemperature` here — the BBT input is `type="number"` ([line 346](app/src/cycle-tracking/AddCycleDayPage.tsx:346)) and rejects any non-numeric suffix, so a `36.50°C`-shaped string would silently fail to populate the field. |
+| [`AddCycleDayPage.tsx:66`](app/src/cycle-tracking/AddCycleDayPage.tsx:66) — form prefill into `<input type="number">` | `unit === 'CELSIUS' ? fahrenheitToCelsius(existingDay.bbt).toFixed(2) : existingDay.bbt.toFixed(2)` | Inside the existing `if (existingDay.bbt)` branch: `toDisplayTemperature(existingDay.bbt, settings.temperatureUnit).toFixed(2)` (string of digits, no `°C`/`°F` suffix). The `if (existingDay.bbt)` narrows `bbt` to `number`, which selects the non-nullable overload of `toDisplayTemperature` so `.toFixed(2)` type-checks under strict. **Must not** use `formatTemperature` here — the BBT input is `type="number"` ([line 346](app/src/cycle-tracking/AddCycleDayPage.tsx:346)) and rejects any non-numeric suffix, so a `36.50°C`-shaped string would silently fail to populate the field. |
 | [`interpretation/components/ThermalShiftAnnotations.tsx:93`](app/src/cycle-tracking/interpretation/components/ThermalShiftAnnotations.tsx:93) — annotation Y position | `unit === 'CELSIUS' ? fahrenheitToCelsius(day.bbt) : day.bbt` | `toDisplayTemperature(day.bbt, temperatureUnit)` |
 
 Other display surfaces — cycle-day card, settings preview, any CSV export — stay on `formatTemperature` because they emit strings, not numeric positions. None of them currently bypass the helper, but they should be re-checked during the verification grep.
