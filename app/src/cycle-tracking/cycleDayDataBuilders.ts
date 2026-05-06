@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { normalizeNote } from './notesValidation';
 
-type CycleDayPartialArgs = {
+export type CycleDayPartialArgs = {
   bbt?: number;
   bbtTime?: string;
   hadIntercourse?: boolean;
@@ -36,6 +36,8 @@ export function buildCycleDayUpdateData(
   if ('cervicalSensation' in args)         data.cervicalSensation = args.cervicalSensation;
   if ('opkStatus' in args)                 data.opkStatus = args.opkStatus;
   if ('menstrualFlow' in args)             data.menstrualFlow = args.menstrualFlow;
+  // disturbanceFactors needs no `?? []` default here (unlike the create path) because
+  // the existing DB row already holds a value; omitting the key leaves it untouched.
   if ('disturbanceFactors' in args)        data.disturbanceFactors = args.disturbanceFactors;
   if ('travelTimeDiff' in args)            data.travelTimeDiff = args.travelTimeDiff;
   if ('notes' in args)                     data.notes = normalizeNote(args.notes);

@@ -18,7 +18,11 @@ import type {
 import type { Cycle, CycleDay, UserSettings } from 'wasp/entities';
 import { celsiusToFahrenheit, getDayOfWeek } from './utils';
 import { isNoteTooLong, NOTE_MAX_LENGTH } from './notesValidation';
-import { buildCycleDayUpdateData, buildCycleDayCreateData } from './cycleDayDataBuilders';
+import {
+  buildCycleDayUpdateData,
+  buildCycleDayCreateData,
+  type CycleDayPartialArgs,
+} from './cycleDayDataBuilders';
 
 // TemperatureUnit type - matches Prisma enum
 // Will be available from '@prisma/client' after running migration
@@ -323,21 +327,10 @@ export const createCycle: CreateCycle<CreateCycleArgs, CycleWithDays> = async (a
 /**
  * Create or update a cycle day entry
  */
-type CreateOrUpdateCycleDayArgs = {
+type CreateOrUpdateCycleDayArgs = CycleDayPartialArgs & {
   cycleId: string;
   dayNumber?: number;
   date: string;
-  bbt?: number;
-  bbtTime?: string;
-  hadIntercourse?: boolean;
-  excludeFromInterpretation?: boolean;
-  cervicalAppearance?: 'NONE' | 'STICKY' | 'CREAMY' | 'WATERY' | 'EGGWHITE' | null;
-  cervicalSensation?: 'DRY' | 'DAMP' | 'WET' | 'SLIPPERY' | null;
-  opkStatus?: 'low' | 'rising' | 'peak' | 'declining' | null;
-  menstrualFlow?: 'SPOTTING' | 'LIGHT' | 'MEDIUM' | 'HEAVY' | 'VERY_HEAVY' | null;
-  disturbanceFactors?: string[];
-  travelTimeDiff?: number | null;
-  notes?: string | null;
 };
 
 export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleDayArgs, CycleDay> = async (args, context) => {
