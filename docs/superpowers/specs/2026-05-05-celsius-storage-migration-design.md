@@ -42,7 +42,7 @@ Today the codebase stores `CycleDay.bbt` as `Float` interpreted as Fahrenheit. T
 - Rename of `convertToFahrenheitForStorage` → `convertToCelsiusForStorage`; behaviour reversed.
 - Rewrite of `formatTemperature` to take Celsius input and convert outwards.
 - New shared helper `toDisplayTemperature(celsiusValue, unit)` that returns the user-unit number for math and rendering. Existing inline `unit === 'CELSIUS' ? fahrenheitToCelsius(bbt) : bbt` ternaries in `CycleChartPage.tsx` are replaced with calls to this helper. `getTempNodeLabel` is unchanged and continues to take a display-unit number from its caller.
-- Y-axis range definition flipped to Celsius-canonical, converted for °F users at render time.
+- Y-axis range remains display-unit based, derived from `toDisplayTemperature` outputs (the chart's coordinate system is uniformly the user's display unit; see Chart Y-axis range section).
 - Test fixtures rewritten in Celsius to match Sensiplan handbook examples.
 - Three new precision-edge regression tests.
 
@@ -170,11 +170,16 @@ export function toDisplayTemperature(
   celsiusValue: number | null | undefined,
   unit: TemperatureUnit
 ): number | null;
-export function toDisplayTemperature(celsiusValue, unit) {
+export function toDisplayTemperature(
+  celsiusValue: number | null | undefined,
+  unit: TemperatureUnit
+): number | null {
   if (celsiusValue == null) return null;
   return unit === 'CELSIUS' ? celsiusValue : celsiusToFahrenheit(celsiusValue);
 }
 ```
+
+Note: the implementation signature must carry explicit types — `app/tsconfig.json` has `"strict": true`, so the previously-shown shorthand `(celsiusValue, unit) => ...` would fail with implicit-any errors. Two narrow overloads plus the wider implementation signature are required.
 
 **Two helpers, two purposes:**
 - `toDisplayTemperature(value, unit)` — returns a `number`. Used wherever the chart needs the value for math (plotting Y position, interpolation between points, overlay anchoring, picking values to feed `getTempNodeLabel`). Also used for any *unit-symbol-free* string output (form input prefill, tooltip number when the unit suffix is rendered separately) — call `.toFixed(2)` on the result.
