@@ -8,7 +8,7 @@ import type {
   GetPreviousCycleSummary,
   CreateCycle,
   CreateOrUpdateCycleDay,
-  UpdateUserTemperaturePreference,
+  UpdateUserSettings,
   EndCycle,
   DeleteCycle,
   UpdateCycle,
@@ -16,6 +16,7 @@ import type {
   ImportCycleCsv
 } from 'wasp/server/operations';
 import type { Cycle, CycleDay, UserSettings } from 'wasp/entities';
+import { Prisma } from '@prisma/client';
 import { celsiusToFahrenheit, getDayOfWeek } from './utils';
 import { isNoteTooLong, NOTE_MAX_LENGTH } from './notesValidation';
 import {
@@ -745,30 +746,41 @@ export const importCycleCsv: ImportCycleCsv<ImportCycleCsvArgs, ImportSummary> =
 };
 
 /**
- * Update user's temperature preference
+ * Update user settings (temperature unit, notes row expanded state, etc.)
  */
-type UpdateUserTemperaturePreferenceArgs = { temperatureUnit: TemperatureUnit };
-export const updateUserTemperaturePreference: UpdateUserTemperaturePreference<UpdateUserTemperaturePreferenceArgs, UserSettings> = async (args, context) => {
+type UpdateUserSettingsArgs = {
+  temperatureUnit?: TemperatureUnit;
+  notesRowExpanded?: boolean;
+};
+
+export const updateUserSettings: UpdateUserSettings<UpdateUserSettingsArgs, UserSettings> = async (args, context) => {
   if (!context.user) {
     throw new HttpError(401, 'Not authorized');
   }
 
-  // Get or create settings
+  // Reject empty calls — every call should change at least one field.
+  if (!('temperatureUnit' in args) && !('notesRowExpanded' in args)) {
+    throw new HttpError(400, 'No settings provided');
+  }
+
+  // Build the create/update payloads conditionally.
+  const data: Prisma.UserSettingsUncheckedUpdateInput = {};
+  if ('temperatureUnit' in args)  data.temperatureUnit = args.temperatureUnit;
+  if ('notesRowExpanded' in args) data.notesRowExpanded = args.notesRowExpanded;
+
   let settings = await context.entities.UserSettings.findUnique({
     where: { userId: context.user.id }
   });
 
   if (!settings) {
+    const createData = data as Prisma.UserSettingsUncheckedCreateInput;
     settings = await context.entities.UserSettings.create({
-      data: {
-        userId: context.user.id,
-        temperatureUnit: args.temperatureUnit
-      }
+      data: { ...createData, userId: context.user.id }
     });
   } else {
     settings = await context.entities.UserSettings.update({
       where: { userId: context.user.id },
-      data: { temperatureUnit: args.temperatureUnit }
+      data
     });
   }
 

@@ -382,8 +382,8 @@ action createOrUpdateCycleDay {
   entities: [Cycle, CycleDay]
 }
 
-action updateUserTemperaturePreference {
-  fn: import { updateUserTemperaturePreference } from "@src/cycle-tracking/operations",
+action updateUserSettings {
+  fn: import { updateUserSettings } from "@src/cycle-tracking/operations",
   entities: [User, UserSettings]
 }
 
