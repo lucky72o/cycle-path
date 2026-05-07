@@ -451,14 +451,20 @@ Apply the same pattern to:
 
 In each file: drop the `fahrenheitToCelsius` import and replace each `fahrenheitToCelsius(x.bbt)` with `x.bbt`.
 
-- [ ] **Step 4: Verify engine grep gate**
+- [ ] **Step 4: Verify engine grep gate (narrow)**
 
 ```bash
 cd app
-grep -rn "fahrenheitToCelsius" src/cycle-tracking/interpretation/
+grep -rn "fahrenheitToCelsius" \
+  src/cycle-tracking/interpretation/sensiplan \
+  src/cycle-tracking/interpretation/getActiveCoverline.ts \
+  src/cycle-tracking/interpretation/getChartAnnotations.ts \
+  src/cycle-tracking/interpretation/components/AdjustFlow.tsx
 ```
 
-Expected: no matches. (`fahrenheitToCelsius` itself stays exported from `utils.ts` for display callers, but no engine code references it.)
+Expected: no matches in those engine sources.
+
+> Why narrowed: `interpretation/components/ThermalShiftAnnotations.tsx` is a display-layer site (it does chart Y-position math) and is intentionally still using `fahrenheitToCelsius` until Task 13. Test files under `__tests__/` may also still import the helper — fixture rewrite in this task only changes call sites, not necessarily every leftover import. The full repo-wide grep gate runs in Task 15.
 
 - [ ] **Step 5: Update tests that already author in Celsius via the `celsiusToFahrenheit` wrapper**
 
@@ -1071,26 +1077,29 @@ import { fahrenheitToCelsius, celsiusToFahrenheit, formatDate, /* ... */, getTem
 to:
 
 ```ts
-import { toDisplayTemperature, celsiusToFahrenheit, formatDate, /* ... */, getTempNodeLabel } from './utils';
+import { toDisplayTemperature, formatTemperature, formatDate, /* ... */, getTempNodeLabel } from './utils';
 ```
 
-(Drop `fahrenheitToCelsius`; keep `celsiusToFahrenheit` only if it's still used by some non-`bbt` code path in the file — likely it isn't anymore, so drop both if `tsc` confirms.)
+(Drop `fahrenheitToCelsius` and `celsiusToFahrenheit` — neither should be referenced from this file after the refactor. `formatTemperature` is added because the coverline label in Step 5 uses it.)
 
-- [ ] **Step 2: Replace plotting site (line ~178)**
+- [ ] **Step 2: Replace plotting site (line ~178) and drop the 2-dp rounding**
 
-Find:
+Find (the ternary plus the rounding line that follows):
 
 ```ts
 const temp = tempUnit === 'CELSIUS'
   ? fahrenheitToCelsius(day.bbt!)
   : day.bbt!;
+const tempValue = Number(temp.toFixed(2));
 ```
 
 Replace with:
 
 ```ts
-const temp = toDisplayTemperature(day.bbt!, tempUnit);
+const tempValue = toDisplayTemperature(day.bbt!, tempUnit);
 ```
+
+The `Number(temp.toFixed(2))` rounding is intentionally removed: per the spec, plotting/positioning math uses raw numbers and rounding only happens at the human-readable boundary (tooltip text, axis tick labels, table cells). ApexCharts handles full-precision numeric series fine. Verify visually in the smoke test (Task 15) that the chart still renders cleanly — there should be no perceptible difference because thermometer resolution (~0.05 °C) dominates over float noise.
 
 - [ ] **Step 3: Replace interpolation site (lines ~339–340)**
 
@@ -1108,7 +1117,7 @@ const t1 = toDisplayTemperature(p1.bbt, settings.temperatureUnit);
 const t2 = toDisplayTemperature(p2.bbt, settings.temperatureUnit);
 ```
 
-- [ ] **Step 4: Replace coverline render site (lines ~633–635)**
+- [ ] **Step 4: Replace coverline render Y position (lines ~633–635)**
 
 Find:
 
@@ -1124,7 +1133,35 @@ Replace with:
 const coverlineDisplay = toDisplayTemperature(coverlineC, settings.temperatureUnit);
 ```
 
-- [ ] **Step 5: Replace peak/segment overlay anchor (line ~1336)**
+- [ ] **Step 5: Update the coverline annotation label text (line ~651)**
+
+A few lines below the coverline Y position, ApexCharts' annotation `label.text` renders the displayed value next to the line. It currently hardcodes `°C` against the raw `coverlineC`:
+
+Find:
+
+```ts
+label: {
+  text: `${coverlineC.toFixed(2)}°C`,
+  position: 'right' as const,
+  style: { color: style.color, fontSize: '10px', background: 'transparent' },
+},
+```
+
+Replace with:
+
+```ts
+label: {
+  text: formatTemperature(coverlineC, settings.temperatureUnit),
+  position: 'right' as const,
+  style: { color: style.color, fontSize: '10px', background: 'transparent' },
+},
+```
+
+`formatTemperature` returns a string like `36.50°C` for °C users and `97.70°F` for °F users — both the value and the suffix track the active unit, so a Fahrenheit chart no longer draws the line at `~97.70 °F` while labeling it `36.50°C`.
+
+If `formatTemperature` is not yet imported in this file, add it to the import line updated in Step 1.
+
+- [ ] **Step 6: Replace peak/segment overlay anchor (line ~1336)**
 
 Find:
 
@@ -1140,7 +1177,7 @@ Replace with:
 const temp = toDisplayTemperature(day.bbt, settings?.temperatureUnit ?? 'FAHRENHEIT');
 ```
 
-- [ ] **Step 6: Replace tooltip number (line ~1461)**
+- [ ] **Step 7: Replace tooltip number (line ~1461)**
 
 Find:
 
@@ -1164,7 +1201,7 @@ const temp = bbtDay?.bbt != null
 
 > Do **not** use `formatTemperature` here — that helper appends a unit suffix, but the tooltip already concatenates `tempUnit` separately on the next line (search for `tempUnit = settings?.temperatureUnit === 'CELSIUS' ? '°C' : '°F'`).
 
-- [ ] **Step 7: Replace peak-day overlay Y position (line ~1596)**
+- [ ] **Step 8: Replace peak-day overlay Y position (line ~1596)**
 
 Find:
 
@@ -1180,7 +1217,7 @@ Replace with:
 const temp = toDisplayTemperature(day.bbt, settings?.temperatureUnit ?? 'FAHRENHEIT');
 ```
 
-- [ ] **Step 8: Type-check**
+- [ ] **Step 9: Type-check**
 
 ```bash
 cd app
@@ -1189,7 +1226,7 @@ npx tsc --noEmit
 
 Expected: PASS. If any unused-import warnings come up, drop the now-unused symbols.
 
-- [ ] **Step 9: Run the full suite**
+- [ ] **Step 10: Run the full suite**
 
 ```bash
 cd app
@@ -1198,11 +1235,11 @@ npm test
 
 Expected: PASS.
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 11: Commit**
 
 ```bash
 git add app/src/cycle-tracking/CycleChartPage.tsx
-git commit -m "refactor(chart): route every BBT math site through toDisplayTemperature"
+git commit -m "refactor(chart): route every BBT math site through toDisplayTemperature; label coverline in active unit"
 ```
 
 ---
