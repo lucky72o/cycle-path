@@ -183,4 +183,42 @@ describe('detectThermalShift', () => {
       }
     });
   });
+
+  describe('thermalShift — precision-edge guards', () => {
+    it('does NOT confirm at 0.199 °C above cover line (false-positive guard)', () => {
+      // Cover line 36.50 °C, third reading 36.699 °C → delta 0.199 °C
+      const days = [
+        day(1, 36.45), day(2, 36.50), day(3, 36.45),
+        day(4, 36.40), day(5, 36.50), day(6, 36.45),
+        day(7, 36.70), day(8, 36.75), day(9, 36.699),
+      ];
+      const result = detectThermalShift(days);
+      expect(result.status).not.toBe('confirmed');
+    });
+
+    it('DOES confirm at exactly 0.200 °C above cover line', () => {
+      // Cover line 36.50 °C, third reading 36.700 °C → delta 0.200 °C exactly
+      const days = [
+        day(1, 36.45), day(2, 36.50), day(3, 36.45),
+        day(4, 36.40), day(5, 36.50), day(6, 36.45),
+        day(7, 36.70), day(8, 36.75), day(9, 36.700),
+      ];
+      const result = detectThermalShift(days);
+      expect(result.status).toBe('confirmed');
+    });
+
+    it('Fahrenheit user input at 97.97°F → 36.65°C delivers 0.15 °C above cover line and does NOT confirm', () => {
+      // Simulate the input-pipeline conversion: 97.97 °F → 36.65 °C.
+      // With cover line 36.50 °C, delta is 0.15 °C — under threshold.
+      const fahrenheitInput = 97.97;
+      const candidateC = (fahrenheitInput - 32) * (5 / 9); // == 36.65
+      const days = [
+        day(1, 36.45), day(2, 36.50), day(3, 36.45),
+        day(4, 36.40), day(5, 36.50), day(6, 36.45),
+        day(7, 36.70), day(8, 36.75), day(9, candidateC),
+      ];
+      const result = detectThermalShift(days);
+      expect(result.status).not.toBe('confirmed');
+    });
+  });
 });
