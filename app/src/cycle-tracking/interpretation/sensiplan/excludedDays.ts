@@ -1,5 +1,4 @@
 import type { CycleDayInput } from '../types';
-import { fahrenheitToCelsius } from '../../utils';
 
 export type ReferenceResult = {
   referenceDays: number[];   // dayNumbers of the 6 valid reference days
@@ -51,8 +50,7 @@ export function collectReferenceDays(
   const dayMap = new Map(days.map((d) => [d.dayNumber, d]));
   let coverlineTemp = -Infinity;
   for (const dayNum of referenceDays) {
-    const tempF = dayMap.get(dayNum)!.bbt!;
-    const tempC = fahrenheitToCelsius(tempF);
+    const tempC = dayMap.get(dayNum)!.bbt!;
     if (tempC > coverlineTemp) {
       coverlineTemp = tempC;
     }

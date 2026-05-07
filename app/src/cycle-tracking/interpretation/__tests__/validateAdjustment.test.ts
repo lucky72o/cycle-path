@@ -1,14 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { validateAdjustment } from '../sensiplan/validateAdjustment';
 import type { CycleDayInput } from '../types';
-import { celsiusToFahrenheit } from '../../utils';
 
 // Helper: build CycleDayInput[] from a sequence of °C temperatures.
 // Index in array = dayNumber - 1.
 function buildDays(tempsC: (number | null)[], excludedDays: number[] = []): CycleDayInput[] {
   return tempsC.map((tC, i) => ({
     dayNumber: i + 1,
-    bbt: tC === null ? null : celsiusToFahrenheit(tC),
+    bbt: tC,
     bbtTime: '06:30',
     excludeFromInterpretation: excludedDays.includes(i + 1),
     disturbanceFactors: [],

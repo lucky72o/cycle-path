@@ -6,7 +6,6 @@ import type {
 import { collectReferenceDays } from './excludedDays';
 import { checkFourthDayException } from './fourthDayException';
 import { calculateConfidence } from './confidence';
-import { fahrenheitToCelsius } from '../../utils';
 
 const THRESHOLD_C = 0.2;
 
@@ -40,7 +39,7 @@ export function detectThermalShift(days: CycleDayInput[]): ThermalShiftResult {
 
     hadEnoughData = true;
     const { coverlineTemp, referenceDays, skippedDays } = refResult;
-    const candidateTempC = fahrenheitToCelsius(candidateDay.bbt);
+    const candidateTempC = candidateDay.bbt;
 
     if (candidateTempC <= coverlineTemp) {
       i++;
@@ -131,7 +130,7 @@ function checkConfirmingTemps(
       continue;
     }
 
-    const tempC = fahrenheitToCelsius(d.bbt);
+    const tempC = d.bbt;
     const positionInConfirm = confirmingDays.length + 1;
 
     if (positionInConfirm === 1) {

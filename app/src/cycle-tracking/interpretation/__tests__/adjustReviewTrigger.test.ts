@@ -1,12 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { shouldTriggerReviewForAdjusted } from '../adjustReviewTrigger';
 import type { CycleDayInput, ThermalShiftResult } from '../types';
-import { celsiusToFahrenheit } from '../../utils';
 
 function buildDays(tempsC: (number | null)[], excluded: number[] = []): CycleDayInput[] {
   return tempsC.map((tC, i) => ({
     dayNumber: i + 1,
-    bbt: tC === null ? null : celsiusToFahrenheit(tC),
+    bbt: tC,
     bbtTime: '06:30',
     excludeFromInterpretation: excluded.includes(i + 1),
     disturbanceFactors: [],

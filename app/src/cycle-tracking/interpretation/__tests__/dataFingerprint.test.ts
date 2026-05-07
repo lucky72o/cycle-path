@@ -16,50 +16,50 @@ function day(n: number, bbt: number | null, overrides: Partial<CycleDayInput> = 
 
 describe('computeCycleDataFingerprint', () => {
   it('returns the same hash for identical inputs', () => {
-    const a = [day(1, 97.3), day(2, 97.4), day(3, 97.2)];
-    const b = [day(1, 97.3), day(2, 97.4), day(3, 97.2)];
+    const a = [day(1, 36.28), day(2, 36.33), day(3, 36.22)];
+    const b = [day(1, 36.28), day(2, 36.33), day(3, 36.22)];
     expect(computeCycleDataFingerprint(a)).toBe(computeCycleDataFingerprint(b));
   });
 
   it('returns the same hash regardless of input order', () => {
-    const a = [day(1, 97.3), day(2, 97.4), day(3, 97.2)];
-    const b = [day(3, 97.2), day(1, 97.3), day(2, 97.4)];
+    const a = [day(1, 36.28), day(2, 36.33), day(3, 36.22)];
+    const b = [day(3, 36.22), day(1, 36.28), day(2, 36.33)];
     expect(computeCycleDataFingerprint(a)).toBe(computeCycleDataFingerprint(b));
   });
 
   it('changes when a temperature changes', () => {
-    const a = [day(1, 97.3)];
-    const b = [day(1, 97.4)];
+    const a = [day(1, 36.28)];
+    const b = [day(1, 36.33)];
     expect(computeCycleDataFingerprint(a)).not.toBe(computeCycleDataFingerprint(b));
   });
 
   it('ignores floating-point noise beyond 2 decimal places', () => {
-    const a = [day(1, 97.30)];
-    const b = [day(1, 97.30000000001)];
+    const a = [day(1, 36.28)];
+    const b = [day(1, 36.28000000001)];
     expect(computeCycleDataFingerprint(a)).toBe(computeCycleDataFingerprint(b));
   });
 
   it('changes when an exclusion flag changes', () => {
-    const a = [day(1, 97.3, { excludeFromInterpretation: false })];
-    const b = [day(1, 97.3, { excludeFromInterpretation: true })];
+    const a = [day(1, 36.28, { excludeFromInterpretation: false })];
+    const b = [day(1, 36.28, { excludeFromInterpretation: true })];
     expect(computeCycleDataFingerprint(a)).not.toBe(computeCycleDataFingerprint(b));
   });
 
   it('changes when disturbance factors change', () => {
-    const a = [day(1, 97.3, { disturbanceFactors: ['ILLNESS_FEVER'] })];
-    const b = [day(1, 97.3, { disturbanceFactors: ['POOR_SLEEP'] })];
+    const a = [day(1, 36.28, { disturbanceFactors: ['ILLNESS_FEVER'] })];
+    const b = [day(1, 36.28, { disturbanceFactors: ['POOR_SLEEP'] })];
     expect(computeCycleDataFingerprint(a)).not.toBe(computeCycleDataFingerprint(b));
   });
 
   it('is order-insensitive for disturbance factors', () => {
-    const a = [day(1, 97.3, { disturbanceFactors: ['ILLNESS_FEVER', 'POOR_SLEEP'] })];
-    const b = [day(1, 97.3, { disturbanceFactors: ['POOR_SLEEP', 'ILLNESS_FEVER'] })];
+    const a = [day(1, 36.28, { disturbanceFactors: ['ILLNESS_FEVER', 'POOR_SLEEP'] })];
+    const b = [day(1, 36.28, { disturbanceFactors: ['POOR_SLEEP', 'ILLNESS_FEVER'] })];
     expect(computeCycleDataFingerprint(a)).toBe(computeCycleDataFingerprint(b));
   });
 
   it('changes when travelTimeDiff changes', () => {
-    const a = [day(1, 97.3, { travelTimeDiff: null })];
-    const b = [day(1, 97.3, { travelTimeDiff: 120 })];
+    const a = [day(1, 36.28, { travelTimeDiff: null })];
+    const b = [day(1, 36.28, { travelTimeDiff: 120 })];
     expect(computeCycleDataFingerprint(a)).not.toBe(computeCycleDataFingerprint(b));
   });
 
@@ -70,8 +70,8 @@ describe('computeCycleDataFingerprint', () => {
   });
 
   it('changes when a day is added', () => {
-    const a = [day(1, 97.3)];
-    const b = [day(1, 97.3), day(2, 97.4)];
+    const a = [day(1, 36.28)];
+    const b = [day(1, 36.28), day(2, 36.33)];
     expect(computeCycleDataFingerprint(a)).not.toBe(computeCycleDataFingerprint(b));
   });
 

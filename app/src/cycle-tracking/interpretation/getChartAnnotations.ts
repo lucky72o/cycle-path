@@ -1,5 +1,4 @@
 import type { CycleDayInput, ThermalShiftResult, UserOverrides } from './types';
-import { fahrenheitToCelsius } from '../utils';
 import { validateAdjustment } from './sensiplan/validateAdjustment';
 
 export type ChartAnnotationData = {
@@ -29,7 +28,7 @@ export function pickAnchorDay(
   for (const dayNumber of referenceDays) {
     const day = dayMap.get(dayNumber);
     if (!day || day.bbt === null) continue;
-    if (fahrenheitToCelsius(day.bbt) === coverlineTemp) {
+    if (day.bbt === coverlineTemp) {
       anchor = dayNumber; // overwrite to keep the latest match
     }
   }

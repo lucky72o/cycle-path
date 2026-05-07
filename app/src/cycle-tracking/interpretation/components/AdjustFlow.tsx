@@ -3,7 +3,6 @@ import { useState, useMemo } from 'react';
 import type { ThermalShiftResult, UserOverrides, CycleDayInput } from '../types';
 import { btn, card, header, footer } from './cardStyles';
 import { validateAdjustment, type AdjustValidation } from '../sensiplan/validateAdjustment';
-import { fahrenheitToCelsius } from '../../utils';
 
 type AdjustFlowProps = {
   currentResult: ThermalShiftResult;
@@ -26,7 +25,7 @@ function formatDate(d: Date): string {
 }
 
 function tempC(day: CycleDayInput): number | null {
-  return day.bbt === null ? null : fahrenheitToCelsius(day.bbt);
+  return day.bbt;
 }
 
 function reasonMessage(v: Extract<AdjustValidation, { kind: 'invalid' }>, pickedDay: number): string {

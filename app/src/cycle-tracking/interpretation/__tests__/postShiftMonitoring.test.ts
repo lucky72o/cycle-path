@@ -10,7 +10,6 @@ function day(dayNumber: number, bbt: number | null, opts?: Partial<CycleDayInput
   };
 }
 
-function cToF(c: number): number { return (c * 9 / 5) + 32; }
 
 describe('monitorPostShift', () => {
   const shiftDay = 7;
@@ -19,7 +18,7 @@ describe('monitorPostShift', () => {
 
   it('returns inactive monitoring when no post-shift data exists', () => {
     const days = [
-      day(7, cToF(36.45)), day(8, cToF(36.50)), day(9, cToF(36.55)),
+      day(7, 36.45), day(8, 36.50), day(9, 36.55),
     ];
     const result = monitorPostShift(days, shiftDay, coverlineC, lastConfirmDay, []);
     expect(result.isActive).toBe(true);
@@ -30,9 +29,9 @@ describe('monitorPostShift', () => {
 
   it('counts unexplained dips below coverline', () => {
     const days = [
-      day(7, cToF(36.45)), day(8, cToF(36.50)), day(9, cToF(36.55)),
-      day(10, cToF(36.2)), // dip, no disturbance
-      day(11, cToF(36.25)), // still below, unexplained
+      day(7, 36.45), day(8, 36.50), day(9, 36.55),
+      day(10, 36.2), // dip, no disturbance
+      day(11, 36.25), // still below, unexplained
     ];
     const result = monitorPostShift(days, shiftDay, coverlineC, lastConfirmDay, []);
     expect(result.dipsBelow).toHaveLength(2);
@@ -42,8 +41,8 @@ describe('monitorPostShift', () => {
 
   it('marks dip as explained when user resolved nudge with yes_disturbed', () => {
     const days = [
-      day(7, cToF(36.45)), day(8, cToF(36.50)), day(9, cToF(36.55)),
-      day(10, cToF(36.2)), // dip
+      day(7, 36.45), day(8, 36.50), day(9, 36.55),
+      day(10, 36.2), // dip
     ];
     const resolvedNudges: Nudge[] = [
       { day: 10, type: 'post_shift_dip', message: '', resolved: true, response: 'yes_disturbed' },
@@ -55,8 +54,8 @@ describe('monitorPostShift', () => {
 
   it('marks dip as explained when day has disturbance factors', () => {
     const days = [
-      day(7, cToF(36.45)), day(8, cToF(36.50)), day(9, cToF(36.55)),
-      day(10, cToF(36.2), { disturbanceFactors: ['ILLNESS_FEVER'] }),
+      day(7, 36.45), day(8, 36.50), day(9, 36.55),
+      day(10, 36.2, { disturbanceFactors: ['ILLNESS_FEVER'] }),
     ];
     const result = monitorPostShift(days, shiftDay, coverlineC, lastConfirmDay, []);
     expect(result.dipsBelow[0].explained).toBe(true);
@@ -65,8 +64,8 @@ describe('monitorPostShift', () => {
 
   it('triggers false rise warning at 3+ consecutive unexplained dips', () => {
     const days = [
-      day(7, cToF(36.45)), day(8, cToF(36.50)), day(9, cToF(36.55)),
-      day(10, cToF(36.2)), day(11, cToF(36.1)), day(12, cToF(36.25)),
+      day(7, 36.45), day(8, 36.50), day(9, 36.55),
+      day(10, 36.2), day(11, 36.1), day(12, 36.25),
     ];
     const result = monitorPostShift(days, shiftDay, coverlineC, lastConfirmDay, []);
     expect(result.consecutiveUnexplainedDips).toBe(3);
@@ -75,9 +74,9 @@ describe('monitorPostShift', () => {
 
   it('does not trigger at 2 consecutive unexplained dips', () => {
     const days = [
-      day(7, cToF(36.45)), day(8, cToF(36.50)), day(9, cToF(36.55)),
-      day(10, cToF(36.2)), day(11, cToF(36.1)),
-      day(12, cToF(36.5)), // above coverline — breaks running chain
+      day(7, 36.45), day(8, 36.50), day(9, 36.55),
+      day(10, 36.2), day(11, 36.1),
+      day(12, 36.5), // above coverline — breaks running chain
     ];
     const result = monitorPostShift(days, shiftDay, coverlineC, lastConfirmDay, []);
     expect(result.consecutiveUnexplainedDips).toBe(2); // max consecutive was 2 (before reset)
@@ -86,11 +85,11 @@ describe('monitorPostShift', () => {
 
   it('resets consecutive count when explained dip breaks the chain', () => {
     const days = [
-      day(7, cToF(36.45)), day(8, cToF(36.50)), day(9, cToF(36.55)),
-      day(10, cToF(36.2)),  // unexplained
-      day(11, cToF(36.2), { disturbanceFactors: ['POOR_SLEEP'] }), // explained — breaks chain
-      day(12, cToF(36.25)), // unexplained
-      day(13, cToF(36.1)),  // unexplained — only 2 consecutive
+      day(7, 36.45), day(8, 36.50), day(9, 36.55),
+      day(10, 36.2),  // unexplained
+      day(11, 36.2, { disturbanceFactors: ['POOR_SLEEP'] }), // explained — breaks chain
+      day(12, 36.25), // unexplained
+      day(13, 36.1),  // unexplained — only 2 consecutive
     ];
     const result = monitorPostShift(days, shiftDay, coverlineC, lastConfirmDay, []);
     expect(result.consecutiveUnexplainedDips).toBe(2);
@@ -99,8 +98,8 @@ describe('monitorPostShift', () => {
 
   it('preserves dismissed warning state when dips at threshold', () => {
     const days = [
-      day(7, cToF(36.45)), day(8, cToF(36.50)), day(9, cToF(36.55)),
-      day(10, cToF(36.2)), day(11, cToF(36.1)), day(12, cToF(36.25)),
+      day(7, 36.45), day(8, 36.50), day(9, 36.55),
+      day(10, 36.2), day(11, 36.1), day(12, 36.25),
     ];
     const result = monitorPostShift(days, shiftDay, coverlineC, lastConfirmDay, [], 'dismissed');
     // Warning was previously dismissed at threshold (3) — stays dismissed
@@ -109,8 +108,8 @@ describe('monitorPostShift', () => {
 
   it('re-triggers warning when dismissed but new dips exceed threshold', () => {
     const days = [
-      day(7, cToF(36.45)), day(8, cToF(36.50)), day(9, cToF(36.55)),
-      day(10, cToF(36.2)), day(11, cToF(36.1)), day(12, cToF(36.25)), day(13, cToF(36.15)),
+      day(7, 36.45), day(8, 36.50), day(9, 36.55),
+      day(10, 36.2), day(11, 36.1), day(12, 36.25), day(13, 36.15),
     ];
     const result = monitorPostShift(days, shiftDay, coverlineC, lastConfirmDay, [], 'dismissed');
     // 4 consecutive unexplained dips > threshold of 3 — re-trigger despite previous dismissal
@@ -120,9 +119,9 @@ describe('monitorPostShift', () => {
 
   it('skips excluded days in post-shift monitoring', () => {
     const days = [
-      day(7, cToF(36.45)), day(8, cToF(36.50)), day(9, cToF(36.55)),
-      day(10, cToF(36.2), { excludeFromInterpretation: true }), // excluded — should not count
-      day(11, cToF(36.5)),
+      day(7, 36.45), day(8, 36.50), day(9, 36.55),
+      day(10, 36.2, { excludeFromInterpretation: true }), // excluded — should not count
+      day(11, 36.5),
     ];
     const result = monitorPostShift(days, shiftDay, coverlineC, lastConfirmDay, []);
     expect(result.dipsBelow).toHaveLength(0); // excluded day not counted

@@ -1,6 +1,5 @@
 import type { CycleDayInput, ThermalShiftResult, Nudge, TimeWindowResult } from '../types';
 import { isWithinWindow } from './measurementTime';
-import { fahrenheitToCelsius } from '../../utils';
 
 const SPIKE_THRESHOLD_C = 0.2;
 const NEIGHBOR_RANGE = 2; // up to 2 temps on each side
@@ -28,7 +27,7 @@ export function generateNudges(
     // Only pre-shift days (before shift day, or all days if no shift)
     if (shiftDay !== null && d.dayNumber >= shiftDay) continue;
 
-    const tempC = fahrenheitToCelsius(d.bbt);
+    const tempC = d.bbt;
     const neighbors = getValidNeighborTemps(sorted, d.dayNumber, NEIGHBOR_RANGE);
     if (neighbors.length === 0) continue;
 
@@ -68,7 +67,7 @@ export function generateNudges(
       if (d.bbt === null || d.excludeFromInterpretation) continue;
       if (d.dayNumber <= lastConfirmDay) continue;
 
-      const tempC = fahrenheitToCelsius(d.bbt);
+      const tempC = d.bbt;
       if (tempC < coverline && d.disturbanceFactors.length === 0) {
         nudges.push({
           day: d.dayNumber,
@@ -101,7 +100,7 @@ function getValidNeighborTemps(
   for (let i = sorted.findIndex((d) => d.dayNumber === dayNumber) - 1; i >= 0 && found < range; i--) {
     const d = sorted[i];
     if (d.bbt !== null && !d.excludeFromInterpretation) {
-      temps.push(fahrenheitToCelsius(d.bbt));
+      temps.push(d.bbt);
       found++;
     }
   }
@@ -111,7 +110,7 @@ function getValidNeighborTemps(
   for (let i = sorted.findIndex((d) => d.dayNumber === dayNumber) + 1; i < sorted.length && found < range; i++) {
     const d = sorted[i];
     if (d.bbt !== null && !d.excludeFromInterpretation) {
-      temps.push(fahrenheitToCelsius(d.bbt));
+      temps.push(d.bbt);
       found++;
     }
   }

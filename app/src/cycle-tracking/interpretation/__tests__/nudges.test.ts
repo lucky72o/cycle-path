@@ -10,7 +10,6 @@ function day(dayNumber: number, bbt: number | null, opts?: Partial<CycleDayInput
   };
 }
 
-function cToF(c: number): number { return (c * 9 / 5) + 32; }
 
 const noWindow: TimeWindowResult = { hasWindow: false, segments: [] };
 
@@ -18,9 +17,9 @@ describe('generateNudges', () => {
   describe('pre-shift outlier detection', () => {
     it('nudges when a pre-shift temp spikes ≥ 0.2°C above neighbors', () => {
       const days = [
-        day(1, cToF(36.3)), day(2, cToF(36.3)),
-        day(3, cToF(36.6)), // spike: 0.3°C above neighbors
-        day(4, cToF(36.3)), day(5, cToF(36.3)),
+        day(1, 36.3), day(2, 36.3),
+        day(3, 36.6), // spike: 0.3°C above neighbors
+        day(4, 36.3), day(5, 36.3),
       ];
       // No shift — all pre-shift
       const shiftResult: ThermalShiftResult = { status: 'none', reason: 'no_shift_detected', failedAttempts: [] };
@@ -32,9 +31,9 @@ describe('generateNudges', () => {
 
     it('does not nudge when spike is < 0.2°C', () => {
       const days = [
-        day(1, cToF(36.3)), day(2, cToF(36.3)),
-        day(3, cToF(36.49)), // 0.19°C — below threshold
-        day(4, cToF(36.3)), day(5, cToF(36.3)),
+        day(1, 36.3), day(2, 36.3),
+        day(3, 36.49), // 0.19°C — below threshold
+        day(4, 36.3), day(5, 36.3),
       ];
       const shiftResult: ThermalShiftResult = { status: 'none', reason: 'no_shift_detected', failedAttempts: [] };
       const nudges = generateNudges(days, shiftResult, noWindow);
@@ -43,10 +42,10 @@ describe('generateNudges', () => {
 
     it('skips excluded days when computing neighbors', () => {
       const days = [
-        day(1, cToF(36.3)),
-        day(2, cToF(36.8), { excludeFromInterpretation: true }), // excluded — skip
-        day(3, cToF(36.6)), // neighbors are day 1 (36.3) and day 4 (36.3) → spike of 0.3
-        day(4, cToF(36.3)),
+        day(1, 36.3),
+        day(2, 36.8, { excludeFromInterpretation: true }), // excluded — skip
+        day(3, 36.6), // neighbors are day 1 (36.3) and day 4 (36.3) → spike of 0.3
+        day(4, 36.3),
       ];
       const shiftResult: ThermalShiftResult = { status: 'none', reason: 'no_shift_detected', failedAttempts: [] };
       const nudges = generateNudges(days, shiftResult, noWindow);
@@ -65,10 +64,10 @@ describe('generateNudges', () => {
         confidence: 'high', confidenceReasons: [], failedAttempts: [],
       };
       const days = [
-        day(1, cToF(36.2)), day(2, cToF(36.3)), day(3, cToF(36.1)),
-        day(4, cToF(36.3)), day(5, cToF(36.2)), day(6, cToF(36.3)),
-        day(7, cToF(36.45)), day(8, cToF(36.50)), day(9, cToF(36.55)),
-        day(10, cToF(36.2)), // below coverline, no disturbance
+        day(1, 36.2), day(2, 36.3), day(3, 36.1),
+        day(4, 36.3), day(5, 36.2), day(6, 36.3),
+        day(7, 36.45), day(8, 36.50), day(9, 36.55),
+        day(10, 36.2), // below coverline, no disturbance
       ];
       const nudges = generateNudges(days, shiftResult, noWindow);
       const postNudges = nudges.filter((n) => n.type === 'post_shift_dip');
@@ -85,10 +84,10 @@ describe('generateNudges', () => {
         confidence: 'high', confidenceReasons: [], failedAttempts: [],
       };
       const days = [
-        day(1, cToF(36.2)), day(2, cToF(36.3)), day(3, cToF(36.1)),
-        day(4, cToF(36.3)), day(5, cToF(36.2)), day(6, cToF(36.3)),
-        day(7, cToF(36.45)), day(8, cToF(36.50)), day(9, cToF(36.55)),
-        day(10, cToF(36.2), { disturbanceFactors: ['POOR_SLEEP'] }),
+        day(1, 36.2), day(2, 36.3), day(3, 36.1),
+        day(4, 36.3), day(5, 36.2), day(6, 36.3),
+        day(7, 36.45), day(8, 36.50), day(9, 36.55),
+        day(10, 36.2, { disturbanceFactors: ['POOR_SLEEP'] }),
       ];
       const nudges = generateNudges(days, shiftResult, noWindow);
       const postNudges = nudges.filter((n) => n.type === 'post_shift_dip');
