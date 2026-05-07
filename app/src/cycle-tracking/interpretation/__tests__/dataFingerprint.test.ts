@@ -33,10 +33,12 @@ describe('computeCycleDataFingerprint', () => {
     expect(computeCycleDataFingerprint(a)).not.toBe(computeCycleDataFingerprint(b));
   });
 
-  it('ignores floating-point noise beyond 2 decimal places', () => {
+  it('detects floating-point noise in raw floats (mirrors engine input exactly)', () => {
     const a = [day(1, 36.28)];
     const b = [day(1, 36.28000000001)];
-    expect(computeCycleDataFingerprint(a)).toBe(computeCycleDataFingerprint(b));
+    // With raw float hashing, even tiny differences produce different fingerprints
+    // This ensures the fingerprint reflects the exact input the engine receives
+    expect(computeCycleDataFingerprint(a)).not.toBe(computeCycleDataFingerprint(b));
   });
 
   it('changes when an exclusion flag changes', () => {
@@ -77,5 +79,25 @@ describe('computeCycleDataFingerprint', () => {
 
   it('produces non-empty string for empty input', () => {
     expect(computeCycleDataFingerprint([])).toMatch(/^[a-z0-9]+$/);
+  });
+});
+
+describe('computeCycleDataFingerprint — threshold-edge precision', () => {
+  it('produces different fingerprints for 36.699 vs 36.700', () => {
+    const a = [day(1, 36.699)];
+    const b = [day(1, 36.700)];
+    expect(computeCycleDataFingerprint(a)).not.toBe(computeCycleDataFingerprint(b));
+  });
+
+  it('produces different fingerprints for 36.6996 vs 36.7004 (3-dp would have collapsed)', () => {
+    const a = [day(1, 36.6996)];
+    const b = [day(1, 36.7004)];
+    expect(computeCycleDataFingerprint(a)).not.toBe(computeCycleDataFingerprint(b));
+  });
+
+  it('produces different fingerprints for 36.69999 vs 36.70001 (deep float territory)', () => {
+    const a = [day(1, 36.69999)];
+    const b = [day(1, 36.70001)];
+    expect(computeCycleDataFingerprint(a)).not.toBe(computeCycleDataFingerprint(b));
   });
 });
