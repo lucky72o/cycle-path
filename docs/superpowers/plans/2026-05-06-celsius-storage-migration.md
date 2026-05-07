@@ -27,7 +27,6 @@
 | `app/src/cycle-tracking/interpretation/sensiplan/postShiftMonitoring.ts` | modify | Remove `fahrenheitToCelsius()` (line 45) |
 | `app/src/cycle-tracking/interpretation/sensiplan/nudges.ts` | modify | Remove `fahrenheitToCelsius()` (lines 31, 71, 104, 114) |
 | `app/src/cycle-tracking/interpretation/sensiplan/validateAdjustment.ts` | modify | Remove `fahrenheitToCelsius()` (lines 116, 183) |
-| `app/src/cycle-tracking/interpretation/getActiveCoverline.ts` | modify | Remove `fahrenheitToCelsius()` in `collectReferenceDays` |
 | `app/src/cycle-tracking/interpretation/getChartAnnotations.ts` | modify | Remove `fahrenheitToCelsius()` (line 32) |
 | `app/src/cycle-tracking/interpretation/components/AdjustFlow.tsx` | modify | Remove `fahrenheitToCelsius()` in the `tempC` accessor (line 29) |
 | `app/src/cycle-tracking/interpretation/dataFingerprint.ts` | modify | Drop BBT rounding — hash raw float |
@@ -417,7 +416,7 @@ git commit -m "docs(schema): document CycleDay.bbt as canonical Celsius"
 This is the load-bearing task. Each engine file currently calls `fahrenheitToCelsius()` at the start of every BBT-related operation; we remove those and treat `bbt` as Celsius directly. Test fixtures that encode Fahrenheit values are rewritten to Celsius. After this task the engine + engine tests are consistent in Celsius.
 
 **Files:**
-- Modify (engine): `interpretation/sensiplan/thermalShift.ts`, `excludedDays.ts`, `postShiftMonitoring.ts`, `nudges.ts`, `validateAdjustment.ts`, `interpretation/getActiveCoverline.ts`, `interpretation/getChartAnnotations.ts`, `interpretation/components/AdjustFlow.tsx`
+- Modify (engine): `interpretation/sensiplan/thermalShift.ts`, `excludedDays.ts`, `postShiftMonitoring.ts`, `nudges.ts`, `validateAdjustment.ts`, `interpretation/getChartAnnotations.ts`, `interpretation/components/AdjustFlow.tsx`
 - Modify (tests with `celsiusToFahrenheit` wrapper — drop the wrapper): `validateAdjustment.test.ts`, `getActiveCoverline.test.ts`, `getChartAnnotations.test.ts`, `adjustReviewTrigger.test.ts`
 - Modify (tests with raw F fixtures — rewrite numbers in C): `thermalShift.test.ts`, `excludedDays.test.ts`, `postShiftMonitoring.test.ts`, `integration.test.ts`, `nudges.test.ts`, `measurementTime.test.ts`, `classificationDecisions.test.ts`, `dataFingerprint.test.ts`
 
@@ -431,18 +430,13 @@ In `app/src/cycle-tracking/interpretation/sensiplan/thermalShift.ts`:
 - The constant `THRESHOLD_C = 0.2` stays.
 - If `candidateTempC` / `tempC` end up nullable in TS, narrow with the existing `bbt !== null` guards already in scope.
 
-- [ ] **Step 2: Remove `fahrenheitToCelsius` from `getActiveCoverline.ts`**
+> Note: `interpretation/getActiveCoverline.ts` does **not** import `fahrenheitToCelsius` directly. The conversion was previously done inside `collectReferenceDays`, which lives in `sensiplan/excludedDays.ts` (and is removed in the next step). After that step, `getActiveCoverline.ts` automatically reads Celsius values via the same import — no direct change is required here.
 
-In `app/src/cycle-tracking/interpretation/getActiveCoverline.ts`:
-
-- Remove the import.
-- Inside `collectReferenceDays` where each day's BBT is converted, drop the conversion and use `day.bbt` directly.
-
-- [ ] **Step 3: Remove `fahrenheitToCelsius` from the remaining six engine files**
+- [ ] **Step 2: Remove `fahrenheitToCelsius` from the remaining seven engine files**
 
 Apply the same pattern to:
 
-- `interpretation/sensiplan/excludedDays.ts` (line ~55)
+- `interpretation/sensiplan/excludedDays.ts` (line ~55 — this is where `collectReferenceDays` lives)
 - `interpretation/sensiplan/postShiftMonitoring.ts` (line ~45)
 - `interpretation/sensiplan/nudges.ts` (lines ~31, 71, 104, 114 — all four)
 - `interpretation/sensiplan/validateAdjustment.ts` (lines ~116, 183)
@@ -451,22 +445,21 @@ Apply the same pattern to:
 
 In each file: drop the `fahrenheitToCelsius` import and replace each `fahrenheitToCelsius(x.bbt)` with `x.bbt`.
 
-- [ ] **Step 4: Verify engine grep gate (narrow)**
+- [ ] **Step 3: Verify engine grep gate (narrow)**
 
 ```bash
 cd app
 grep -rn "fahrenheitToCelsius" \
   src/cycle-tracking/interpretation/sensiplan \
-  src/cycle-tracking/interpretation/getActiveCoverline.ts \
   src/cycle-tracking/interpretation/getChartAnnotations.ts \
   src/cycle-tracking/interpretation/components/AdjustFlow.tsx
 ```
 
 Expected: no matches in those engine sources.
 
-> Why narrowed: `interpretation/components/ThermalShiftAnnotations.tsx` is a display-layer site (it does chart Y-position math) and is intentionally still using `fahrenheitToCelsius` until Task 13. Test files under `__tests__/` may also still import the helper — fixture rewrite in this task only changes call sites, not necessarily every leftover import. The full repo-wide grep gate runs in Task 15.
+> Why narrowed: `interpretation/components/ThermalShiftAnnotations.tsx` is a display-layer site (it does chart Y-position math) and is intentionally still using `fahrenheitToCelsius` until Task 13. `interpretation/getActiveCoverline.ts` does not import the helper directly — its conversion happens inside `collectReferenceDays` in `sensiplan/excludedDays.ts`. Test files under `__tests__/` may also still import the helper — fixture rewrite in this task only changes call sites, not necessarily every leftover import. The full repo-wide grep gate runs in Task 15.
 
-- [ ] **Step 5: Update tests that already author in Celsius via the `celsiusToFahrenheit` wrapper**
+- [ ] **Step 4: Update tests that already author in Celsius via the `celsiusToFahrenheit` wrapper**
 
 In each of:
 - `interpretation/__tests__/validateAdjustment.test.ts`
@@ -485,7 +478,7 @@ bbt: tC,
 
 Drop the now-unused `celsiusToFahrenheit` import. (In `getChartAnnotations.test.ts`, also drop the `fahrenheitToCelsius` import if it becomes unused.)
 
-- [ ] **Step 6: Rewrite raw-F fixtures in Celsius — `thermalShift.test.ts`**
+- [ ] **Step 5: Rewrite raw-F fixtures in Celsius — `thermalShift.test.ts`**
 
 Open `interpretation/__tests__/thermalShift.test.ts`. Every numeric `bbt` value is currently in Fahrenheit (e.g. `97.5`, `97.8`, `98.0`). Convert each to Celsius using `(F − 32) × 5/9` rounded to two decimals, OR replace the fixture sequence with a canonical Sensiplan-handbook sequence. Recommended replacement when the test only checks "is there a confirmed shift" rather than specific values:
 
@@ -505,7 +498,7 @@ npm test -- src/cycle-tracking/interpretation/__tests__/thermalShift.test.ts
 
 Iterate fixtures until green.
 
-- [ ] **Step 7: Rewrite raw-F fixtures in the seven remaining engine test files**
+- [ ] **Step 6: Rewrite raw-F fixtures in the seven remaining engine test files**
 
 Repeat the pattern for:
 - `excludedDays.test.ts`
@@ -522,7 +515,7 @@ cd app
 npm test -- src/cycle-tracking/interpretation/__tests__/<file>.test.ts
 ```
 
-- [ ] **Step 8: Run the entire engine test suite**
+- [ ] **Step 7: Run the entire engine test suite**
 
 ```bash
 cd app
@@ -531,7 +524,7 @@ npm test -- src/cycle-tracking/interpretation
 
 Expected: all engine tests PASS in Celsius.
 
-- [ ] **Step 9: Run the full test suite and tsc**
+- [ ] **Step 8: Run the full test suite and tsc**
 
 ```bash
 cd app
@@ -541,7 +534,7 @@ npx tsc --noEmit
 
 Expected: PASS. Display callers will render visually wrong in dev (until Tasks 9–11), but no test should fail.
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add app/src/cycle-tracking/interpretation app/src/cycle-tracking/interpretation/__tests__
@@ -840,13 +833,18 @@ const bbtForStorage: number | null | undefined =
   existingDay && !bbtChanged
     ? existingDay.bbt                                       // preserve raw stored value
     : bbt === ''
-      ? (existingDay ? null : undefined)                    // explicit clear vs new-day-no-input
+      ? (existingDay ? null : undefined)                    // explicit clear (existing) vs new-day-no-input
       : convertToCelsiusForStorage(parseFloat(bbt), settings.temperatureUnit);
 
 await createOrUpdateCycleDay({
   cycleId,
   date,
-  bbt: bbtForStorage,
+  // Only include bbt when we have a definite value to send (number) or an
+  // explicit clear (null). When bbtForStorage is undefined (new day, no
+  // input), the property is omitted entirely so Prisma sees no key — never
+  // a literal `bbt: undefined`, which would otherwise serialise as a no-op
+  // and obscure intent.
+  ...(bbtForStorage !== undefined && { bbt: bbtForStorage }),
   // ... rest unchanged ...
 });
 ```
