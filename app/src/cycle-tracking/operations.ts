@@ -17,7 +17,7 @@ import type {
 } from 'wasp/server/operations';
 import type { Cycle, CycleDay, UserSettings } from 'wasp/entities';
 import { Prisma } from '@prisma/client';
-import { celsiusToFahrenheit, getDayOfWeek } from './utils';
+import { convertToCelsiusForStorage, getDayOfWeek } from './utils';
 import { isNoteTooLong, NOTE_MAX_LENGTH } from './notesValidation';
 import {
   buildCycleDayUpdateData,
@@ -588,7 +588,7 @@ export const importCycleCsv: ImportCycleCsv<ImportCycleCsvArgs, ImportSummary> =
     if (value === null || value === undefined || Number.isNaN(value)) {
       return null;
     }
-    return detectedUnit === 'CELSIUS' ? celsiusToFahrenheit(value) : value;
+    return convertToCelsiusForStorage(value, detectedUnit);
   };
 
   const firstDate = parsedRows[0].parsedDate as Date;
