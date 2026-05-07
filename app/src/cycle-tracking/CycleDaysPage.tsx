@@ -114,7 +114,7 @@ export default function CycleDaysPage() {
                         BBT:{' '}
                         {day.bbt ? (
                           <>
-                            {settings ? formatTemperature(day.bbt, settings.temperatureUnit) : `${day.bbt.toFixed(2)}°F`}
+                            {formatTemperature(day.bbt, settings?.temperatureUnit ?? 'FAHRENHEIT')}
                             {day.excludeFromInterpretation && (
                               <span className="text-xs text-muted-foreground ml-1">(excl)</span>
                             )}
@@ -193,7 +193,7 @@ export default function CycleDaysPage() {
                         <td className="py-3 px-4">
                           {day.bbt ? (
                             <span>
-                              {settings ? formatTemperature(day.bbt, settings.temperatureUnit) : `${day.bbt.toFixed(2)}°F`}
+                              {formatTemperature(day.bbt, settings?.temperatureUnit ?? 'FAHRENHEIT')}
                               {day.excludeFromInterpretation && (
                                 <span className="text-xs text-muted-foreground ml-1">(excl.)</span>
                               )}

@@ -1,7 +1,7 @@
 // app/src/cycle-tracking/interpretation/components/ThermalShiftAnnotations.tsx
 import type { CycleDayInput } from '../types';
 import type { ChartAnnotationData } from '../getChartAnnotations';
-import { fahrenheitToCelsius } from '../../utils';
+import { toDisplayTemperature } from '../../utils';
 
 export type ThermalShiftLayerProps = {
   data: ChartAnnotationData;
@@ -89,9 +89,8 @@ function useChartProjection(props: ThermalShiftLayerProps) {
   const dotPosition = (dayNumber: number): { x: number; y: number } | null => {
     const day = dayMap.get(dayNumber);
     if (!day || day.bbt === null) return null;
-    const tempInDisplay =
-      temperatureUnit === 'CELSIUS' ? fahrenheitToCelsius(day.bbt) : day.bbt;
-    return { x: dayToX(dayNumber), y: tempToY(tempInDisplay) };
+    const display = toDisplayTemperature(day.bbt, temperatureUnit);
+    return { x: dayToX(dayNumber), y: tempToY(display) };
   };
 
   const columnRect = (
