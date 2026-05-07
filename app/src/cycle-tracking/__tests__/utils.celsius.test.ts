@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toDisplayTemperature } from '../utils';
+import { toDisplayTemperature, convertToCelsiusForStorage } from '../utils';
 
 describe('toDisplayTemperature', () => {
   it('returns the Celsius value unchanged when unit is CELSIUS', () => {
@@ -30,5 +30,22 @@ describe('toDisplayTemperature', () => {
   it('treats 0 °C as a real value, not nullish', () => {
     expect(toDisplayTemperature(0, 'CELSIUS')).toBe(0);
     expect(toDisplayTemperature(0, 'FAHRENHEIT')).toBe(32);
+  });
+});
+
+describe('convertToCelsiusForStorage', () => {
+  it('returns Celsius input unchanged', () => {
+    expect(convertToCelsiusForStorage(36.5, 'CELSIUS')).toBe(36.5);
+  });
+
+  it('converts Fahrenheit input to Celsius at full precision', () => {
+    // 97.7 °F = (97.7 - 32) * 5/9 = 36.5 °C exactly
+    expect(convertToCelsiusForStorage(97.7, 'FAHRENHEIT')).toBeCloseTo(36.5, 10);
+  });
+
+  it('does not round the result', () => {
+    // 97.55 °F → 36.41666… °C (does not terminate at 2 decimals)
+    const result = convertToCelsiusForStorage(97.55, 'FAHRENHEIT');
+    expect(result).toBeCloseTo(36.41666666, 6);
   });
 });

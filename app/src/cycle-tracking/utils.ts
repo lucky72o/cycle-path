@@ -54,11 +54,13 @@ export function formatTemperature(tempInFahrenheit: number, unit: TemperatureUni
 }
 
 /**
- * Convert temperature to Fahrenheit for storage (if user entered in Celsius)
+ * Convert temperature to Celsius for storage (canonical unit).
+ * If the user entered the value in Fahrenheit, convert at full float precision.
+ * No rounding — the engine consumes the raw float.
  */
-export function convertToFahrenheitForStorage(temp: number, inputUnit: TemperatureUnit): number {
-  if (inputUnit === 'CELSIUS') {
-    return celsiusToFahrenheit(temp);
+export function convertToCelsiusForStorage(temp: number, inputUnit: TemperatureUnit): number {
+  if (inputUnit === 'FAHRENHEIT') {
+    return fahrenheitToCelsius(temp);
   }
   return temp;
 }

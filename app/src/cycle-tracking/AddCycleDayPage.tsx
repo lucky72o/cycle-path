@@ -8,7 +8,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
 import { Info } from 'lucide-react';
-import { formatDateForInput, convertToFahrenheitForStorage, fahrenheitToCelsius, formatTemperature } from './utils';
+import { formatDateForInput, convertToCelsiusForStorage, fahrenheitToCelsius, formatTemperature } from './utils';
 import { NOTE_MAX_LENGTH } from './notesValidation';
 import SideNav from './SideNav';
 
@@ -98,16 +98,16 @@ export default function AddCycleDayPage() {
     try {
       const { createOrUpdateCycleDay } = await import('wasp/client/operations');
       
-      // Convert temperature to Fahrenheit if user entered in Celsius
+      // Convert temperature to Celsius for storage
       const bbtValue = bbt ? parseFloat(bbt) : undefined;
-      const bbtInFahrenheit = bbtValue && settings
-        ? convertToFahrenheitForStorage(bbtValue, settings.temperatureUnit)
+      const bbtForStorage = bbtValue !== undefined && settings
+        ? convertToCelsiusForStorage(bbtValue, settings.temperatureUnit)
         : bbtValue;
 
       await createOrUpdateCycleDay({
         cycleId,
         date,
-        bbt: bbtInFahrenheit,
+        bbt: bbtForStorage,
         bbtTime: bbtTime || undefined,
         hadIntercourse,
         excludeFromInterpretation,
