@@ -64,6 +64,27 @@ export function convertToFahrenheitForStorage(temp: number, inputUnit: Temperatu
 }
 
 /**
+ * Convert a stored canonical-Celsius temperature to the user's preferred display unit.
+ * Returns a raw number (no rounding) suitable for plotting, interpolation, and
+ * positioning math. For human-readable strings with unit suffix, use formatTemperature.
+ */
+export function toDisplayTemperature(
+  celsiusValue: number,
+  unit: TemperatureUnit
+): number;
+export function toDisplayTemperature(
+  celsiusValue: number | null | undefined,
+  unit: TemperatureUnit
+): number | null;
+export function toDisplayTemperature(
+  celsiusValue: number | null | undefined,
+  unit: TemperatureUnit
+): number | null {
+  if (celsiusValue == null) return null;
+  return unit === 'CELSIUS' ? celsiusValue : celsiusToFahrenheit(celsiusValue);
+}
+
+/**
  * Get day of week name from date
  */
 export function getDayOfWeek(date: Date): string {
