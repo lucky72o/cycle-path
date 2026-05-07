@@ -34,7 +34,8 @@
 | `app/src/cycle-tracking/AddCycleDayPage.tsx` | modify | Submit handler with no-op preservation + clear-on-empty; prefill via `toDisplayTemperature` |
 | `app/src/cycle-tracking/__tests__/AddCycleDayPage.celsius.test.tsx` | create | Form-behaviour regression tests |
 | `app/src/cycle-tracking/NewCyclePage.tsx` | modify | Switch BBT submit to `convertToCelsiusForStorage(parseFloat(bbt), tempUnit)` |
-| `app/src/cycle-tracking/operations.ts` | modify | Widen `bbt?: number` → `bbt?: number \| null` in `createOrUpdateCycleDay` args; CSV import path uses `convertToCelsiusForStorage` |
+| `app/src/cycle-tracking/cycleDayDataBuilders.ts` | modify | Widen `bbt?: number` → `bbt?: number \| null` in `CycleDayPartialArgs` |
+| `app/src/cycle-tracking/operations.ts` | modify | CSV import path uses `convertToCelsiusForStorage` |
 | `app/src/cycle-tracking/CycleChartPage.tsx` | modify | Six chart math sites + tooltip route through `toDisplayTemperature` / `toDisplayTemperature(...).toFixed(2)` |
 | `app/src/cycle-tracking/CycleDaysPage.tsx` | modify | Replace `${day.bbt.toFixed(2)}°F` fallback with `formatTemperature(day.bbt, settings?.temperatureUnit ?? 'FAHRENHEIT')` |
 | `app/src/cycle-tracking/interpretation/components/ThermalShiftAnnotations.tsx` | modify | Annotation Y position via `toDisplayTemperature` |
@@ -768,21 +769,33 @@ The most behaviour-rich form change. Adds:
 
 **Files:**
 - Modify: `app/src/cycle-tracking/AddCycleDayPage.tsx`
-- Modify: `app/src/cycle-tracking/operations.ts`
+- Modify: `app/src/cycle-tracking/cycleDayDataBuilders.ts`
 
-- [ ] **Step 1: Widen the `createOrUpdateCycleDay` args type in `operations.ts`**
+- [ ] **Step 1: Widen `bbt` in `CycleDayPartialArgs`**
 
-Around `operations.ts` line 330, in the type definition for `createOrUpdateCycleDay`:
+The chart-notes-row branch (PR #2) extracted the inline create/update payloads into [`cycleDayDataBuilders.ts`](../../../app/src/cycle-tracking/cycleDayDataBuilders.ts). The args type is `CycleDayPartialArgs` (line 5) and the action's `CreateOrUpdateCycleDayArgs` extends it.
+
+In `cycleDayDataBuilders.ts` around line 5, change:
 
 ```ts
-type CreateOrUpdateCycleDayArgs = {
-  // ...
-  bbt?: number | null;   // was: bbt?: number;
+export type CycleDayPartialArgs = {
+  bbt?: number;          // was
   // ...
 };
 ```
 
-The inline `data: { bbt: args.bbt, ... }` literals in the action body (around lines 392 and 412) accept `number | null | undefined` already from Prisma's generated types — no separate change needed once the args type is wider. Verify `npx tsc --noEmit` passes.
+to:
+
+```ts
+export type CycleDayPartialArgs = {
+  bbt?: number | null;   // now: explicit null persists, undefined is omitted
+  // ...
+};
+```
+
+The builders' `'bbt' in args` discrimination already correctly distinguishes "absent" from "explicit value" — both `bbt: undefined` and an absent `bbt` key would behave the same way through the `'in'` check, but the conditional spread in Step 4 ensures we never send `bbt: undefined` on the wire anyway.
+
+Run `npx tsc --noEmit` to confirm the type widens cleanly through `CreateOrUpdateCycleDayArgs` in `operations.ts` (which extends `CycleDayPartialArgs`).
 
 - [ ] **Step 2: Add a `prefilledBbt` ref in `AddCycleDayPage.tsx`**
 
