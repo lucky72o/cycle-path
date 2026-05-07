@@ -432,7 +432,7 @@ In `app/src/cycle-tracking/interpretation/sensiplan/thermalShift.ts`:
 
 > Note: `interpretation/getActiveCoverline.ts` does **not** import `fahrenheitToCelsius` directly. The conversion was previously done inside `collectReferenceDays`, which lives in `sensiplan/excludedDays.ts` (and is removed in the next step). After that step, `getActiveCoverline.ts` automatically reads Celsius values via the same import — no direct change is required here.
 
-- [ ] **Step 2: Remove `fahrenheitToCelsius` from the remaining seven engine files**
+- [ ] **Step 2: Remove `fahrenheitToCelsius` from the remaining six engine files**
 
 Apply the same pattern to:
 
@@ -829,12 +829,16 @@ In `handleSubmit` (around line 90–115), replace the BBT block:
 
 ```ts
 const bbtChanged = bbt !== prefilledBbt;
+// `settings` is `possibly 'undefined'` while loading; narrow to a known unit
+// so the storage helper sees a concrete TemperatureUnit (matches the same
+// pattern used by NewCyclePage's `tempUnit` local).
+const inputUnit = settings?.temperatureUnit ?? 'FAHRENHEIT';
 const bbtForStorage: number | null | undefined =
   existingDay && !bbtChanged
     ? existingDay.bbt                                       // preserve raw stored value
     : bbt === ''
       ? (existingDay ? null : undefined)                    // explicit clear (existing) vs new-day-no-input
-      : convertToCelsiusForStorage(parseFloat(bbt), settings.temperatureUnit);
+      : convertToCelsiusForStorage(parseFloat(bbt), inputUnit);
 
 await createOrUpdateCycleDay({
   cycleId,
