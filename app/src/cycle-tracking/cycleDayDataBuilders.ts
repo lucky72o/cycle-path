@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { normalizeNote } from './notesValidation';
 
 export type CycleDayPartialArgs = {
-  bbt?: number;
+  bbt?: number | null;
   bbtTime?: string;
   hadIntercourse?: boolean;
   excludeFromInterpretation?: boolean;

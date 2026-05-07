@@ -8,7 +8,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
 import { Info } from 'lucide-react';
-import { formatDateForInput, convertToCelsiusForStorage, fahrenheitToCelsius, formatTemperature } from './utils';
+import { formatDateForInput, convertToCelsiusForStorage, toDisplayTemperature, formatTemperature } from './utils';
 import { NOTE_MAX_LENGTH } from './notesValidation';
 import SideNav from './SideNav';
 
@@ -40,6 +40,7 @@ export default function AddCycleDayPage() {
 
   const [date, setDate] = useState(formatDateForInput(new Date()));
   const [bbt, setBbt] = useState('');
+  const [prefilledBbt, setPrefilledBbt] = useState<string>('');
   const [bbtTime, setBbtTime] = useState('');
   const [hadIntercourse, setHadIntercourse] = useState(false);
   const [excludeFromInterpretation, setExcludeFromInterpretation] = useState(false);
@@ -61,15 +62,18 @@ export default function AddCycleDayPage() {
   useEffect(() => {
     if (existingDay && settings) {
       setDate(formatDateForInput(new Date(existingDay.date)));
-      
-      // Convert temperature to user's preferred unit for display
-      if (existingDay.bbt) {
-        const tempForDisplay = settings.temperatureUnit === 'CELSIUS'
-          ? fahrenheitToCelsius(existingDay.bbt).toFixed(2)
-          : existingDay.bbt.toFixed(2);
-        setBbt(tempForDisplay);
+
+      if (existingDay.bbt != null) {
+        // Inside this branch existingDay.bbt is `number`, so the non-nullable
+        // overload of toDisplayTemperature applies and .toFixed(2) type-checks.
+        const display = toDisplayTemperature(existingDay.bbt, settings.temperatureUnit).toFixed(2);
+        setBbt(display);
+        setPrefilledBbt(display);
+      } else {
+        setBbt('');
+        setPrefilledBbt('');
       }
-      
+
       setBbtTime(existingDay.bbtTime || '');
       setHadIntercourse(existingDay.hadIntercourse || false);
       setExcludeFromInterpretation(existingDay.excludeFromInterpretation || false);
@@ -98,16 +102,35 @@ export default function AddCycleDayPage() {
     try {
       const { createOrUpdateCycleDay } = await import('wasp/client/operations');
       
-      // Convert temperature to Celsius for storage
-      const bbtValue = bbt ? parseFloat(bbt) : undefined;
-      const bbtForStorage = bbtValue !== undefined && settings
-        ? convertToCelsiusForStorage(bbtValue, settings.temperatureUnit)
-        : bbtValue;
+      const bbtChanged = bbt !== prefilledBbt;
+      // `settings` is `possibly 'undefined'` while loading; narrow to a known unit
+      // so the storage helper sees a concrete TemperatureUnit (matches the same
+      // pattern used by NewCyclePage's `tempUnit` local).
+      const inputUnit = settings?.temperatureUnit ?? 'FAHRENHEIT';
+
+      let bbtForStorage: number | null | undefined;
+      if (existingDay && !bbtChanged) {
+        // No-op edit on an existing day: preserve the raw stored value so a
+        // prefill→submit round-trip through .toFixed(2) cannot silently
+        // truncate precision (e.g. 36.6996 → "36.70" → 36.7).
+        bbtForStorage = existingDay.bbt;
+      } else if (bbt === '') {
+        // Empty input: on an existing day this is an explicit clear (Prisma
+        // sets the column to NULL); on a new day there's nothing to write yet.
+        bbtForStorage = existingDay ? null : undefined;
+      } else {
+        bbtForStorage = convertToCelsiusForStorage(parseFloat(bbt), inputUnit);
+      }
 
       await createOrUpdateCycleDay({
         cycleId,
         date,
-        bbt: bbtForStorage,
+        // Only include bbt when we have a definite value to send (number) or an
+        // explicit clear (null). When bbtForStorage is undefined (new day, no
+        // input), the property is omitted entirely so Prisma sees no key — never
+        // a literal `bbt: undefined`, which would otherwise serialise as a no-op
+        // and obscure intent.
+        ...(bbtForStorage !== undefined && { bbt: bbtForStorage }),
         bbtTime: bbtTime || undefined,
         hadIntercourse,
         excludeFromInterpretation,
