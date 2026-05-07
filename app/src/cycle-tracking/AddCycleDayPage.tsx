@@ -8,7 +8,8 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
 import { Info } from 'lucide-react';
-import { formatDateForInput, convertToCelsiusForStorage, toDisplayTemperature, formatTemperature } from './utils';
+import { formatDateForInput, toDisplayTemperature, formatTemperature } from './utils';
+import { computeBbtForStorage } from './computeBbtForStorage';
 import { NOTE_MAX_LENGTH } from './notesValidation';
 import SideNav from './SideNav';
 
@@ -102,25 +103,13 @@ export default function AddCycleDayPage() {
     try {
       const { createOrUpdateCycleDay } = await import('wasp/client/operations');
       
-      const bbtChanged = bbt !== prefilledBbt;
-      // `settings` is `possibly 'undefined'` while loading; narrow to a known unit
-      // so the storage helper sees a concrete TemperatureUnit (matches the same
-      // pattern used by NewCyclePage's `tempUnit` local).
-      const inputUnit = settings?.temperatureUnit ?? 'FAHRENHEIT';
-
-      let bbtForStorage: number | null | undefined;
-      if (existingDay && !bbtChanged) {
-        // No-op edit on an existing day: preserve the raw stored value so a
-        // prefill→submit round-trip through .toFixed(2) cannot silently
-        // truncate precision (e.g. 36.6996 → "36.70" → 36.7).
-        bbtForStorage = existingDay.bbt;
-      } else if (bbt === '') {
-        // Empty input: on an existing day this is an explicit clear (Prisma
-        // sets the column to NULL); on a new day there's nothing to write yet.
-        bbtForStorage = existingDay ? null : undefined;
-      } else {
-        bbtForStorage = convertToCelsiusForStorage(parseFloat(bbt), inputUnit);
-      }
+      const bbtForStorage = computeBbtForStorage({
+        bbt,
+        prefilledBbt,
+        existingDayBbt: existingDay?.bbt,
+        hasExistingDay: !!existingDay,
+        inputUnit: settings?.temperatureUnit ?? 'FAHRENHEIT',
+      });
 
       await createOrUpdateCycleDay({
         cycleId,
