@@ -43,14 +43,16 @@ export function celsiusToFahrenheit(celsius: number): number {
 }
 
 /**
- * Format temperature with proper decimal places and unit
+ * Format a canonical-Celsius temperature for display.
+ * Takes a Celsius value and renders it in the user's preferred unit with a unit suffix.
+ * Display rounding only — engine logic uses raw values.
  */
-export function formatTemperature(tempInFahrenheit: number, unit: TemperatureUnit): string {
-  if (unit === 'CELSIUS') {
-    const celsius = fahrenheitToCelsius(tempInFahrenheit);
-    return `${celsius.toFixed(2)}°C`;
+export function formatTemperature(celsiusValue: number, unit: TemperatureUnit): string {
+  if (unit === 'FAHRENHEIT') {
+    const fahrenheit = celsiusToFahrenheit(celsiusValue);
+    return `${fahrenheit.toFixed(2)}°F`;
   }
-  return `${tempInFahrenheit.toFixed(2)}°F`;
+  return `${celsiusValue.toFixed(2)}°C`;
 }
 
 /**

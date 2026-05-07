@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toDisplayTemperature, convertToCelsiusForStorage } from '../utils';
+import { toDisplayTemperature, convertToCelsiusForStorage, formatTemperature } from '../utils';
 
 describe('toDisplayTemperature', () => {
   it('returns the Celsius value unchanged when unit is CELSIUS', () => {
@@ -47,5 +47,22 @@ describe('convertToCelsiusForStorage', () => {
     // 97.55 °F → 36.41666… °C (does not terminate at 2 decimals)
     const result = convertToCelsiusForStorage(97.55, 'FAHRENHEIT');
     expect(result).toBeCloseTo(36.41666666, 6);
+  });
+});
+
+describe('formatTemperature (Celsius input)', () => {
+  it('formats Celsius values directly', () => {
+    expect(formatTemperature(36.5, 'CELSIUS')).toBe('36.50°C');
+  });
+
+  it('converts Celsius to Fahrenheit at display time', () => {
+    // 36.5 °C = 97.7 °F
+    expect(formatTemperature(36.5, 'FAHRENHEIT')).toBe('97.70°F');
+  });
+
+  it('rounds to two decimal places at the boundary, not before', () => {
+    // 36.6996 °C → 36.70 °C / 98.06 °F (display rounding only)
+    expect(formatTemperature(36.6996, 'CELSIUS')).toBe('36.70°C');
+    expect(formatTemperature(36.6996, 'FAHRENHEIT')).toBe('98.06°F');
   });
 });
