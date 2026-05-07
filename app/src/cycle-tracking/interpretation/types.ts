@@ -5,7 +5,7 @@
 /** A single cycle day as consumed by the interpretation engine. */
 export type CycleDayInput = {
   dayNumber: number;
-  bbt: number | null;             // Fahrenheit (as stored in DB)
+  bbt: number | null;             // Celsius (as stored in DB)
   bbtTime: string | null;         // "HH:MM" or null
   excludeFromInterpretation: boolean;
   disturbanceFactors: string[];

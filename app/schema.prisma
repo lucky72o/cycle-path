@@ -191,6 +191,8 @@ model CycleDay {
   date                        DateTime
   dayOfWeek                   String
 
+  /// Stored in Celsius (canonical unit). Fahrenheit is only a display view.
+  /// See docs/superpowers/specs/2026-05-05-celsius-storage-migration-design.md
   bbt                         Float?
   bbtTime                     String?
   excludeFromInterpretation   Boolean   @default(false)
