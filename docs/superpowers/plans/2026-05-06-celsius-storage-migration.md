@@ -69,9 +69,9 @@ describe('toDisplayTemperature', () => {
   });
 
   it('converts at full float precision (no rounding)', () => {
-    // 36.6996 °C = 97.85928 °F
+    // 36.6996 °C = 98.05928 °F
     const result = toDisplayTemperature(36.6996, 'FAHRENHEIT');
-    expect(result).toBeCloseTo(97.85928, 10);
+    expect(result).toBeCloseTo(98.05928, 10);
   });
 
   it('returns null for null input', () => {
