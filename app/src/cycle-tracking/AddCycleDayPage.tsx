@@ -8,7 +8,8 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
 import { Info } from 'lucide-react';
-import { formatDateForInput, convertToFahrenheitForStorage, fahrenheitToCelsius, formatTemperature } from './utils';
+import { formatDateForInput, toDisplayTemperature, formatTemperature } from './utils';
+import { computeBbtForStorage } from './computeBbtForStorage';
 import { NOTE_MAX_LENGTH } from './notesValidation';
 import SideNav from './SideNav';
 
@@ -40,6 +41,7 @@ export default function AddCycleDayPage() {
 
   const [date, setDate] = useState(formatDateForInput(new Date()));
   const [bbt, setBbt] = useState('');
+  const [prefilledBbt, setPrefilledBbt] = useState<string>('');
   const [bbtTime, setBbtTime] = useState('');
   const [hadIntercourse, setHadIntercourse] = useState(false);
   const [excludeFromInterpretation, setExcludeFromInterpretation] = useState(false);
@@ -61,15 +63,18 @@ export default function AddCycleDayPage() {
   useEffect(() => {
     if (existingDay && settings) {
       setDate(formatDateForInput(new Date(existingDay.date)));
-      
-      // Convert temperature to user's preferred unit for display
-      if (existingDay.bbt) {
-        const tempForDisplay = settings.temperatureUnit === 'CELSIUS'
-          ? fahrenheitToCelsius(existingDay.bbt).toFixed(2)
-          : existingDay.bbt.toFixed(2);
-        setBbt(tempForDisplay);
+
+      if (existingDay.bbt != null) {
+        // Inside this branch existingDay.bbt is `number`, so the non-nullable
+        // overload of toDisplayTemperature applies and .toFixed(2) type-checks.
+        const display = toDisplayTemperature(existingDay.bbt, settings.temperatureUnit).toFixed(2);
+        setBbt(display);
+        setPrefilledBbt(display);
+      } else {
+        setBbt('');
+        setPrefilledBbt('');
       }
-      
+
       setBbtTime(existingDay.bbtTime || '');
       setHadIntercourse(existingDay.hadIntercourse || false);
       setExcludeFromInterpretation(existingDay.excludeFromInterpretation || false);
@@ -98,16 +103,23 @@ export default function AddCycleDayPage() {
     try {
       const { createOrUpdateCycleDay } = await import('wasp/client/operations');
       
-      // Convert temperature to Fahrenheit if user entered in Celsius
-      const bbtValue = bbt ? parseFloat(bbt) : undefined;
-      const bbtInFahrenheit = bbtValue && settings
-        ? convertToFahrenheitForStorage(bbtValue, settings.temperatureUnit)
-        : bbtValue;
+      const bbtForStorage = computeBbtForStorage({
+        bbt,
+        prefilledBbt,
+        existingDayBbt: existingDay?.bbt,
+        hasExistingDay: !!existingDay,
+        inputUnit: settings?.temperatureUnit ?? 'FAHRENHEIT',
+      });
 
       await createOrUpdateCycleDay({
         cycleId,
         date,
-        bbt: bbtInFahrenheit,
+        // Only include bbt when we have a definite value to send (number) or an
+        // explicit clear (null). When bbtForStorage is undefined (new day, no
+        // input), the property is omitted entirely so Prisma sees no key — never
+        // a literal `bbt: undefined`, which would otherwise serialise as a no-op
+        // and obscure intent.
+        ...(bbtForStorage !== undefined && { bbt: bbtForStorage }),
         bbtTime: bbtTime || undefined,
         hadIntercourse,
         excludeFromInterpretation,

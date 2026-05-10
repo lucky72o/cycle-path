@@ -8,10 +8,10 @@ import type { CycleDayInput } from '../types';
 
 // ---- Data-shape helpers ----
 
-function day(n: number, bbtF: number | null, opts: Partial<CycleDayInput> = {}): CycleDayInput {
+function day(n: number, bbtC: number | null, opts: Partial<CycleDayInput> = {}): CycleDayInput {
   return {
     dayNumber: n,
-    bbt: bbtF,
+    bbt: bbtC,
     bbtTime: null,
     excludeFromInterpretation: false,
     disturbanceFactors: [],
@@ -20,37 +20,36 @@ function day(n: number, bbtF: number | null, opts: Partial<CycleDayInput> = {}):
   };
 }
 
-function cToF(c: number): number { return (c * 9) / 5 + 32; }
 
 /** Days that force engine → none + no_shift_detected (zigzag, no biphasic). */
 function daysWithNoShift(): CycleDayInput[] {
   const d: CycleDayInput[] = [];
   for (let i = 1; i <= 24; i++) {
-    d.push(day(i, cToF(36.3 + (i % 2 === 0 ? 0.05 : -0.05))));
+    d.push(day(i, 36.3 + (i % 2 === 0 ? 0.05 : -0.05)));
   }
   return d;
 }
 
 /** Days that force engine → none + insufficient_data (< 6 valid temps). */
 function daysWithInsufficientData(): CycleDayInput[] {
-  return [day(1, cToF(36.3)), day(2, cToF(36.2)), day(3, cToF(36.3))];
+  return [day(1, 36.3), day(2, 36.2), day(3, 36.3)];
 }
 
 /** Days that force engine → confirmed (clear biphasic). */
 function daysWithConfirmedShift(): CycleDayInput[] {
   const d: CycleDayInput[] = [];
-  for (let i = 1; i <= 6; i++) d.push(day(i, cToF(36.2)));
-  d.push(day(7, cToF(36.55)));
-  d.push(day(8, cToF(36.55)));
-  d.push(day(9, cToF(36.50)));
+  for (let i = 1; i <= 6; i++) d.push(day(i, 36.2));
+  d.push(day(7, 36.55));
+  d.push(day(8, 36.55));
+  d.push(day(9, 36.50));
   return d;
 }
 
 /** Days that force engine → pending (candidate, no confirmation). */
 function daysWithPendingShift(): CycleDayInput[] {
   const d: CycleDayInput[] = [];
-  for (let i = 1; i <= 6; i++) d.push(day(i, cToF(36.2)));
-  d.push(day(7, cToF(36.55)));
+  for (let i = 1; i <= 6; i++) d.push(day(i, 36.2));
+  d.push(day(7, 36.55));
   return d;
 }
 

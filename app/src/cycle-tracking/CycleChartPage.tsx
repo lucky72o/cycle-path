@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { fahrenheitToCelsius, celsiusToFahrenheit, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviation, getDayOfWeek, getCycleDayCount, getTempNodeLabel } from './utils';
+import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviation, getDayOfWeek, getCycleDayCount, getTempNodeLabel } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 import { useInterpretation } from './interpretation/hooks/useInterpretation';
@@ -213,10 +213,7 @@ export default function CycleChartPage() {
       const day = allBBTDaysMap.get(dayNumber);
       
       if (day && day.bbt !== null) {
-        const temp = tempUnit === 'CELSIUS' 
-          ? fahrenheitToCelsius(day.bbt!)
-          : day.bbt!;
-        const tempValue = Number(temp.toFixed(2));
+        const tempValue = toDisplayTemperature(day.bbt!, tempUnit);
         
         allPoints.push({ 
           x: dayNumber, 
@@ -375,8 +372,8 @@ export default function CycleChartPage() {
         // Only mark days with no BBT at all; excluded days already show a grey dot
         if (!existing || existing.bbt === null) {
           const t = (day - p1.dayNumber) / (p2.dayNumber - p1.dayNumber);
-          const t1 = settings.temperatureUnit === 'CELSIUS' ? fahrenheitToCelsius(p1.bbt) : p1.bbt;
-          const t2 = settings.temperatureUnit === 'CELSIUS' ? fahrenheitToCelsius(p2.bbt) : p2.bbt;
+          const t1 = toDisplayTemperature(p1.bbt, settings.temperatureUnit);
+          const t2 = toDisplayTemperature(p2.bbt, settings.temperatureUnit);
           result.push({ dayNumber: day, interpolatedTemp: t1 + (t2 - t1) * t });
         }
       }
@@ -671,9 +668,7 @@ export default function CycleChartPage() {
           if (coverlineC == null || state === 'DISMISSED' || isMarked) return [];
 
           // Convert to display unit
-          const coverlineDisplay = settings.temperatureUnit === 'CELSIUS'
-            ? coverlineC
-            : celsiusToFahrenheit(coverlineC);
+          const coverlineDisplay = toDisplayTemperature(coverlineC, settings.temperatureUnit);
 
           const styleMap: Record<string, { color: string; dash: number; opacity: number }> = {
             SUGGESTED: { color: '#8b5cf6', dash: 6, opacity: 0.6 },
@@ -688,7 +683,7 @@ export default function CycleChartPage() {
             strokeDashArray: style.dash,
             opacity: style.opacity,
             label: {
-              text: `${coverlineC.toFixed(2)}°C`,
+              text: formatTemperature(coverlineC, settings.temperatureUnit),
               position: 'right' as const,
               style: { color: style.color, fontSize: '10px', background: 'transparent' },
             },
@@ -1373,9 +1368,7 @@ export default function CycleChartPage() {
                         
                         if (day && day.bbt !== null) {
                           // Has BBT: start at temperature point y-position
-                          const temp = settings?.temperatureUnit === 'CELSIUS' 
-                            ? fahrenheitToCelsius(day.bbt)
-                            : day.bbt;
+                          const temp = toDisplayTemperature(day.bbt, settings?.temperatureUnit ?? 'FAHRENHEIT');
                           startY = plotAreaTop + ((yAxisRange.max - temp) / (yAxisRange.max - yAxisRange.min)) * plotAreaHeight;
                         }
                         
@@ -1497,10 +1490,8 @@ export default function CycleChartPage() {
                 const day = allCycleDaysMap.get(tooltipDayNumber);
                 if (!day) return null;
                 const bbtDay = chartData.allDaysMap.get(tooltipDayNumber);
-                const temp = bbtDay?.bbt
-                  ? (settings?.temperatureUnit === 'CELSIUS'
-                      ? fahrenheitToCelsius(bbtDay.bbt).toFixed(2)
-                      : bbtDay.bbt.toFixed(2))
+                const temp = bbtDay?.bbt != null
+                  ? toDisplayTemperature(bbtDay.bbt, settings?.temperatureUnit ?? 'FAHRENHEIT').toFixed(2)
                   : null;
                 const tempUnit = settings?.temperatureUnit === 'CELSIUS' ? '°C' : '°F';
                 // Position tooltip at cell-centre so it stays stable while the cursor
@@ -1633,9 +1624,7 @@ export default function CycleChartPage() {
                     
                     if (day && day.bbt !== null) {
                       // Peak day WITH BBT: place at temperature point
-                      const temp = settings?.temperatureUnit === 'CELSIUS' 
-                        ? fahrenheitToCelsius(day.bbt)
-                        : day.bbt;
+                      const temp = toDisplayTemperature(day.bbt, settings?.temperatureUnit ?? 'FAHRENHEIT');
                       yPos = plotAreaTop + ((yAxisRange.max - temp) / (yAxisRange.max - yAxisRange.min)) * plotAreaHeight;
                     } else {
                       // Peak day WITHOUT BBT: center vertically in plot area

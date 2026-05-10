@@ -2,7 +2,6 @@ import type { CycleDayInput } from '../types';
 import { collectReferenceDays } from './excludedDays';
 import { detectThermalShift } from './thermalShift';
 import { checkFourthDayException } from './fourthDayException';
-import { fahrenheitToCelsius } from '../../utils';
 
 const THRESHOLD_C = 0.2;
 
@@ -113,7 +112,7 @@ export function validateAdjustment(
   const { coverlineTemp, referenceDays, skippedDays } = refResult;
 
   // 4. Picked day above coverline
-  const pickedTempC = fahrenheitToCelsius(pickedDay.bbt);
+  const pickedTempC = pickedDay.bbt;
   if (pickedTempC <= coverlineTemp) {
     return { kind: 'invalid', reason: 'not_above_coverline' };
   }
@@ -180,7 +179,7 @@ function checkConfirmingFromPicked(
       i++;
       continue;
     }
-    const tempC = fahrenheitToCelsius(d.bbt);
+    const tempC = d.bbt;
     const positionInConfirm = confirmingDays.length + 1;
 
     if (positionInConfirm === 1) {

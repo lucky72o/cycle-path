@@ -43,24 +43,49 @@ export function celsiusToFahrenheit(celsius: number): number {
 }
 
 /**
- * Format temperature with proper decimal places and unit
+ * Format a canonical-Celsius temperature for display.
+ * Takes a Celsius value and renders it in the user's preferred unit with a unit suffix.
+ * Display rounding only — engine logic uses raw values.
  */
-export function formatTemperature(tempInFahrenheit: number, unit: TemperatureUnit): string {
-  if (unit === 'CELSIUS') {
-    const celsius = fahrenheitToCelsius(tempInFahrenheit);
-    return `${celsius.toFixed(2)}°C`;
+export function formatTemperature(celsiusValue: number, unit: TemperatureUnit): string {
+  if (unit === 'FAHRENHEIT') {
+    const fahrenheit = celsiusToFahrenheit(celsiusValue);
+    return `${fahrenheit.toFixed(2)}°F`;
   }
-  return `${tempInFahrenheit.toFixed(2)}°F`;
+  return `${celsiusValue.toFixed(2)}°C`;
 }
 
 /**
- * Convert temperature to Fahrenheit for storage (if user entered in Celsius)
+ * Convert temperature to Celsius for storage (canonical unit).
+ * If the user entered the value in Fahrenheit, convert at full float precision.
+ * No rounding — the engine consumes the raw float.
  */
-export function convertToFahrenheitForStorage(temp: number, inputUnit: TemperatureUnit): number {
-  if (inputUnit === 'CELSIUS') {
-    return celsiusToFahrenheit(temp);
+export function convertToCelsiusForStorage(temp: number, inputUnit: TemperatureUnit): number {
+  if (inputUnit === 'FAHRENHEIT') {
+    return fahrenheitToCelsius(temp);
   }
   return temp;
+}
+
+/**
+ * Convert a stored canonical-Celsius temperature to the user's preferred display unit.
+ * Returns a raw number (no rounding) suitable for plotting, interpolation, and
+ * positioning math. For human-readable strings with unit suffix, use formatTemperature.
+ */
+export function toDisplayTemperature(
+  celsiusValue: number,
+  unit: TemperatureUnit
+): number;
+export function toDisplayTemperature(
+  celsiusValue: number | null | undefined,
+  unit: TemperatureUnit
+): number | null;
+export function toDisplayTemperature(
+  celsiusValue: number | null | undefined,
+  unit: TemperatureUnit
+): number | null {
+  if (celsiusValue == null) return null;
+  return unit === 'CELSIUS' ? celsiusValue : celsiusToFahrenheit(celsiusValue);
 }
 
 /**

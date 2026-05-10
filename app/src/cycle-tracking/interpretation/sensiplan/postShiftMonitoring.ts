@@ -1,5 +1,4 @@
 import type { CycleDayInput, PostShiftMonitoring, DipBelow, Nudge } from '../types';
-import { fahrenheitToCelsius } from '../../utils';
 
 const FALSE_RISE_THRESHOLD = 3;
 
@@ -42,7 +41,7 @@ export function monitorPostShift(
   let maxConsecutiveUnexplained = 0;
 
   for (const d of postShiftDays) {
-    const tempC = fahrenheitToCelsius(d.bbt!);
+    const tempC = d.bbt!;
 
     if (tempC >= coverlineC) {
       // Above coverline — reset consecutive count

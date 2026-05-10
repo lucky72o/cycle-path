@@ -5,7 +5,7 @@ import type { CycleDayInput } from './types';
  * evaluation. Two cycles with identical fingerprints should produce identical
  * engine results.
  *
- * Contributing fields: dayNumber, bbt (to 2dp), excludeFromInterpretation,
+ * Contributing fields: dayNumber, bbt (raw float), excludeFromInterpretation,
  * disturbanceFactors (sorted), travelTimeDiff.
  *
  * Excluded from fingerprint: intercourse, cervical observations, OPK, menstrual
@@ -17,7 +17,7 @@ export function computeCycleDataFingerprint(days: CycleDayInput[]): string {
     .sort((a, b) => a.dayNumber - b.dayNumber)
     .map((d) => ({
       n: d.dayNumber,
-      t: d.bbt !== null ? Number(d.bbt.toFixed(2)) : null,
+      t: d.bbt,  // raw stored Celsius float, no rounding (mirrors engine input exactly)
       x: d.excludeFromInterpretation ? 1 : 0,
       f: [...d.disturbanceFactors].sort(),
       v: d.travelTimeDiff,

@@ -1,12 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { getChartAnnotations, pickAnchorDay } from '../getChartAnnotations';
 import type { CycleDayInput, ThermalShiftResult } from '../types';
-import { celsiusToFahrenheit, fahrenheitToCelsius } from '../../utils';
 
 function buildDays(tempsC: (number | null)[]): CycleDayInput[] {
   return tempsC.map((tC, i) => ({
     dayNumber: i + 1,
-    bbt: tC === null ? null : celsiusToFahrenheit(tC),
+    bbt: tC,
     bbtTime: '06:30',
     excludeFromInterpretation: false,
     disturbanceFactors: [],
@@ -15,14 +14,12 @@ function buildDays(tempsC: (number | null)[]): CycleDayInput[] {
 }
 
 /**
- * Build a `coverlineTemp` value matching the production engine's path:
- * the engine reads stored bbt (Fahrenheit) and converts to Celsius. Tests
- * must use the same round-trip so float-equality assertions exercise the
- * actual production precision behavior, not a literal that coincidentally
- * round-trips through F↔C.
+ * Stored bbt is canonical Celsius, so the coverline matches the input value
+ * directly. (Pre-migration, this round-tripped through F↔C to mirror the
+ * engine's old read path.)
  */
 function makeCoverline(tempC: number): number {
-  return fahrenheitToCelsius(celsiusToFahrenheit(tempC));
+  return tempC;
 }
 
 const engineNone: ThermalShiftResult = {

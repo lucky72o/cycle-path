@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Checkbox } from '../components/ui/checkbox';
 import { Label } from '../components/ui/label';
 import { Info } from 'lucide-react';
-import { formatDateForInput, celsiusToFahrenheit } from './utils';
+import { formatDateForInput, convertToCelsiusForStorage } from './utils';
 import SideNav from './SideNav';
 
 export default function NewCyclePage() {
@@ -185,8 +185,8 @@ export default function NewCyclePage() {
       
       if (hasDayData) {
         // Convert temperature to Fahrenheit for storage if user entered in Celsius
-        const bbtInFahrenheit = bbt 
-          ? (isCelsius ? celsiusToFahrenheit(parseFloat(bbt)) : parseFloat(bbt))
+        const bbtInFahrenheit = bbt
+          ? convertToCelsiusForStorage(parseFloat(bbt), tempUnit)
           : undefined;
 
         await createOrUpdateCycleDay({

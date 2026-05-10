@@ -13,8 +13,8 @@ function day(dayNumber: number, bbt: number | null, bbtTime: string | null, opts
 describe('calculateTimeWindow', () => {
   it('returns hasWindow=false with fewer than 5 data points', () => {
     const days = [
-      day(1, 97.5, '06:30'), day(2, 97.6, '06:45'),
-      day(3, 97.4, '07:00'), day(4, 97.5, '06:50'),
+      day(1, 36.39, '06:30'), day(2, 36.44, '06:45'),
+      day(3, 36.33, '07:00'), day(4, 36.39, '06:50'),
     ];
     const result = calculateTimeWindow(days);
     expect(result.hasWindow).toBe(false);
@@ -23,9 +23,9 @@ describe('calculateTimeWindow', () => {
 
   it('calculates a single-segment window with 5+ data points', () => {
     const days = [
-      day(1, 97.5, '06:30'), day(2, 97.6, '06:45'),
-      day(3, 97.4, '07:00'), day(4, 97.5, '06:50'),
-      day(5, 97.6, '06:35'),
+      day(1, 36.39, '06:30'), day(2, 36.44, '06:45'),
+      day(3, 36.33, '07:00'), day(4, 36.39, '06:50'),
+      day(5, 36.44, '06:35'),
     ];
     const result = calculateTimeWindow(days);
     expect(result.hasWindow).toBe(true);
@@ -37,9 +37,9 @@ describe('calculateTimeWindow', () => {
 
   it('handles midnight-crossing times correctly via circular averaging', () => {
     const days = [
-      day(1, 97.5, '23:30'), day(2, 97.6, '23:45'),
-      day(3, 97.4, '00:00'), day(4, 97.5, '00:15'),
-      day(5, 97.6, '00:30'),
+      day(1, 36.39, '23:30'), day(2, 36.44, '23:45'),
+      day(3, 36.33, '00:00'), day(4, 36.39, '00:15'),
+      day(5, 36.44, '00:30'),
     ];
     const result = calculateTimeWindow(days);
     expect(result.hasWindow).toBe(true);
@@ -50,9 +50,9 @@ describe('calculateTimeWindow', () => {
 
   it('skips days with null bbtTime in the calculation', () => {
     const days = [
-      day(1, 97.5, '06:30'), day(2, 97.6, null),
-      day(3, 97.4, '07:00'), day(4, 97.5, '06:50'),
-      day(5, 97.6, '06:35'), day(6, 97.5, '06:40'),
+      day(1, 36.39, '06:30'), day(2, 36.44, null),
+      day(3, 36.33, '07:00'), day(4, 36.39, '06:50'),
+      day(5, 36.44, '06:35'), day(6, 36.39, '06:40'),
     ];
     const result = calculateTimeWindow(days);
     expect(result.hasWindow).toBe(true);
@@ -61,12 +61,12 @@ describe('calculateTimeWindow', () => {
 
   it('splits into segments when travel event detected', () => {
     const days = [
-      day(1, 97.5, '06:30'), day(2, 97.6, '06:45'),
-      day(3, 97.4, '07:00'), day(4, 97.5, '06:50'),
-      day(5, 97.6, '06:35'),
-      day(6, 97.5, '09:30', { travelTimeDiff: 180 }),
-      day(7, 97.6, '09:45'), day(8, 97.4, '10:00'),
-      day(9, 97.5, '09:50'), day(10, 97.6, '09:35'),
+      day(1, 36.39, '06:30'), day(2, 36.44, '06:45'),
+      day(3, 36.33, '07:00'), day(4, 36.39, '06:50'),
+      day(5, 36.44, '06:35'),
+      day(6, 36.39, '09:30', { travelTimeDiff: 180 }),
+      day(7, 36.44, '09:45'), day(8, 36.33, '10:00'),
+      day(9, 36.39, '09:50'), day(10, 36.44, '09:35'),
     ];
     const result = calculateTimeWindow(days);
     expect(result.hasWindow).toBe(true);

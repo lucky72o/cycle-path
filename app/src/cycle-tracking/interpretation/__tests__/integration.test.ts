@@ -10,16 +10,15 @@ function day(dayNumber: number, bbt: number | null, opts?: Partial<CycleDayInput
   };
 }
 
-function cToF(c: number): number { return (c * 9 / 5) + 32; }
 
 describe('runInterpretation (orchestrator)', () => {
   it('returns full result for a textbook shift cycle', () => {
     const days: CycleDayInput[] = [];
     // 6 low temps + 3 confirming
-    for (let i = 1; i <= 6; i++) days.push(day(i, cToF(36.2 + (i % 2) * 0.1)));
-    days.push(day(7, cToF(36.5)));  // 1st higher
-    days.push(day(8, cToF(36.55))); // 2nd higher
-    days.push(day(9, cToF(36.6)));  // 3rd higher ≥ +0.2
+    for (let i = 1; i <= 6; i++) days.push(day(i, 36.2 + (i % 2) * 0.1));
+    days.push(day(7, 36.5));  // 1st higher
+    days.push(day(8, 36.55)); // 2nd higher
+    days.push(day(9, 36.6));  // 3rd higher ≥ +0.2
 
     const result = runInterpretation(days);
 
@@ -31,7 +30,7 @@ describe('runInterpretation (orchestrator)', () => {
   it('returns none result for an anovulatory cycle', () => {
     const days: CycleDayInput[] = [];
     for (let i = 1; i <= 20; i++) {
-      days.push(day(i, cToF(36.2 + (i % 3) * 0.05)));
+      days.push(day(i, 36.2 + (i % 3) * 0.05));
     }
     const result = runInterpretation(days);
     expect(result.thermalShift.status).toBe('none');
@@ -39,8 +38,8 @@ describe('runInterpretation (orchestrator)', () => {
 
   it('returns pending when shift is mid-confirmation', () => {
     const days: CycleDayInput[] = [];
-    for (let i = 1; i <= 6; i++) days.push(day(i, cToF(36.2 + (i % 2) * 0.1)));
-    days.push(day(7, cToF(36.5))); // only 1 higher temp
+    for (let i = 1; i <= 6; i++) days.push(day(i, 36.2 + (i % 2) * 0.1));
+    days.push(day(7, 36.5)); // only 1 higher temp
 
     const result = runInterpretation(days);
     expect(result.thermalShift.status).toBe('pending');
@@ -48,11 +47,11 @@ describe('runInterpretation (orchestrator)', () => {
 
   it('generates post-shift dip nudge when applicable', () => {
     const days: CycleDayInput[] = [];
-    for (let i = 1; i <= 6; i++) days.push(day(i, cToF(36.2 + (i % 2) * 0.1)));
-    days.push(day(7, cToF(36.5)));
-    days.push(day(8, cToF(36.55)));
-    days.push(day(9, cToF(36.6)));
-    days.push(day(10, cToF(36.1))); // dip below coverline
+    for (let i = 1; i <= 6; i++) days.push(day(i, 36.2 + (i % 2) * 0.1));
+    days.push(day(7, 36.5));
+    days.push(day(8, 36.55));
+    days.push(day(9, 36.6));
+    days.push(day(10, 36.1)); // dip below coverline
 
     const result = runInterpretation(days);
     expect(result.thermalShift.status).toBe('confirmed');
