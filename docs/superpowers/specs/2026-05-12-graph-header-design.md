@@ -22,7 +22,7 @@ After this change:
 
 - A thin gutter at the very top shows two pills — e.g. **October** in light blue, **November** in light green — each one positioned where that month begins.
 - The Date row shows just the day numbers (`26 27 28 29 30 31 1 2 3 4 5 6 7`). Under each number is a soft 2-px line, blue for October days, green for November days.
-- The Week Day row shows `M T W Th F Sat Sun M T W …` — each letter inside a small rounded pill matching its month's color.
+- The Week Day row shows `M T W Th F Sa Su M T W …` — each letter inside a small rounded pill matching its month's color.
 - The Cycle Day row shows `1 2 3 …` in the same pill style, also color-matched to the month.
 - The page background and the area inside the chart strip are white. The only colors are the pills (a few), the underlines (one per day), and the chips (two per day).
 
@@ -37,6 +37,7 @@ The end result: less visual chrome, no cramped date strings, and the calendar mo
 - Preserve the existing intercourse-day color treatment on the Cycle Day row (pink text — currently `color: '#ec4899'`).
 - Preserve the existing hover-column highlight, adapted to the new design (see "Hover" below).
 - Preserve all existing left-axis row labels ("Date", "Week Day", "Cycle Day"). They sit in white cells with their current slate text.
+- Replace the static `min-w-[800px]` on the chart container with a `containerMinWidth` computed from `numDays`, so `cellWidth ≥ 22 px` is guaranteed even for long cycles (35+ days). Wider charts continue to scroll horizontally via the existing `overflow-x-auto` wrapper.
 
 ## Scope (out)
 
@@ -141,11 +142,36 @@ For each month in `monthSpans`:
     - 1st-month: background `#dbeafe`, text `#1e3a8a`.
     - 2nd-month: background `#dcfce7`, text `#14532d`.
     - (3rd-month: background `#f1f5f9`, text `#334155`.)
-- **Chip sizing rationale**: the chart's `min-w-[800px]` with a ~80 px `plotAreaOffset` produces a `cellWidth` of roughly `(800 − 80) / numDays`. For numDays ∈ [28..32] (realistic cycle-length range), that's `cellWidth ∈ [22.5px .. 25.7px]`. So the chip must fit a **22-px cell** in the narrow edge case. At 10 px sans-serif:
+- **Chip sizing rationale**: the chip is fixed at ~20 px wide. At 10 px sans-serif:
   - Single-letter labels (`M`, `T`, `W`, `F`) render at ~6–7 px text; the chip is held at `min-width: 20 px`.
   - Two-letter labels (`Th`, `Sa`, `Su`) render at ~12–13 px text; `12 + 8 = 20 px` chip.
-  - Every chip lands at ~20 px wide, fitting a 22-px cell with ~2 px of clearance on each side and a 25-px cell comfortably.
-- **If a future change makes columns narrower than ~22 px** (e.g. supporting 36+ day display ranges at the 800-px-min width, or shrinking `plotAreaOffset` below ~50 px), revisit by: (a) further shrinking chip padding to `0 2px` (gains ~4 px chip headroom), or (b) increasing the chart's `min-w` to keep `cellWidth ≥ 22 px`.
+
+  For the chip to fit comfortably, `cellWidth ≥ 22 px` (gives ~1 px clearance per side). The chart's container `min-w` is made dynamic to **guarantee** this floor regardless of cycle length — see *Long-cycle widening rule* immediately below.
+
+- **Long-cycle widening rule** *(prevents chip overflow at long ranges)*: today's chart hard-codes `min-w-[800px]` (line 1224 of `CycleChartPage.tsx`). `displayDayRange.maxDay` is computed at lines 178–197 and **can exceed 32 days** — for an active cycle it's `Math.max(28, recordedMaxDay)`, and for an ended cycle it's `recordedMaxDay` itself. PCOS / late-ovulation / post-pill cycles regularly hit 35–45 days. At `min-w: 800` and `maxDay: 40`, `cellWidth ≈ 18 px` and the chip overflows.
+
+  Fix: replace the static `min-w-[800px]` with a computed minimum width that scales with `numDays`:
+
+  ```ts
+  const numDays = displayDayRange.maxDay - displayDayRange.minDay + 1;
+  const PLOT_AREA_OFFSET_RESERVE = 90; // conservative upper bound on plotAreaOffset
+  const MIN_CELL_WIDTH = 22;           // px — chip-fit floor
+  const containerMinWidth = Math.max(800, PLOT_AREA_OFFSET_RESERVE + MIN_CELL_WIDTH * numDays);
+  ```
+
+  Applied as `style={{ minWidth: containerMinWidth }}` on the chart container (replacing the `min-w-[800px]` class). The container is already wrapped in `overflow-x-auto` (line 1221), so wider charts simply scroll horizontally on narrower viewports — matching the existing UX for the default 800-px case on small phones.
+
+  Verification table:
+
+  | numDays | min-w (px) | cellWidth ≥ |
+  | ------- | ---------- | ----------- |
+  | 28      | 800        | 25 px       |
+  | 32      | 800        | 22 px       |
+  | 36      | 882        | 22 px       |
+  | 40      | 970        | 22 px       |
+  | 50      | 1190       | 22 px       |
+
+  Tunables (`PLOT_AREA_OFFSET_RESERVE`, `MIN_CELL_WIDTH`) live as named constants near the top of the component so they can be revisited if the chip design changes again.
 
 ### Cycle Day row
 
@@ -271,7 +297,7 @@ This collocates the palette and lets a future tweak ("make second-month green a 
 - **3-month cycle (rare)**: 3rd month falls back to slate (`monthIndex = 2`). Documented as a v1 limitation; we don't introduce a third bright hue.
 - **Year boundary (Dec → Jan)**: the pill text is just the month name (`January`). The year is implicit from the cycle context. v1 does not show year in the pill.
 - **Display range extends beyond cycle end** (forecasted/post-cycle days, if applicable): those days still get a chip + underline based on their `monthIndex`. They follow the same coloring as cycle days in the same calendar month.
-- **Very narrow columns** (long cycle on small screens, cellWidth → ~22 px): chips with `min-width: 20px` still fit. Pills are absolutely positioned and do not depend on column width — they may overflow into adjacent columns on very narrow charts, which is acceptable and matches the reference design.
+- **Long cycles (35–50 days)**: the `containerMinWidth` rule grows the chart wide enough to keep `cellWidth ≥ 22 px`, so chips remain readable. The chart scrolls horizontally inside the `overflow-x-auto` wrapper on phones / narrow viewports. Pills are absolutely positioned and do not depend on column width — they remain anchored to the correct column even when the chart is much wider than the viewport.
 - **Intercourse marker**: pink text color on the cycle-day chip persists; this overrides only the *text* color, not the chip background.
 
 ## Open questions / decisions to confirm
@@ -290,6 +316,7 @@ None unresolved at this point.
   - **Gutter content** — rendered once, *outside* the per-day-number loop. Two new pieces sit at `top: 0`: (a) a blank 22 × `plotAreaOffset` cell prepended to the left-axis label container at lines 1238–1248; (b) a new gutter overlay container containing the hairline + one DOM element per `MonthSpan`.
   - **Per-day cells** — the existing loop's three cells (Date / Week Day / Cycle Day) shift their `top` from `0/36/72` to `22/58/94`. Cell *content* changes per the visual spec (no `/MM` suffix on dates, chips on weekday + cycle-day, colored underline on date).
 - The `paddingTop` on `chartContainerRef` (currently `'108px'` at line 1225) becomes `'130px'` to accommodate the gutter.
+- The static `min-w-[800px]` class on the inner chart container (line 1224) is replaced by `style={{ minWidth: containerMinWidth }}`, where `containerMinWidth` is computed per the *Long-cycle widening rule* above. Existing `overflow-x-auto` wrapper at line 1221 keeps horizontal scrolling on narrow viewports.
 - The vertical dashed crosshair at lines 1469–1481 already uses `top: 0; height: 100%`, so it auto-extends through the new gutter — no change.
 - `plotAreaTop` (line 835) is measured dynamically; it re-computes on layout, so tooltip positioning at lines 1483+ adapts automatically.
 - Hover logic — currently driven by `hoveredDayNumber` state and applied per cell — is unchanged in structure; only the conditional background color is swapped from `'bg-[#bfdbfe]'` to the per-month wash from `MONTH_PALETTE`.
