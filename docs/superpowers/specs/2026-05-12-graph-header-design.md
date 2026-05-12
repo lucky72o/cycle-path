@@ -150,28 +150,37 @@ For each month in `monthSpans`:
 
 - **Long-cycle widening rule** *(prevents chip overflow at long ranges)*: today's chart hard-codes `min-w-[800px]` (line 1224 of `CycleChartPage.tsx`). `displayDayRange.maxDay` is computed at lines 178–197 and **can exceed 32 days** — for an active cycle it's `Math.max(28, recordedMaxDay)`, and for an ended cycle it's `recordedMaxDay` itself. PCOS / late-ovulation / post-pill cycles regularly hit 35–45 days. At `min-w: 800` and `maxDay: 40`, `cellWidth ≈ 18 px` and the chip overflows.
 
-  Fix: replace the static `min-w-[800px]` with a computed minimum width that scales with `numDays`:
+  **Both the left and right non-plot regions reduce the actual `plotAreaWidth`:**
+
+  - **Left** — the row-label gutter (≈ 70 px) plus the Apex `grid.padding.left: 50` (line 641 of `CycleChartPage.tsx`). The runtime-measured `plotAreaOffset` reflects this combined reserve and lands around ~80–90 px.
+  - **Right** — the Apex `grid.padding.right: 40` (line 643), which sits between the last data column and the right edge of the chart container. This space is **not** part of `plotAreaWidth`.
+
+  So `plotAreaWidth = containerWidth − leftReserve − rightReserve`. The widening formula must reserve **both**:
 
   ```ts
   const numDays = displayDayRange.maxDay - displayDayRange.minDay + 1;
-  const PLOT_AREA_OFFSET_RESERVE = 90; // conservative upper bound on plotAreaOffset
-  const MIN_CELL_WIDTH = 22;           // px — chip-fit floor
-  const containerMinWidth = Math.max(800, PLOT_AREA_OFFSET_RESERVE + MIN_CELL_WIDTH * numDays);
+  const LEFT_PLOT_RESERVE = 90;   // px — left axis + Apex grid.padding.left, conservative upper bound
+  const RIGHT_PLOT_RESERVE = 40;  // px — Apex grid.padding.right (line 643)
+  const MIN_CELL_WIDTH = 22;      // px — chip-fit floor
+  const containerMinWidth = Math.max(
+    800,
+    LEFT_PLOT_RESERVE + RIGHT_PLOT_RESERVE + MIN_CELL_WIDTH * numDays,
+  );
   ```
 
   Applied as `style={{ minWidth: containerMinWidth }}` on the chart container (replacing the `min-w-[800px]` class). The container is already wrapped in `overflow-x-auto` (line 1221), so wider charts simply scroll horizontally on narrower viewports — matching the existing UX for the default 800-px case on small phones.
 
-  Verification table:
+  Verification table (cellWidth ≥ shown is the worst case after both reserves):
 
-  | numDays | min-w (px) | cellWidth ≥ |
-  | ------- | ---------- | ----------- |
-  | 28      | 800        | 25 px       |
-  | 32      | 800        | 22 px       |
-  | 36      | 882        | 22 px       |
-  | 40      | 970        | 22 px       |
-  | 50      | 1190       | 22 px       |
+  | numDays | min-w (px) | plotAreaWidth ≥ | cellWidth ≥ |
+  | ------- | ---------- | --------------- | ----------- |
+  | 28      | 800        | 670             | 23.9 px     |
+  | 32      | 834        | 704             | 22 px       |
+  | 36      | 922        | 792             | 22 px       |
+  | 40      | 1010       | 880             | 22 px       |
+  | 50      | 1230       | 1100            | 22 px       |
 
-  Tunables (`PLOT_AREA_OFFSET_RESERVE`, `MIN_CELL_WIDTH`) live as named constants near the top of the component so they can be revisited if the chip design changes again.
+  Tunables (`LEFT_PLOT_RESERVE`, `RIGHT_PLOT_RESERVE`, `MIN_CELL_WIDTH`) live as named constants near the top of the component, alongside the existing `LOWER_TABLE_PADDING_BOTTOM`-style constants. If the Apex `grid.padding` values ever change, `RIGHT_PLOT_RESERVE` must be updated in lockstep — adding an inline comment at line 643 that references this constant is part of the implementation work.
 
 ### Cycle Day row
 
