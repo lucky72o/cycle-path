@@ -79,7 +79,7 @@ The gutter occupies the band `top: 0 → top: 22` in the full-chart coord space,
    - Position: `top: 0`, width: `plotAreaOffset`, height: `22 px`.
    - Background: white, right-border `border-slate-300`, bottom-border `border-slate-300`.
    - Content: empty.
-2. **Plot-area gutter content** — added as a new sibling of the existing cells container, also rooted at `top: 0`, `left: 0`, `right: 0`, `height: 22px`, with `zIndex: 1`. Contains the hairline + one pill per `monthSpan`.
+2. **Gutter overlay container** — added as a new sibling of the existing cells container, also rooted at `top: 0`, `left: 0`, `right: 0`, `height: 22px`, with `zIndex: 1`. Contains the hairline + one pill per `monthSpan`. Despite the name "gutter overlay", this element lives in the *full-chart* coordinate space (its `left: 0` is the chart container's left edge, not the plot-area's). The hairline and pills inside it use full-chart `left` values offset by `plotAreaOffset`.
 
 In addition, the existing Date / Week Day / Cycle Day absolute offsets shift down by 22 px so the rows still align with their left-axis labels:
 
@@ -91,7 +91,7 @@ In addition, the existing Date / Week Day / Cycle Day absolute offsets shift dow
 
 #### Hairline
 
-- Rendered inside the plot-area gutter container as an absolutely-positioned child.
+- Rendered inside the gutter overlay container as an absolutely-positioned child.
 - `left: plotAreaOffset; right: 0; top: 11px; height: 1px;` (top: 11 = centered in the 22-px gutter band).
 - Background `#cbd5e1` (slate-300).
 
@@ -99,7 +99,7 @@ In addition, the existing Date / Week Day / Cycle Day absolute offsets shift dow
 
 For each month in `monthSpans`:
 
-- Rendered inside the plot-area gutter container as an absolutely-positioned child (so its `left` is also in the full-chart coord space).
+- Rendered inside the gutter overlay container as an absolutely-positioned child (so its `left` is also in the full-chart coord space).
 - `top: 4px` (so the pill sits visually centered on the hairline that runs at top: 11).
 - Height: `14 px`, line-height `14px`.
 - Padding: `0 8px`.
@@ -129,14 +129,17 @@ For each month in `monthSpans`:
 - Cell background: **white**.
 - Cell vertical border: `border-right: 1px solid #f1f5f9` (slate-100).
 - Row bottom border: `1px solid #e2e8f0` (slate-200).
-- Cell content: the existing weekday abbreviation (`M`, `T`, `W`, `Th`, `F`, `Sat`, `Sun` — from `getDayOfWeekAbbreviation`) wrapped in a **chip**:
-  - `min-width: 20px`, `height: 18px`, `padding: 0 4px`, `border-radius: 9px`, `line-height: 18px`.
+- Cell content: a **2-letter uniform weekday abbreviation** wrapped in a **chip**.
+  - Abbreviations: `Mo`, `Tu`, `We`, `Th`, `Fr`, `Sa`, `Su` (uniform 2-letter form).
+  - These come from a new helper `getDayOfWeekAbbreviationChip(dayName: string): string` in `app/src/cycle-tracking/utils.ts`. The existing `getDayOfWeekAbbreviation` function (`M`/`T`/`W`/`Th`/`F`/`Sat`/`Sun`) is **not** modified — only the chart's chip rendering switches to the new helper. No other consumers exist (verified by `grep`).
+  - Chip dimensions: `min-width: 20px`, `height: 18px`, `padding: 0 4px`, `border-radius: 9px`, `line-height: 18px`.
   - Font: `10 px`, **font-weight `400` (regular)** — this is the "light" part of D1-light; chips do not get medium weight.
   - Color (cycle-relative, same mapping as pills):
     - 1st-month: background `#dbeafe`, text `#1e3a8a`.
     - 2nd-month: background `#dcfce7`, text `#14532d`.
     - (3rd-month: background `#f1f5f9`, text `#334155`.)
-- Chip sizing fits the realistic minimum column width. The chart's `min-w-[800px]` with a ~80 px `plotAreaOffset` and a 28–30 day cycle yields a `cellWidth` of roughly **24 px**. "Sat" / "Sun" at 10 px ≈ 14–15 px text + 8 px padding ≈ 22–23 px chip, which fits a 24-px cell with a small margin on each side. If a future change moves to shorter columns (cellWidth < 20 px), revisit chip sizing.
+- **Chip sizing rationale**: the chart's `min-w-[800px]` with a ~80 px `plotAreaOffset` produces a `cellWidth` of roughly `(800 − 80) / numDays`. For numDays ∈ [28..32] (realistic cycle-length range), that's `cellWidth ∈ [22.5px .. 25.7px]`. So the chip must fit a **22-px cell** in the narrow edge case, not just the average 24 px. Every 2-letter label at 10 px sans-serif renders at ~12–13 px text width; `12 + 8 = 20 px` chip — fits a 22-px cell with ~2 px of clearance on each side, and fits a 25-px cell comfortably. This eliminates the marginal-fit problem that the original 3-letter `Sat`/`Sun` had at narrow widths.
+- **If a future change makes columns narrower than ~22 px** (e.g. supporting 36+ day display ranges at the 800-px-min width, or shrinking `plotAreaOffset` below ~50 px), revisit by: (a) further shrinking chip padding to `0 2px` (gains ~4 px chip headroom), or (b) increasing the chart's `min-w` to keep `cellWidth ≥ 22 px`.
 
 ### Cycle Day row
 
@@ -144,7 +147,7 @@ For each month in `monthSpans`:
 - Cell background: white.
 - Cell vertical border: `border-right: 1px solid #f1f5f9`.
 - Row bottom border: `1px solid #e2e8f0` separating it from the BBT plot below.
-- Cell content: cycle-day number (`1`, `2`, …) wrapped in a chip identical in style to the Week Day chip (`min-width: 20px`, `height: 18px`, `padding: 0 4px`, `border-radius: 9px`, `font-size: 10px`, `font-weight: 400`) and using the same per-month color mapping.
+- Cell content: cycle-day number (`1`, `2`, …) wrapped in a chip identical in style to the Week Day chip (`min-width: 20px`, `height: 18px`, `padding: 0 4px`, `border-radius: 9px`, `font-size: 10px`, `font-weight: 400`) and using the same per-month color mapping. Two-digit cycle days (e.g. `13`, `28`) render at ~13–14 px text width, well within the 22-px minimum cell.
 - **Intercourse override:** when `dayData.hadIntercourse === true`, the chip text color switches to `#ec4899` (preserving today's behavior). The chip background is unchanged. This keeps the intercourse signal visible without inventing a new visual treatment.
 
 ### Left-axis label cells
@@ -177,7 +180,28 @@ All work is inside `app/src/cycle-tracking/CycleChartPage.tsx` and (potentially)
 
 **New behavior**: always emits just `${dayOfMonth}` (1 or 2 chars). The `/MM` suffix is removed — that information now lives in the gutter pill.
 
-### 2. New `monthSpans` helper
+### 2. New `getDayOfWeekAbbreviationChip` helper in `utils.ts`
+
+A sibling of the existing `getDayOfWeekAbbreviation`, returning uniform 2-letter labels for chip rendering only:
+
+```ts
+export function getDayOfWeekAbbreviationChip(dayName: string): string {
+  const abbreviations: Record<string, string> = {
+    Monday: 'Mo',
+    Tuesday: 'Tu',
+    Wednesday: 'We',
+    Thursday: 'Th',
+    Friday: 'Fr',
+    Saturday: 'Sa',
+    Sunday: 'Su',
+  };
+  return abbreviations[dayName] ?? dayName;
+}
+```
+
+The existing single-letter / 3-letter mixed form (`getDayOfWeekAbbreviation`) is not modified — preserved for any future caller that wants the asymmetric form. The chart's `weekDaysMap` (line 266 of `CycleChartPage.tsx`) switches to the new helper.
+
+### 3. New `monthSpans` helper
 
 ```ts
 type MonthSpan = {
@@ -198,16 +222,16 @@ function buildMonthSpans(
 - `monthLabel` is the full English month name (`date.toLocaleString('en-US', { month: 'long' })`).
 - `monthIndex` enables the cycle-relative coloring (0 → blue, 1 → green, 2+ → slate).
 
-### 3. New `monthIndexByDay` lookup
+### 4. New `monthIndexByDay` lookup
 
 A `Map<number, number>` derived from `monthSpans`, mapping every displayed day-number to its `monthIndex`. Used by:
 - Date-row underline color selection.
 - Weekday and Cycle-day chip color selection.
 - Hover wash color selection.
 
-### 4. Pill positioning
+### 5. Pill positioning
 
-Pills are absolutely positioned within the plot-area gutter container, in the full-chart coordinate space (same coord space as the existing day cells). For each `MonthSpan`:
+Pills are absolutely positioned within the gutter overlay container, in the full-chart coordinate space (same coord space as the existing day cells). For each `MonthSpan`:
 
 ```ts
 const numDays = displayMaxDay - displayMinDay + 1;
@@ -218,7 +242,7 @@ const pillLeft = leftEdge + 4; // 4-px inset from the column's left edge
 
 The pill does *not* span the full month width — it is anchored at the start. This matches the reference (Read Your Body) and prevents the pill from stretching unreadably on long months. Because the pill is positioned in full-chart coords, it lines up exactly with the column it labels.
 
-### 5. Color tokens
+### 6. Color tokens
 
 To avoid spreading raw hex codes through the JSX, introduce a small per-`monthIndex` token object:
 
@@ -257,7 +281,7 @@ None unresolved at this point.
 ## Implementation notes (not the plan — that comes next)
 
 - The cell-rendering loop in `CycleChartPage.tsx` at lines 1234–1320 will be split:
-  - **Gutter content** — rendered once, *outside* the per-day-number loop. Two new pieces sit at `top: 0`: (a) a blank 22 × `plotAreaOffset` cell prepended to the left-axis label container at lines 1238–1248; (b) a new plot-area gutter container containing the hairline + one DOM element per `MonthSpan`.
+  - **Gutter content** — rendered once, *outside* the per-day-number loop. Two new pieces sit at `top: 0`: (a) a blank 22 × `plotAreaOffset` cell prepended to the left-axis label container at lines 1238–1248; (b) a new gutter overlay container containing the hairline + one DOM element per `MonthSpan`.
   - **Per-day cells** — the existing loop's three cells (Date / Week Day / Cycle Day) shift their `top` from `0/36/72` to `22/58/94`. Cell *content* changes per the visual spec (no `/MM` suffix on dates, chips on weekday + cycle-day, colored underline on date).
 - The `paddingTop` on `chartContainerRef` (currently `'108px'` at line 1225) becomes `'130px'` to accommodate the gutter.
 - The vertical dashed crosshair at lines 1469–1481 already uses `top: 0; height: 100%`, so it auto-extends through the new gutter — no change.
