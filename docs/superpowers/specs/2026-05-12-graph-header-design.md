@@ -61,7 +61,7 @@ All distances in CSS px, all colors as Tailwind class names (or raw hex where th
 ├──────────────┼──────────────────────────────────────────────────────┤
 │ Date         │  26   27   28   ...   1    2    ...                  │  36 px         top: 22
 ├──────────────┼──────────────────────────────────────────────────────┤
-│ Week Day     │ (M) (T) (W) ...  (Sun)(M) ...                        │  36 px         top: 58
+│ Week Day     │ (M) (T) (W) ...  (Su)(M) ...                         │  36 px         top: 58
 ├──────────────┼──────────────────────────────────────────────────────┤
 │ Cycle Day    │ (1) (2) (3) ...  (7) (8) ...                         │  36 px         top: 94
 └──────────────┴──────────────────────────────────────────────────────┘
@@ -129,8 +129,11 @@ For each month in `monthSpans`:
 - Cell background: **white**.
 - Cell vertical border: `border-right: 1px solid #f1f5f9` (slate-100).
 - Row bottom border: `1px solid #e2e8f0` (slate-200).
-- Cell content: a **2-letter uniform weekday abbreviation** wrapped in a **chip**.
-  - Abbreviations: `Mo`, `Tu`, `We`, `Th`, `Fr`, `Sa`, `Su` (uniform 2-letter form).
+- Cell content: a **mostly-single-letter weekday abbreviation** (with 2-letter labels for the otherwise-ambiguous days) wrapped in a **chip**.
+  - Abbreviations: `M`, `T`, `W`, `Th`, `F`, `Sa`, `Su`.
+    - Single letter for Mon (M), Tue (T), Wed (W), Fri (F) — unambiguous.
+    - `Th` for Thursday (disambiguates from Tuesday's T).
+    - `Sa` / `Su` for Saturday / Sunday (disambiguates from each other; also keeps both weekend chips the same width as `Th`).
   - These come from a new helper `getDayOfWeekAbbreviationChip(dayName: string): string` in `app/src/cycle-tracking/utils.ts`. The existing `getDayOfWeekAbbreviation` function (`M`/`T`/`W`/`Th`/`F`/`Sat`/`Sun`) is **not** modified — only the chart's chip rendering switches to the new helper. No other consumers exist (verified by `grep`).
   - Chip dimensions: `min-width: 20px`, `height: 18px`, `padding: 0 4px`, `border-radius: 9px`, `line-height: 18px`.
   - Font: `10 px`, **font-weight `400` (regular)** — this is the "light" part of D1-light; chips do not get medium weight.
@@ -138,7 +141,10 @@ For each month in `monthSpans`:
     - 1st-month: background `#dbeafe`, text `#1e3a8a`.
     - 2nd-month: background `#dcfce7`, text `#14532d`.
     - (3rd-month: background `#f1f5f9`, text `#334155`.)
-- **Chip sizing rationale**: the chart's `min-w-[800px]` with a ~80 px `plotAreaOffset` produces a `cellWidth` of roughly `(800 − 80) / numDays`. For numDays ∈ [28..32] (realistic cycle-length range), that's `cellWidth ∈ [22.5px .. 25.7px]`. So the chip must fit a **22-px cell** in the narrow edge case, not just the average 24 px. Every 2-letter label at 10 px sans-serif renders at ~12–13 px text width; `12 + 8 = 20 px` chip — fits a 22-px cell with ~2 px of clearance on each side, and fits a 25-px cell comfortably. This eliminates the marginal-fit problem that the original 3-letter `Sat`/`Sun` had at narrow widths.
+- **Chip sizing rationale**: the chart's `min-w-[800px]` with a ~80 px `plotAreaOffset` produces a `cellWidth` of roughly `(800 − 80) / numDays`. For numDays ∈ [28..32] (realistic cycle-length range), that's `cellWidth ∈ [22.5px .. 25.7px]`. So the chip must fit a **22-px cell** in the narrow edge case. At 10 px sans-serif:
+  - Single-letter labels (`M`, `T`, `W`, `F`) render at ~6–7 px text; the chip is held at `min-width: 20 px`.
+  - Two-letter labels (`Th`, `Sa`, `Su`) render at ~12–13 px text; `12 + 8 = 20 px` chip.
+  - Every chip lands at ~20 px wide, fitting a 22-px cell with ~2 px of clearance on each side and a 25-px cell comfortably.
 - **If a future change makes columns narrower than ~22 px** (e.g. supporting 36+ day display ranges at the 800-px-min width, or shrinking `plotAreaOffset` below ~50 px), revisit by: (a) further shrinking chip padding to `0 2px` (gains ~4 px chip headroom), or (b) increasing the chart's `min-w` to keep `cellWidth ≥ 22 px`.
 
 ### Cycle Day row
@@ -182,16 +188,16 @@ All work is inside `app/src/cycle-tracking/CycleChartPage.tsx` and (potentially)
 
 ### 2. New `getDayOfWeekAbbreviationChip` helper in `utils.ts`
 
-A sibling of the existing `getDayOfWeekAbbreviation`, returning uniform 2-letter labels for chip rendering only:
+A sibling of the existing `getDayOfWeekAbbreviation`, returning chip-sized labels (single letters where unambiguous, 2-letter where not):
 
 ```ts
 export function getDayOfWeekAbbreviationChip(dayName: string): string {
   const abbreviations: Record<string, string> = {
-    Monday: 'Mo',
-    Tuesday: 'Tu',
-    Wednesday: 'We',
+    Monday: 'M',
+    Tuesday: 'T',
+    Wednesday: 'W',
     Thursday: 'Th',
-    Friday: 'Fr',
+    Friday: 'F',
     Saturday: 'Sa',
     Sunday: 'Su',
   };
@@ -199,7 +205,7 @@ export function getDayOfWeekAbbreviationChip(dayName: string): string {
 }
 ```
 
-The existing single-letter / 3-letter mixed form (`getDayOfWeekAbbreviation`) is not modified — preserved for any future caller that wants the asymmetric form. The chart's `weekDaysMap` (line 266 of `CycleChartPage.tsx`) switches to the new helper.
+The only difference from the existing `getDayOfWeekAbbreviation` is that Saturday and Sunday return `Sa` / `Su` instead of `Sat` / `Sun`. The existing function is not modified — preserved for any future caller that wants the 3-letter weekend form. The chart's `weekDaysMap` (line 266 of `CycleChartPage.tsx`) switches to the new helper.
 
 ### 3. New `monthSpans` helper
 
