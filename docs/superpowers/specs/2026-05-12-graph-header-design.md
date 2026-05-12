@@ -152,35 +152,49 @@ For each month in `monthSpans`:
 
   **Both the left and right non-plot regions reduce the actual `plotAreaWidth`:**
 
-  - **Left** — the row-label gutter (≈ 70 px) plus the Apex `grid.padding.left: 50` (line 641 of `CycleChartPage.tsx`). The runtime-measured `plotAreaOffset` reflects this combined reserve and lands around ~80–90 px.
-  - **Right** — the Apex `grid.padding.right: 40` (line 643), which sits between the last data column and the right edge of the chart container. This space is **not** part of `plotAreaWidth`.
+  - **Left** — Apex's y-axis label column (width varies with locale, unit formatting, font rendering — typically ~50–70 px for BBT values) plus `grid.padding.left: 50` (line 641 of `CycleChartPage.tsx`). The runtime-measured `plotAreaOffset` (line 829, `plotRect.left − containerRect.left` on `.apexcharts-grid`) captures this exactly. **Empirical verification at implementation time must record `plotAreaOffset` in both Celsius and Fahrenheit modes** and confirm the fallback constant below is comfortably above the worst case.
+  - **Right** — Apex `grid.padding.right: 40` (line 643), which sits between the last data column and the right edge of the chart container. This space is **not** part of `plotAreaWidth`.
 
-  So `plotAreaWidth = containerWidth − leftReserve − rightReserve`. The widening formula must reserve **both**:
+  So `plotAreaWidth = containerWidth − measuredLeftReserve − rightReserve`. The widening formula prefers the measured value and falls back to a conservative constant on the first render (before measurement):
 
   ```ts
+  // Constants — keep next to LOWER_TABLE_PADDING_BOTTOM at the top of the file.
+  const LEFT_PLOT_RESERVE_FALLBACK = 130; // px — conservative upper bound on plotAreaOffset
+                                          // (covers Apex y-axis label column + grid.padding.left=50;
+                                          //  verified empirically in both Celsius and Fahrenheit).
+  const RIGHT_PLOT_RESERVE = 40;          // px — Apex grid.padding.right (line 643).
+  const MIN_CELL_WIDTH = 22;              // px — chip-fit floor.
+
+  // Inside the component, after plotAreaOffset state:
   const numDays = displayDayRange.maxDay - displayDayRange.minDay + 1;
-  const LEFT_PLOT_RESERVE = 90;   // px — left axis + Apex grid.padding.left, conservative upper bound
-  const RIGHT_PLOT_RESERVE = 40;  // px — Apex grid.padding.right (line 643)
-  const MIN_CELL_WIDTH = 22;      // px — chip-fit floor
+  const effectiveLeftReserve = Math.max(LEFT_PLOT_RESERVE_FALLBACK, plotAreaOffset);
   const containerMinWidth = Math.max(
     800,
-    LEFT_PLOT_RESERVE + RIGHT_PLOT_RESERVE + MIN_CELL_WIDTH * numDays,
+    effectiveLeftReserve + RIGHT_PLOT_RESERVE + MIN_CELL_WIDTH * numDays,
   );
   ```
 
-  Applied as `style={{ minWidth: containerMinWidth }}` on the chart container (replacing the `min-w-[800px]` class). The container is already wrapped in `overflow-x-auto` (line 1221), so wider charts simply scroll horizontally on narrower viewports — matching the existing UX for the default 800-px case on small phones.
+  Three things to note:
 
-  Verification table (cellWidth ≥ shown is the worst case after both reserves):
+  1. **Why `Math.max(fallback, measured)` instead of just `measured`:** on the very first render, `plotAreaOffset === 0` (initial state at line 93), so we must have a non-zero fallback to size the container before Apex paints. Once `plotAreaOffset` is measured, the max ensures we never *under-reserve* if measurement turns out larger than expected (e.g. wider y-axis labels in some locale).
+
+  2. **Oscillation safety:** if widening the container causes Apex to re-measure a *larger* `plotAreaOffset`, the next render would widen further — and so on. This is unlikely in practice (y-axis label width is independent of container width), but the `Math.max(..., 800)` floor and the discrete nature of the formula mean the value monotonically increases at most one step before stabilising. If oscillation is observed during implementation, add `useMemo` keyed on `numDays` + `plotAreaOffset` to debounce.
+
+  3. **Constant lockstep:** if Apex `grid.padding.left` or `grid.padding.right` ever change in `CycleChartPage.tsx` (line 641-643), `LEFT_PLOT_RESERVE_FALLBACK` *or* `RIGHT_PLOT_RESERVE` must be revisited respectively — the left padding contributes to `plotAreaOffset` (which feeds the fallback), the right padding is the direct value of `RIGHT_PLOT_RESERVE`. Inline comments at lines 641 *and* 643 pointing to these constants are part of the implementation work.
+
+  Applied as `style={{ minWidth: containerMinWidth }}` on the chart container (replacing the `min-w-[800px]` class). The container is already wrapped in `overflow-x-auto` (line 1221), so wider charts simply scroll horizontally on narrower viewports.
+
+  Verification table — values use the fallback constant (130) since on first render `plotAreaOffset = 0`:
 
   | numDays | min-w (px) | plotAreaWidth ≥ | cellWidth ≥ |
   | ------- | ---------- | --------------- | ----------- |
-  | 28      | 800        | 670             | 23.9 px     |
-  | 32      | 834        | 704             | 22 px       |
-  | 36      | 922        | 792             | 22 px       |
-  | 40      | 1010       | 880             | 22 px       |
-  | 50      | 1230       | 1100            | 22 px       |
+  | 28      | 800        | 630             | 22.5 px     |
+  | 32      | 874        | 704             | 22 px       |
+  | 36      | 962        | 792             | 22 px       |
+  | 40      | 1050       | 880             | 22 px       |
+  | 50      | 1270       | 1100            | 22 px       |
 
-  Tunables (`LEFT_PLOT_RESERVE`, `RIGHT_PLOT_RESERVE`, `MIN_CELL_WIDTH`) live as named constants near the top of the component, alongside the existing `LOWER_TABLE_PADDING_BOTTOM`-style constants. If the Apex `grid.padding` values ever change, `RIGHT_PLOT_RESERVE` must be updated in lockstep — adding an inline comment at line 643 that references this constant is part of the implementation work.
+  After Apex measures (`plotAreaOffset` > 0), `effectiveLeftReserve = max(130, plotAreaOffset)` — if the measured value is, say, 110, the fallback stays in force; if it's 145, the container widens accordingly to preserve cellWidth ≥ 22 px.
 
 ### Cycle Day row
 
@@ -343,5 +357,11 @@ Plus interaction checks:
 - Hover any day; whole column tints to that month's wash. Move mouse out; column returns to white.
 - Day with `hadIntercourse: true`: cycle-day chip text is pink, chip background is the month color.
 - Resize browser narrower so columns get tight: chips still readable, pills don't break layout.
+
+Plus **width-rule verification** (must run during implementation before merging):
+
+- With temperature unit set to **Celsius**: render a 40-day cycle, log `plotAreaOffset`, confirm `cellWidth = (plotAreaWidth) / numDays ≥ 22 px`.
+- With temperature unit set to **Fahrenheit**: same check. (Fahrenheit y-axis labels like `98.4` may render slightly wider than Celsius `36.9` depending on font.)
+- Record the highest observed `plotAreaOffset` in implementation notes; if it exceeds the spec's `LEFT_PLOT_RESERVE_FALLBACK = 130`, bump the constant and re-run the table.
 
 No Sensiplan interpretation behavior changes — this is presentation-only.
