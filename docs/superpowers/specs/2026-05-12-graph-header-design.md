@@ -52,42 +52,55 @@ All distances in CSS px, all colors as Tailwind class names (or raw hex where th
 ### Layout
 
 ```
+                  (full-chart coord space — left:0 = container's left edge)
 ┌─────────────────────────────────────────────────────────────────────┐
-│ left-axis 70 │  N day-columns (cellWidth each)                       │
+│ left-axis     │  plot-area: full-chart x ∈ [plotAreaOffset, width)  │
+│ ◄──── 70 ────►│                                                      │
+├──────────────┬┴─────────────────────────────────────────────────────┤
+│   (blank)    │  ─── hairline ───   [pill]      [pill]      ←── 22 px│  gutter row    top:  0
 ├──────────────┼──────────────────────────────────────────────────────┤
-│   (blank)    │  ─── hairline ───   [pill]      [pill]      ←── 22 px│  gutter row
+│ Date         │  26   27   28   ...   1    2    ...                  │  36 px         top: 22
 ├──────────────┼──────────────────────────────────────────────────────┤
-│ Date         │  26   27   28   ...   1    2    ...                  │  36 px
+│ Week Day     │ (M) (T) (W) ...  (Sun)(M) ...                        │  36 px         top: 58
 ├──────────────┼──────────────────────────────────────────────────────┤
-│ Week Day     │ (M) (T) (W) ...  (Sun)(M) ...                        │  36 px
-├──────────────┼──────────────────────────────────────────────────────┤
-│ Cycle Day    │ (1) (2) (3) ...  (7) (8) ...                         │  36 px
+│ Cycle Day    │ (1) (2) (3) ...  (7) (8) ...                         │  36 px         top: 94
 └──────────────┴──────────────────────────────────────────────────────┘
 
 Total header height: 22 + 36 + 36 + 36 = 130 px (was 108 px → +22 px).
 ```
 
+**Coordinate space**: everything in this header — left-axis labels, gutter pills, day-column cells, and the hairline — is rendered as an absolutely-positioned descendant of the existing `chartContainerRef` (the *full* chart container, including the 70-px left-axis area). The `top` and `left` values above are in that full-chart coordinate space. This matches the current rendering pattern at lines 1238–1318 of `CycleChartPage.tsx`, where the left-axis label container (top:0, width:plotAreaOffset) and the cells container (top:0, left:0, right:0) live side-by-side as parallel absolute children of the same parent.
+
 ### Gutter row (new)
 
-- Height: **22 px**.
-- Background: white.
-- Border-bottom: `1px solid var(--border)` — Tailwind `border-slate-300` to match existing strip borders.
-- Left-axis column (width `plotAreaOffset`): empty white, right-border `border-slate-300`.
-- Plot-area column: contains a **hairline** and one **pill** per calendar month present in the displayed range.
+The gutter occupies the band `top: 0 → top: 22` in the full-chart coord space, and is rendered as **two parallel absolute-positioned children** of `chartContainerRef`, matching the existing pattern used for the row labels and the day-cells:
+
+1. **Left-axis gutter cell** — added as a new first child of the existing left-axis label container at lines 1238–1248 (so all three row labels — Date, Week Day, Cycle Day — sit *below* it):
+   - Position: `top: 0`, width: `plotAreaOffset`, height: `22 px`.
+   - Background: white, right-border `border-slate-300`, bottom-border `border-slate-300`.
+   - Content: empty.
+2. **Plot-area gutter content** — added as a new sibling of the existing cells container, also rooted at `top: 0`, `left: 0`, `right: 0`, `height: 22px`, with `zIndex: 1`. Contains the hairline + one pill per `monthSpan`.
+
+In addition, the existing Date / Week Day / Cycle Day absolute offsets shift down by 22 px so the rows still align with their left-axis labels:
+
+| Cell        | Current `top` | New `top` |
+| ----------- | ------------- | --------- |
+| Date        | `0`           | `22`      |
+| Week Day    | `36`          | `58`      |
+| Cycle Day   | `72`          | `94`      |
 
 #### Hairline
 
-- Absolutely positioned, full width of plot area.
-- `top: 50%` (centered vertically in the 22-px gutter).
-- Height 1 px, background `#cbd5e1` (slate-300).
+- Rendered inside the plot-area gutter container as an absolutely-positioned child.
+- `left: plotAreaOffset; right: 0; top: 11px; height: 1px;` (top: 11 = centered in the 22-px gutter band).
+- Background `#cbd5e1` (slate-300).
 
 #### Pill
 
 For each month in `monthSpans`:
 
-- Absolutely positioned, anchored to the left edge of the first day in that month's span.
-- Offset: `left: monthStartLeftEdge + 4px` (4-px inset from the column edge).
-- Top: `4 px` (so the pill sits visually centered on the hairline).
+- Rendered inside the plot-area gutter container as an absolutely-positioned child (so its `left` is also in the full-chart coord space).
+- `top: 4px` (so the pill sits visually centered on the hairline that runs at top: 11).
 - Height: `14 px`, line-height `14px`.
 - Padding: `0 8px`.
 - Border-radius: `9px` (full pill).
@@ -117,13 +130,13 @@ For each month in `monthSpans`:
 - Cell vertical border: `border-right: 1px solid #f1f5f9` (slate-100).
 - Row bottom border: `1px solid #e2e8f0` (slate-200).
 - Cell content: the existing weekday abbreviation (`M`, `T`, `W`, `Th`, `F`, `Sat`, `Sun` — from `getDayOfWeekAbbreviation`) wrapped in a **chip**:
-  - `min-width: 20px`, `height: 20px`, `padding: 0 6px`, `border-radius: 10px`.
-  - Font: `11 px`, **font-weight `400` (regular)** — this is the "light" part of D1-light; chips do not get medium weight.
+  - `min-width: 20px`, `height: 18px`, `padding: 0 4px`, `border-radius: 9px`, `line-height: 18px`.
+  - Font: `10 px`, **font-weight `400` (regular)** — this is the "light" part of D1-light; chips do not get medium weight.
   - Color (cycle-relative, same mapping as pills):
     - 1st-month: background `#dbeafe`, text `#1e3a8a`.
     - 2nd-month: background `#dcfce7`, text `#14532d`.
     - (3rd-month: background `#f1f5f9`, text `#334155`.)
-- Chip min-width fits 3-letter abbreviations (`Sat`, `Sun`) without truncation at the 28-px-cell default.
+- Chip sizing fits the realistic minimum column width. The chart's `min-w-[800px]` with a ~80 px `plotAreaOffset` and a 28–30 day cycle yields a `cellWidth` of roughly **24 px**. "Sat" / "Sun" at 10 px ≈ 14–15 px text + 8 px padding ≈ 22–23 px chip, which fits a 24-px cell with a small margin on each side. If a future change moves to shorter columns (cellWidth < 20 px), revisit chip sizing.
 
 ### Cycle Day row
 
@@ -131,7 +144,7 @@ For each month in `monthSpans`:
 - Cell background: white.
 - Cell vertical border: `border-right: 1px solid #f1f5f9`.
 - Row bottom border: `1px solid #e2e8f0` separating it from the BBT plot below.
-- Cell content: cycle-day number (`1`, `2`, …) wrapped in a chip identical in style to the Week Day chip and using the same per-month color mapping.
+- Cell content: cycle-day number (`1`, `2`, …) wrapped in a chip identical in style to the Week Day chip (`min-width: 20px`, `height: 18px`, `padding: 0 4px`, `border-radius: 9px`, `font-size: 10px`, `font-weight: 400`) and using the same per-month color mapping.
 - **Intercourse override:** when `dayData.hadIntercourse === true`, the chip text color switches to `#ec4899` (preserving today's behavior). The chip background is unchanged. This keeps the intercourse signal visible without inventing a new visual treatment.
 
 ### Left-axis label cells
@@ -140,15 +153,17 @@ For each month in `monthSpans`:
 - Background: white, right-border `border-slate-300`, bottom-border `border-slate-300`.
 - Text: existing labels (`Date`, `Week Day`, `Cycle Day`), right-aligned, padding-right 8 px, `text-xs` (12 px), font-weight 500, color `#334155`.
 
-### Hover
+### Hover, crosshair, and tooltip (all preserved)
 
-The current chart highlights an entire day-column on hover by changing all three header cells to `bg-[#bfdbfe]`. The new design has white cells, so the cleanest carry-over is:
+Three independent hover features exist on the chart today. All three continue to work under the new header design:
 
-- On hover of a day-column, all three header cells in that column take **a light tint matching the month color**: `#dbeafe` (blue-100) for 1st-month days, `#dcfce7` (green-100) for 2nd-month days (i.e. the same tint as the chip background, applied as a full-cell wash).
-- The chips and underlines remain on top of the tint — they continue to show.
-- Hover behavior on the BBT plot area itself is unchanged.
+1. **Header column-highlight** — currently changes all three header cells to `bg-[#bfdbfe]` when `hoveredDayNumber === dayNumber` (line 92, applied at lines 1269/1285/1301). In the new design this becomes **a light tint matching the month color**: `#dbeafe` (blue-100) for 1st-month days, `#dcfce7` (green-100) for 2nd-month days, `#f1f5f9` (slate-100) for 3rd-month days. The tint applies as a full-cell wash; chips and underlines render on top.
 
-### Hover-tint placement note
+2. **Vertical dashed crosshair line** — drawn at lines 1469–1481 as `top: 0; height: 100%; border-left: 1px dashed #b6b6b6`. Because the crosshair already spans the full container height, it automatically extends through the new 22-px gutter. **No code change needed.**
+
+3. **Pinnable React tooltip overlay** — rendered at lines 1483+ using `plotAreaTop` (measured dynamically at line 835 as `plotRect.top - containerRect.top`). When `paddingTop` bumps from 108 to 130, `plotAreaTop` re-measures correctly on next layout, so tooltip positioning adapts without code change.
+
+#### Hover-tint placement note
 
 Because chips already use the -100 family for their backgrounds, the hover wash will read as a slight "the chip merges with its cell" effect. That's the intended look — it tells the user "this whole column is now active" without introducing a third color.
 
@@ -192,14 +207,16 @@ A `Map<number, number>` derived from `monthSpans`, mapping every displayed day-n
 
 ### 4. Pill positioning
 
-Pills are absolutely positioned within the gutter. For each `MonthSpan`:
+Pills are absolutely positioned within the plot-area gutter container, in the full-chart coordinate space (same coord space as the existing day cells). For each `MonthSpan`:
 
 ```ts
+const numDays = displayMaxDay - displayMinDay + 1;
+const cellWidth = plotAreaWidth / numDays;
 const leftEdge = plotAreaOffset + (monthSpan.startDayNumber - displayMinDay) * cellWidth;
-const pillLeft = leftEdge + 4; // 4-px inset
+const pillLeft = leftEdge + 4; // 4-px inset from the column's left edge
 ```
 
-The pill does *not* span the full month width — it is anchored at the start. This matches the reference (Read Your Body) and prevents the pill from stretching unreadably on long months.
+The pill does *not* span the full month width — it is anchored at the start. This matches the reference (Read Your Body) and prevents the pill from stretching unreadably on long months. Because the pill is positioned in full-chart coords, it lines up exactly with the column it labels.
 
 ### 5. Color tokens
 
@@ -239,9 +256,13 @@ None unresolved at this point.
 
 ## Implementation notes (not the plan — that comes next)
 
-- The cell-rendering loop in `CycleChartPage.tsx` at lines 1234–1320 will need to be split: gutter pills are rendered once *outside* the per-day-number loop (one DOM element per `MonthSpan`), then the per-day-number loop renders Date / Weekday / Cycle-day cells as today.
+- The cell-rendering loop in `CycleChartPage.tsx` at lines 1234–1320 will be split:
+  - **Gutter content** — rendered once, *outside* the per-day-number loop. Two new pieces sit at `top: 0`: (a) a blank 22 × `plotAreaOffset` cell prepended to the left-axis label container at lines 1238–1248; (b) a new plot-area gutter container containing the hairline + one DOM element per `MonthSpan`.
+  - **Per-day cells** — the existing loop's three cells (Date / Week Day / Cycle Day) shift their `top` from `0/36/72` to `22/58/94`. Cell *content* changes per the visual spec (no `/MM` suffix on dates, chips on weekday + cycle-day, colored underline on date).
 - The `paddingTop` on `chartContainerRef` (currently `'108px'` at line 1225) becomes `'130px'` to accommodate the gutter.
-- Hover logic — currently driven by `hoveredDayNumber` state and applied per cell — is unchanged in structure; only the conditional background color is swapped from `'bg-[#bfdbfe]'` to the per-month token.
+- The vertical dashed crosshair at lines 1469–1481 already uses `top: 0; height: 100%`, so it auto-extends through the new gutter — no change.
+- `plotAreaTop` (line 835) is measured dynamically; it re-computes on layout, so tooltip positioning at lines 1483+ adapts automatically.
+- Hover logic — currently driven by `hoveredDayNumber` state and applied per cell — is unchanged in structure; only the conditional background color is swapped from `'bg-[#bfdbfe]'` to the per-month wash from `MONTH_PALETTE`.
 
 ## Testing notes
 
