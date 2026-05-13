@@ -322,3 +322,20 @@ export function computeContainerMinWidth(
   );
 }
 
+/**
+ * True for cells beyond the last recorded day of an ENDED cycle.
+ * Always false for active cycles — they keep today's full-color behavior
+ * for padded future days, because "future" reads as "to be filled in,"
+ * not "definitively empty."
+ *
+ * Used by CycleChartPage.tsx to gate gray-tail styling and inert
+ * hover/click behavior. See docs/superpowers/specs/2026-05-13-short-cycle-gray-tail-design.md.
+ */
+export function isCycleDayInTail(
+  cycle: { isActive: boolean },
+  dayNumber: number,
+  recordedMaxDay: number,
+): boolean {
+  return !cycle.isActive && dayNumber > recordedMaxDay;
+}
+
