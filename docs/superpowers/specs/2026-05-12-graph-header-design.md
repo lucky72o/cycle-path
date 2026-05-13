@@ -106,11 +106,23 @@ For each month in `monthSpans`:
 - Padding: `0 8px`.
 - Border-radius: `9px` (full pill).
 - Font: `10 px`, font-weight `600`, letter-spacing `0.02em`, white-space `nowrap`.
-- Text content: full month name in English, e.g. `October`.
+- Text content: full month name in English, e.g. `October`, subject to the *Short-span clamping* rule below.
 - **Color (cycle-relative):**
   - 1st month in the cycle: background `bg-blue-100` (`#dbeafe`), text `text-blue-900` (`#1e3a8a`).
   - 2nd month in the cycle: background `bg-green-100` (`#dcfce7`), text `text-green-900` (`#14532d`).
   - 3rd month in the cycle (rare, see open question below): background `bg-slate-100` (`#f1f5f9`), text `text-slate-700` (`#334155`).
+
+##### Short-span clamping rule *(prevents pill overlap on month-end cycle starts)*
+
+When a cycle starts on the last day(s) of a calendar month (e.g. Jan 31), the first month's span is just one or two columns wide. The pill's natural width (~50 px for "January" at 10 px / weight-600 with 16 px padding) would then run past the span's right edge and visually overlap the next month's pill anchored at the next column. To prevent that, the pill width is **clamped to its span** with three coordinated rules:
+
+1. **Compute the span's pixel width** per pill: `spanWidthPx = (span.endDayNumber − span.startDayNumber + 1) × cellWidth`.
+2. **Cap `max-width` to `spanWidthPx − 8 px`** (4 px inset on each side) with `box-sizing: border-box` so the value includes the pill's 16 px horizontal padding. Math: pill spans `[leftEdge + 4, leftEdge + spanWidthPx − 4]`, leaving an 8-px guaranteed gap before the next span starts at `leftEdge + spanWidthPx`.
+3. **Switch to a 3-letter abbreviation** when the cap drops below `62 px` (slightly above the natural width of the longest month name "September" with padding). Use `span.monthLabel.slice(0, 3)` — e.g. `Jan`, `Sep`.
+4. **Skip the pill entirely** when the cap drops below `22 px`. At that width even an abbreviation can't render usefully, so showing nothing is cleaner than showing a single-letter sliver. The span is still color-coded via the chip + underline on the day cells below; only the gutter pill is suppressed.
+5. **Safety net**: `overflow: hidden` + `text-overflow: ellipsis` to truncate if any threshold heuristic is slightly off.
+
+This means callers viewing a short-cycle chart (e.g. an 8-day cycle that just rolled into a new month) may see only the second month's pill (the larger span), or two abbreviated pills, or two full-name pills, depending on column widths — but never overlap.
 
 ### Date row
 

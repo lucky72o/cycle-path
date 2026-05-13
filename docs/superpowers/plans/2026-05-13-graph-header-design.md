@@ -167,6 +167,17 @@ describe('buildMonthSpans', () => {
   it('returns an empty array when displayMaxDay < displayMinDay', () => {
     expect(buildMonthSpans(new Date(2026, 9, 1), 5, 3)).toEqual([]);
   });
+
+  it('handles cycle starting on the last day of a month (1-day first span)', () => {
+    // Cycle starts Jan 31, 2026; show days 1..10 → 1-day Jan span then 9-day Feb span.
+    // This is the edge case that motivated pill-width clamping in CycleChartPage.tsx
+    // (see "Short-span clamping rule" in the spec).
+    const spans = buildMonthSpans(new Date(2026, 0, 31), 1, 10);
+    expect(spans).toEqual<MonthSpan[]>([
+      { monthIndex: 0, monthLabel: 'January',  startDayNumber: 1, endDayNumber: 1 },
+      { monthIndex: 1, monthLabel: 'February', startDayNumber: 2, endDayNumber: 10 },
+    ]);
+  });
 });
 ```
 
@@ -757,10 +768,25 @@ Inside the `{chartData && plotAreaWidth > 0 && (...)}` block (around line 1235),
                         background: '#cbd5e1',
                       }}
                     />
-                    {/* One pill per calendar-month span */}
+                    {/* One pill per calendar-month span. Width is clamped to the span
+                        so cycles starting near month-end (e.g. Jan 31, 1-day Jan span)
+                        do not render an overflowing "January" pill that visually overlaps
+                        the next pill. See *Short-span clamping rule* in the spec. */}
                     {monthSpans.map((span) => {
                       const numDays = chartData.maxDay - chartData.minDay + 1;
                       const cellWidth = plotAreaWidth / numDays;
+                      const spanWidthPx = (span.endDayNumber - span.startDayNumber + 1) * cellWidth;
+                      // 4 px inset on each side; the resulting 8 px gap between adjacent
+                      // pills guarantees no visual overlap. Below ~22 px of room a label
+                      // cannot render usefully, so suppress the pill.
+                      const pillMaxWidthPx = Math.max(0, spanWidthPx - 8);
+                      if (pillMaxWidthPx < 22) return null;
+                      // Below ~62 px the longest month name ("September", ~46 px text +
+                      // 16 px padding) wouldn't fit comfortably; fall back to a 3-letter
+                      // abbreviation. The text-overflow:ellipsis safety net below covers
+                      // anything that still slips through.
+                      const useShortLabel = pillMaxWidthPx < 62;
+                      const label = useShortLabel ? span.monthLabel.slice(0, 3) : span.monthLabel;
                       const leftEdge = plotAreaOffset + (span.startDayNumber - chartData.minDay) * cellWidth;
                       const palette = paletteFor(span.monthIndex);
                       return (
@@ -770,6 +796,8 @@ Inside the `{chartData && plotAreaWidth > 0 && (...)}` block (around line 1235),
                           style={{
                             top: '4px',
                             left: `${leftEdge + 4}px`,
+                            maxWidth: `${pillMaxWidthPx}px`,
+                            boxSizing: 'border-box',
                             height: '14px',
                             lineHeight: '14px',
                             padding: '0 8px',
@@ -780,14 +808,18 @@ Inside the `{chartData && plotAreaWidth > 0 && (...)}` block (around line 1235),
                             fontWeight: 600,
                             letterSpacing: '0.02em',
                             whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
                           }}
                         >
-                          {span.monthLabel}
+                          {label}
                         </span>
                       );
                     })}
                   </div>
 ```
+
+> Note: this pill-clamping behaviour was added as a P2 follow-up after the initial PR review caught the month-end overlap bug. See spec section *Short-span clamping rule* under "Pill" for the design rationale, and fix commit `a2bbc6f` on this branch for the diff.
 
 - [ ] **Step 5: Lint**
 
