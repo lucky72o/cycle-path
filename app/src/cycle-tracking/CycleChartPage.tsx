@@ -204,25 +204,21 @@ export default function CycleChartPage() {
   });
 
   // Determine how many days to show on the chart.
+  const recordedMaxDay = useMemo(() => {
+    if (!cycle || cycle.days.length === 0) return 0;
+    return Math.max(...cycle.days.map((day: any) => day.dayNumber));
+  }, [cycle]);
+
   const displayDayRange = useMemo(() => {
     if (!cycle) {
       return { minDay: 1, maxDay: 28 };
     }
-
-    const DEFAULT_DAYS = 28;
-    const recordedMaxDay =
-      cycle.days.length > 0
-        ? Math.max(...cycle.days.map((day: any) => day.dayNumber))
-        : 1;
-
-    // If the cycle is still active, always show at least the default length.
-    // If it has ended, shrink to the actual recorded length (unless it exceeds the default).
-    const maxDay = cycle.endDate
-      ? Math.max(recordedMaxDay, 1) // ended: show actual (may be below default)
-      : Math.max(DEFAULT_DAYS, recordedMaxDay); // active: pad to default, but still expands if recorded > default
-
-    return { minDay: 1, maxDay };
-  }, [cycle]);
+    // Unified formula: every cycle (active or ended) shows at least 28 days.
+    // For ended cycles where recordedMaxDay < 28, cells [recordedMaxDay+1..28]
+    // form the gray tail (see isCycleDayInTail). For long cycles
+    // (recordedMaxDay > 28), the range expands naturally to recordedMaxDay.
+    return { minDay: 1, maxDay: Math.max(28, recordedMaxDay) };
+  }, [cycle, recordedMaxDay]);
 
   const chartData = useMemo(() => {
     if (!settings || !cycle) return null;
