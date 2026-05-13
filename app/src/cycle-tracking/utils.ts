@@ -230,3 +230,66 @@ export function getDayOfWeekAbbreviationChip(dayName: string): string {
   return abbreviations[dayName] ?? dayName;
 }
 
+/**
+ * One contiguous calendar-month segment of the displayed cycle range.
+ *
+ * `monthIndex` is **0-indexed from the first month present in the
+ * `[displayMinDay, displayMaxDay]` range** (not from the cycle's first
+ * calendar month). The chart's "cycle-relative" coloring contract (blue
+ * for 0, green for 1, slate fallback for 2+) holds ONLY when the caller
+ * passes `displayMinDay === cycle's first day`. Today's chart always
+ * passes `displayMinDay = 1`, so window-relative and cycle-relative
+ * indices coincide. If a future caller displays a window starting after
+ * the cycle's first day (e.g. a "month 2 onwards" detail view), the
+ * helper as written would emit `monthIndex = 0` for whatever month
+ * starts the window — producing blue for what is actually the cycle's
+ * 2nd or 3rd month. Either pass `displayMinDay = 1` or wrap the helper
+ * with an offset adjustment.
+ */
+export type MonthSpan = {
+  monthIndex: number;
+  monthLabel: string;     // full English month name, e.g. "October"
+  startDayNumber: number; // first cycle-day-number in this span (inclusive)
+  endDayNumber: number;   // last cycle-day-number in this span (inclusive)
+};
+
+/**
+ * Group the displayed cycle days into contiguous calendar-month spans.
+ *
+ * Walks each day in `[displayMinDay, displayMaxDay]`, projects it onto a
+ * calendar date relative to `cycleStartDate`, and emits one span per
+ * consecutive run of days in the same calendar month. See {@link MonthSpan}
+ * for the `monthIndex` contract.
+ */
+export function buildMonthSpans(
+  cycleStartDate: Date,
+  displayMinDay: number,
+  displayMaxDay: number,
+): MonthSpan[] {
+  if (displayMaxDay < displayMinDay) return [];
+
+  const spans: MonthSpan[] = [];
+  let currentSpan: MonthSpan | null = null;
+  let nextMonthIndex = 0;
+
+  for (let dayNumber = displayMinDay; dayNumber <= displayMaxDay; dayNumber++) {
+    const date = new Date(cycleStartDate);
+    date.setDate(cycleStartDate.getDate() + (dayNumber - 1));
+    const monthLabel = date.toLocaleString('en-US', { month: 'long' });
+
+    if (!currentSpan || currentSpan.monthLabel !== monthLabel) {
+      currentSpan = {
+        monthIndex: nextMonthIndex++,
+        monthLabel,
+        startDayNumber: dayNumber,
+        endDayNumber: dayNumber,
+      };
+      spans.push(currentSpan);
+    } else {
+      currentSpan.endDayNumber = dayNumber;
+    }
+  }
+
+  return spans;
+}
+
