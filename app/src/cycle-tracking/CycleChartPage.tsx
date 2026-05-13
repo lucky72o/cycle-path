@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans } from './utils';
+import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 import { useInterpretation } from './interpretation/hooks/useInterpretation';
@@ -204,25 +204,21 @@ export default function CycleChartPage() {
   });
 
   // Determine how many days to show on the chart.
+  const recordedMaxDay = useMemo(() => {
+    if (!cycle || cycle.days.length === 0) return 0;
+    return Math.max(...cycle.days.map((day: any) => day.dayNumber));
+  }, [cycle]);
+
   const displayDayRange = useMemo(() => {
     if (!cycle) {
       return { minDay: 1, maxDay: 28 };
     }
-
-    const DEFAULT_DAYS = 28;
-    const recordedMaxDay =
-      cycle.days.length > 0
-        ? Math.max(...cycle.days.map((day: any) => day.dayNumber))
-        : 1;
-
-    // If the cycle is still active, always show at least the default length.
-    // If it has ended, shrink to the actual recorded length (unless it exceeds the default).
-    const maxDay = cycle.endDate
-      ? Math.max(recordedMaxDay, 1) // ended: show actual (may be below default)
-      : Math.max(DEFAULT_DAYS, recordedMaxDay); // active: pad to default, but still expands if recorded > default
-
-    return { minDay: 1, maxDay };
-  }, [cycle]);
+    // Unified formula: every cycle (active or ended) shows at least 28 days.
+    // For ended cycles where recordedMaxDay < 28, cells [recordedMaxDay+1..28]
+    // form the gray tail (see isCycleDayInTail). For long cycles
+    // (recordedMaxDay > 28), the range expands naturally to recordedMaxDay.
+    return { minDay: 1, maxDay: Math.max(28, recordedMaxDay) };
+  }, [cycle, recordedMaxDay]);
 
   const chartData = useMemo(() => {
     if (!settings || !cycle) return null;
@@ -314,6 +310,41 @@ export default function CycleChartPage() {
       engineResult?.thermalShift ?? null,
     );
   }, [cycleDayInputs, interpretation, engineResult]);
+
+  // Coverline data for the custom React overlay (replaces the
+  // annotations.yaxis entry, which spanned the full plot width and
+  // drew through the gray tail). See spec section "BBT plot zone".
+  //
+  // IMPORTANT: guard !settings and !cycle at the top — this memo runs
+  // before the component's loading-return when only some deps have
+  // arrived, and we deref settings.temperatureUnit / cycle.* below.
+  const coverlineOverlay = useMemo(() => {
+    if (!settings || !cycle || !interpretation || !engineResult) return null;
+    const shift = engineResult.thermalShift;
+    const state = interpretation.state;
+
+    const coverlineC = getActiveCoverline(cycleDayInputs, interpretation, shift);
+    const isMarked =
+      !!(cycle as any).markedAnovulatoryAt || !!(cycle as any).markedUninterpretableAt;
+    if (coverlineC == null || state === 'DISMISSED' || isMarked) return null;
+
+    const coverlineDisplay = toDisplayTemperature(coverlineC, settings.temperatureUnit);
+
+    const styleMap: Record<string, { color: string; dash: number; opacity: number }> = {
+      SUGGESTED: { color: '#8b5cf6', dash: 6, opacity: 0.6 },
+      CONFIRMED: { color: '#059669', dash: 0, opacity: 1 },
+      ADJUSTED: { color: '#d97706', dash: 0, opacity: 1 },
+    };
+    const style = styleMap[state] ?? styleMap.SUGGESTED;
+
+    return {
+      yValue: coverlineDisplay,
+      labelText: formatTemperature(coverlineC, settings.temperatureUnit),
+      color: style.color,
+      dash: style.dash,
+      opacity: style.opacity,
+    };
+  }, [settings, cycle, interpretation, engineResult, cycleDayInputs]);
 
   // Calculate dynamic Y-axis range based on actual data (including excluded points)
   const yAxisRange = useMemo(() => {
@@ -455,12 +486,20 @@ export default function CycleChartPage() {
         displayDayRange.minDay,
       );
     }
+    // For ended cycles, clamp the gutter range to recordedMaxDay so colored
+    // month pills don't render over the gray tail. Active cycles keep the
+    // full displayDayRange — their padded [recordedMaxDay+1..28] cells render
+    // in full color (today's behavior). Long ended cycles
+    // (recordedMaxDay >= 28) get a no-op clamp.
+    const gutterMaxDay = cycle.isActive
+      ? displayDayRange.maxDay
+      : Math.min(displayDayRange.maxDay, recordedMaxDay);
     return buildMonthSpans(
       new Date(cycle.startDate),
       displayDayRange.minDay,
-      displayDayRange.maxDay,
+      gutterMaxDay,
     );
-  }, [cycle, displayDayRange]);
+  }, [cycle, displayDayRange, recordedMaxDay]);
 
   // Lookup: dayNumber -> monthIndex (0 for 1st month of cycle, 1 for 2nd, ...).
   // Drives per-cell color selection (date underline, weekday chip, cycle-day
@@ -693,7 +732,8 @@ export default function CycleChartPage() {
             enabled: true
           }
         },
-        foreColor: '#002142' // Set default text color for axis labels
+        foreColor: '#002142', // Set default text color for axis labels
+        background: 'transparent', // empty plot-area pixels so the gray-tail overlay behind the SVG shows through
       },
       theme: {
         mode: 'light',
@@ -723,44 +763,7 @@ export default function CycleChartPage() {
         }
       },
       annotations: {
-        yaxis: (() => {
-          if (!interpretation || !engineResult) return [];
-          const shift = engineResult.thermalShift;
-          const state = interpretation.state;
-
-          // P2.2: derive coverline via getActiveCoverline. For ADJUSTED state, this
-          // recomputes from raw days using userOverrides.shiftDay; for SUGGESTED/CONFIRMED,
-          // it returns the engine's coverline. Fixes two bugs: (1) ADJUSTED+engine.status='none'
-          // (KeptShiftCard) no longer loses the coverline; (2) ADJUSTED with user shiftDay
-          // differing from engine draws the user's coverline, not the engine's.
-          const coverlineC = getActiveCoverline(cycleDayInputs, interpretation, shift);
-
-          const isMarked =
-            !!(cycle as any)?.markedAnovulatoryAt || !!(cycle as any)?.markedUninterpretableAt;
-          if (coverlineC == null || state === 'DISMISSED' || isMarked) return [];
-
-          // Convert to display unit
-          const coverlineDisplay = toDisplayTemperature(coverlineC, settings.temperatureUnit);
-
-          const styleMap: Record<string, { color: string; dash: number; opacity: number }> = {
-            SUGGESTED: { color: '#8b5cf6', dash: 6, opacity: 0.6 },
-            CONFIRMED: { color: '#059669', dash: 0, opacity: 1 },
-            ADJUSTED: { color: '#d97706', dash: 0, opacity: 1 },
-          };
-          const style = styleMap[state] ?? styleMap.SUGGESTED;
-
-          return [{
-            y: coverlineDisplay,
-            borderColor: style.color,
-            strokeDashArray: style.dash,
-            opacity: style.opacity,
-            label: {
-              text: formatTemperature(coverlineC, settings.temperatureUnit),
-              position: 'right' as const,
-              style: { color: style.color, fontSize: '10px', background: 'transparent' },
-            },
-          }];
-        })(),
+        yaxis: [], // Coverline moved to a custom React overlay — see "Coverline overlay" below.
       },
       colors: [
         ...Array(chartData.numSolidSegments).fill('#3b82f6'), // Blue for solid segments
@@ -869,7 +872,7 @@ export default function CycleChartPage() {
         enabled: false // Disabled - using custom React tooltip + native mousemove listener
       }
     };
-  }, [settings, chartData, allDaysWithBBT, cycle, navigate, yAxisRange, plotAreaWidth, plotAreaOffset, interpretation, engineResult]);
+  }, [settings, chartData, allDaysWithBBT, cycle, navigate, yAxisRange, plotAreaWidth, plotAreaOffset]);
 
   const prevCycle = useMemo(() => {
     if (!cycle || !allCycles) return null;
@@ -971,6 +974,17 @@ export default function CycleChartPage() {
       const dayIndex = Math.floor((mouseX - plotAreaOffset) / cellWidth);
       const dayNumber = chartData.minDay + Math.min(dayIndex, numDays - 1);
 
+      // Tail guard: in the gray tail of an ended short cycle, no tooltip
+      // or crosshair — the cell is decorative, not interactive. This is
+      // stricter than the daysWithDataMap check immediately below because
+      // it explicitly says "we mean for the tail to be inert," surviving
+      // any future change to daysWithDataMap's semantics.
+      if (cycle && isCycleDayInTail(cycle, dayNumber, recordedMaxDay)) {
+        lastTouchedDayRef.current = null;
+        dismissTooltipRef.current();
+        return;
+      }
+
       if (daysWithDataMap.get(dayNumber)) {
         lastTouchedDayRef.current = dayNumber;
         handleCellMouseEnterRef.current(dayNumber);
@@ -1005,6 +1019,11 @@ export default function CycleChartPage() {
       const cellWidth = plotAreaWidth / numDays;
       const dayIndex = Math.floor((mouseX - plotAreaOffset) / cellWidth);
       const dayNumber = chartData.minDay + Math.min(dayIndex, numDays - 1);
+      if (cycle && isCycleDayInTail(cycle, dayNumber, recordedMaxDay)) {
+        // Click in the gray tail of an ended cycle — inert.
+        dismissTooltipRef.current();
+        return;
+      }
       handleCellClickRef.current(dayNumber);
     };
 
@@ -1148,7 +1167,7 @@ export default function CycleChartPage() {
       document.removeEventListener('pointerdown', handleDocumentPointerDown);
       document.removeEventListener('touchstart', handleDocumentTouchStart);
     };
-  }, [chartData, plotAreaWidth, plotAreaOffset, plotAreaTop, plotAreaHeight, daysWithDataMap]);
+  }, [chartData, plotAreaWidth, plotAreaOffset, plotAreaTop, plotAreaHeight, daysWithDataMap, cycle, recordedMaxDay]);
 
 
   if (cycleLoading || settingsLoading) {
@@ -1410,6 +1429,15 @@ export default function CycleChartPage() {
                             const monthIndex = monthIndexByDay.get(dayNumber) ?? 0;
                             const palette = paletteFor(monthIndex);
                             const cellBackground = isHovered ? palette.hoverWash : '#ffffff';
+                            const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
+                            // Tail-cell colors (slate-50 cell bg, slate-200 chip bg, slate-500 chip text,
+                            // slate-400 date text, slate-300 underline). Hover-wash is suppressed on
+                            // tail cells — they read as inert empty space.
+                            const cellBg = isTail ? '#f8fafc' : cellBackground;
+                            const dateTextColor = isTail ? '#94a3b8' : '#334155';
+                            const underlineColor = isTail ? '#cbd5e1' : palette.underline;
+                            const chipBg = isTail ? '#e2e8f0' : palette.chipBg;
+                            const chipTextColor = isTail ? '#64748b' : palette.chipText;
                             return (
                               <>
                                 {/* Date cell — flat white with a 2-px colored underline spanning the full cell, inset by 4 px each side */}
@@ -1420,8 +1448,8 @@ export default function CycleChartPage() {
                                     width: `${cellWidth}px`,
                                     top: '22px',
                                     height: '36px',
-                                    background: cellBackground,
-                                    color: '#334155',
+                                    background: cellBg,
+                                    color: dateTextColor,
                                     borderRight: '1px solid #f1f5f9',
                                     borderBottom: '1px solid #e2e8f0',
                                     pointerEvents: 'none',
@@ -1439,7 +1467,7 @@ export default function CycleChartPage() {
                                       bottom: '4px',
                                       height: '2px',
                                       borderRadius: '1px',
-                                      background: palette.underline,
+                                      background: underlineColor,
                                     }}
                                   />
                                 </div>
@@ -1452,7 +1480,7 @@ export default function CycleChartPage() {
                                     width: `${cellWidth}px`,
                                     top: '58px',
                                     height: '36px',
-                                    background: cellBackground,
+                                    background: cellBg,
                                     borderRight: '1px solid #f1f5f9',
                                     borderBottom: '1px solid #e2e8f0',
                                     pointerEvents: 'none',
@@ -1470,8 +1498,8 @@ export default function CycleChartPage() {
                                       lineHeight: '18px',
                                       fontSize: '10px',
                                       fontWeight: 400,
-                                      background: palette.chipBg,
-                                      color: palette.chipText,
+                                      background: chipBg,
+                                      color: chipTextColor,
                                     }}
                                   >
                                     {weekDay}
@@ -1486,7 +1514,7 @@ export default function CycleChartPage() {
                                     width: `${cellWidth}px`,
                                     top: '94px',
                                     height: '36px',
-                                    background: cellBackground,
+                                    background: cellBg,
                                     borderRight: '1px solid #f1f5f9',
                                     borderBottom: '1px solid #e2e8f0',
                                     pointerEvents: 'none',
@@ -1504,8 +1532,8 @@ export default function CycleChartPage() {
                                       lineHeight: '18px',
                                       fontSize: '10px',
                                       fontWeight: 400,
-                                      background: palette.chipBg,
-                                      color: hasIntercourse ? '#ec4899' : palette.chipText,
+                                      background: chipBg,
+                                      color: isTail ? chipTextColor : (hasIntercourse ? '#ec4899' : palette.chipText),
                                     }}
                                   >
                                     {dayNumber}
@@ -1781,6 +1809,99 @@ export default function CycleChartPage() {
                 );
               })()}
               
+              {/* Gray-tail background overlay for the BBT plot region.
+                  Sits BEHIND the Apex SVG (z-index: 0). Because we set
+                  chart.background = 'transparent' above, the chart-area pixels are
+                  transparent, so this div's #fafafa fill shows through in the tail
+                  region. Apex's gridlines render inside the SVG above z-index 0, so
+                  they remain visible on top of the tail fill. */}
+              {cycle && !cycle.isActive && recordedMaxDay < displayDayRange.maxDay && plotAreaWidth > 0 && (
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    top: `${plotAreaTop}px`,
+                    height: `${plotAreaHeight}px`,
+                    left: `${plotAreaOffset + (recordedMaxDay / (displayDayRange.maxDay - displayDayRange.minDay + 1)) * plotAreaWidth}px`,
+                    width: `${plotAreaWidth - (recordedMaxDay / (displayDayRange.maxDay - displayDayRange.minDay + 1)) * plotAreaWidth}px`,
+                    background: '#fafafa',
+                    pointerEvents: 'none',
+                    zIndex: 0,
+                  }}
+                />
+              )}
+
+              {/* Custom Sensiplan coverline overlay. For ended short cycles with a
+                  gray tail, the line is clipped to the recorded x-extent and the
+                  label sits INSIDE the recorded portion. For all other cycles
+                  (active, or long ended with no tail), the line spans the full plot
+                  width and the label sits at the right edge — preserving today's
+                  visual appearance. Replaces the Apex annotations.yaxis line that
+                  used to span the full plot width. */}
+              {coverlineOverlay && plotAreaWidth > 0 && yAxisRange && cycle && (() => {
+                const numDays = displayDayRange.maxDay - displayDayRange.minDay + 1;
+
+                // Does this cycle have a gray tail? Only then do we clip.
+                const hasTail = !cycle.isActive && recordedMaxDay < displayDayRange.maxDay;
+
+                const lineX1 = plotAreaOffset;
+                const lineX2 = hasTail
+                  ? plotAreaOffset + (recordedMaxDay / numDays) * plotAreaWidth
+                  : plotAreaOffset + plotAreaWidth; // active or long-ended: full width, today's behavior
+
+                // Map yValue to a pixel y-coordinate. yAxisRange is { min, max }; the
+                // plot's y-axis is inverted (min at the bottom, max at the top).
+                const yFrac =
+                  (yAxisRange.max - coverlineOverlay.yValue) /
+                  (yAxisRange.max - yAxisRange.min);
+                const lineY = plotAreaTop + yFrac * plotAreaHeight;
+
+                // Label position: always just past the line's right end with
+                // text-anchor='start'. For tail cycles, this puts the label into
+                // the gray-tail region next to the line — that's intentional. The
+                // earlier "anchor inside the recorded region" rule jammed the
+                // label against BBT data points; visually the label reads better
+                // sitting in the empty gray area adjacent to the line.
+                const labelX = lineX2 + 4;
+                const labelAnchor = 'start' as const;
+
+                return (
+                  <svg
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      width: '100%',
+                      height: '100%',
+                      pointerEvents: 'none',
+                      zIndex: 2,
+                    }}
+                  >
+                    <line
+                      x1={lineX1}
+                      x2={lineX2}
+                      y1={lineY}
+                      y2={lineY}
+                      stroke={coverlineOverlay.color}
+                      strokeOpacity={coverlineOverlay.opacity}
+                      strokeWidth={1.5}
+                      strokeDasharray={coverlineOverlay.dash > 0 ? `${coverlineOverlay.dash}` : undefined}
+                    />
+                    <text
+                      x={labelX}
+                      y={lineY - 4}
+                      textAnchor={labelAnchor}
+                      fill={coverlineOverlay.color}
+                      fontSize="10"
+                      fontFamily="-apple-system, BlinkMacSystemFont, sans-serif"
+                    >
+                      {coverlineOverlay.labelText}
+                    </text>
+                  </svg>
+                );
+              })()}
+
               {/* ApexChart */}
               <ReactApexChart
                 options={chartOptions}
@@ -1922,6 +2043,7 @@ export default function CycleChartPage() {
                       const dayNumber = chartData.minDay + i;
                       const timeData = timeStampsMap.get(dayNumber);
                       const isHovered = hoveredDayNumber === dayNumber;
+                      const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
 
                       // Calculate cell position within plot area
                       const numDays = chartData.maxDay - chartData.minDay + 1;
@@ -1932,17 +2054,18 @@ export default function CycleChartPage() {
                         <div
                           key={dayNumber}
                           className={`absolute flex flex-col items-center justify-center text-xs border-r border-b border-slate-300 transition-colors ${
-                            isHovered ? 'bg-[#fde68a]' : 'bg-amber-50'
+                            isTail ? '' : (isHovered ? 'bg-[#fde68a]' : 'bg-amber-50')
                           }`}
                           style={{
                             left: `${leftEdge}px`,
                             width: `${cellWidth}px`,
                             top: 0,
                             height: '38px',
+                            backgroundColor: isTail ? '#fafafa' : undefined,
                             pointerEvents: 'none'
                           }}
                         >
-                          {timeData && (
+                          {!isTail && timeData && (
                             <>
                               <div className="font-medium leading-tight">{timeData.hours}</div>
                               <div className="text-xs leading-tight">{timeData.minutes}</div>
@@ -1986,6 +2109,7 @@ export default function CycleChartPage() {
                       const dayNumber = chartData.minDay + i;
                       const opkStatus = opkStatusMap.get(dayNumber);
                       const isHovered = hoveredDayNumber === dayNumber;
+                      const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
 
                       // Calculate cell position within plot area
                       const numDays = chartData.maxDay - chartData.minDay + 1;
@@ -2040,11 +2164,11 @@ export default function CycleChartPage() {
                             width: `${cellWidth}px`,
                             top: 0,
                             height: '28px',
-                            backgroundColor: isHovered ? '#c8e6c9' : '#e8f5e9',
+                            backgroundColor: isTail ? '#fafafa' : (isHovered ? '#c8e6c9' : '#e8f5e9'),
                             pointerEvents: 'none'
                           }}
                         >
-                          {symbol}
+                          {!isTail && symbol}
                         </div>
                       );
                     })}
@@ -2084,6 +2208,7 @@ export default function CycleChartPage() {
                       const dayData = allCycleDaysMap.get(dayNumber);
                       const hasIntercourse = dayData?.hadIntercourse;
                       const isHovered = hoveredDayNumber === dayNumber;
+                      const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
 
                       // Calculate cell position within plot area
                       const numDays = chartData.maxDay - chartData.minDay + 1;
@@ -2094,17 +2219,18 @@ export default function CycleChartPage() {
                         <div
                           key={dayNumber}
                           className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 transition-colors ${
-                            isHovered ? 'bg-pink-100' : 'bg-pink-50'
+                            isTail ? '' : (isHovered ? 'bg-pink-100' : 'bg-pink-50')
                           }`}
                           style={{
                             left: `${leftEdge}px`,
                             width: `${cellWidth}px`,
                             top: 0,
                             height: '28px',
+                            backgroundColor: isTail ? '#fafafa' : undefined,
                             pointerEvents: 'none'
                           }}
                         >
-                          {hasIntercourse && (
+                          {!isTail && hasIntercourse && (
                             <span style={{ color: '#ec4899', fontSize: '18px', lineHeight: 1 }}>❤</span>
                           )}
                         </div>
@@ -2160,6 +2286,7 @@ export default function CycleChartPage() {
                       const dayNumber = chartData.minDay + i;
                       const cfData = cervicalMenstrualMap.get(dayNumber);
                       const isHovered = hoveredDayNumber === dayNumber;
+                      const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
 
                       // Calculate cell position within plot area
                       const numDays = chartData.maxDay - chartData.minDay + 1;
@@ -2188,15 +2315,15 @@ export default function CycleChartPage() {
                                 left: '0.5px',
                                 width: 'calc(100% - 1px)',
                                 height: '27px',
-                                backgroundColor: '#e7f1ff',
+                                backgroundColor: isTail ? '#fafafa' : '#e7f1ff',
                                 borderRadius: '2px',
-                                opacity: isHovered ? 0.7 : 1
+                                opacity: isTail ? 1 : (isHovered ? 0.7 : 1)
                               }}
                             />
                           ))}
 
                           {/* Cervical Fluid Bar - only if CF present and no menstrual flow */}
-                          {cfData?.cervicalAppearance && !cfData?.menstrualFlow && (
+                          {!isTail && cfData?.cervicalAppearance && !cfData?.menstrualFlow && (
                             <div
                               className="absolute left-1/2 -translate-x-1/2 rounded"
                               style={{
@@ -2209,7 +2336,7 @@ export default function CycleChartPage() {
                           )}
 
                           {/* Menstrual Flow Indicators - on Dry row only */}
-                          {cfData?.menstrualFlow && (
+                          {!isTail && cfData?.menstrualFlow && (
                             <div
                               className="absolute left-1/2 -translate-x-1/2 flex items-end justify-center"
                               style={{
@@ -2362,6 +2489,7 @@ export default function CycleChartPage() {
                       const cellWidth = plotAreaWidth / numDays;
                       const leftEdge = plotAreaOffset + (i * cellWidth);
                       const isHovered = hoveredDayNumber === dayNumber;
+                      const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
 
                       let cellContent: React.ReactNode = null;
                       if (factors.length === 1) {
@@ -2399,13 +2527,13 @@ export default function CycleChartPage() {
                               left: '0.5px',
                               width: 'calc(100% - 1px)',
                               height: '27px',
-                              backgroundColor: '#f3e8ff',
+                              backgroundColor: isTail ? '#fafafa' : '#f3e8ff',
                               borderRadius: '2px',
-                              opacity: isHovered ? 0.7 : 1
+                              opacity: isTail ? 1 : (isHovered ? 0.7 : 1)
                             }}
                           />
                           {/* Emoji/count on top */}
-                          <span className="relative z-10">{cellContent}</span>
+                          {!isTail && <span className="relative z-10">{cellContent}</span>}
                         </div>
                       );
                     })}
@@ -2429,14 +2557,17 @@ export default function CycleChartPage() {
                       const numDays = chartData.maxDay - chartData.minDay + 1;
                       const cellWidth = plotAreaWidth / numDays;
                       const leftEdge = plotAreaOffset + (i * cellWidth);
+                      const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
 
                       return (
                         <div
                           key={dayNumber}
                           role="button"
-                          tabIndex={0}
-                          onClick={() => setEditorOpenForDay(dayNumber)}
+                          aria-disabled={isTail || undefined}
+                          tabIndex={isTail ? -1 : 0}
+                          onClick={isTail ? undefined : () => setEditorOpenForDay(dayNumber)}
                           onKeyDown={(e) => {
+                            if (isTail) return;
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
                               setEditorOpenForDay(dayNumber);
@@ -2449,7 +2580,7 @@ export default function CycleChartPage() {
                             top: 0,
                             height: `${NOTES_ROW_HEIGHT}px`,
                             backgroundColor: 'white',
-                            cursor: 'pointer',
+                            cursor: isTail ? 'default' : 'pointer',
                             pointerEvents: 'auto'
                           }}
                         >
@@ -2460,11 +2591,11 @@ export default function CycleChartPage() {
                               left: '0.5px',
                               width: 'calc(100% - 1px)',
                               height: 'calc(100% - 1px)',
-                              backgroundColor: '#f5f5f4',
+                              backgroundColor: isTail ? '#fafafa' : '#f5f5f4',
                               borderRadius: '2px'
                             }}
                           />
-                          {note !== null && note !== '' && (
+                          {!isTail && note !== null && note !== '' && (
                             notesRowExpanded ? (
                               <div
                                 className="absolute"

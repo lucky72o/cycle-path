@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { getDayOfWeekAbbreviationChip, buildMonthSpans, computeContainerMinWidth, LEFT_PLOT_RESERVE_FALLBACK, RIGHT_PLOT_RESERVE, MIN_CELL_WIDTH, type MonthSpan } from '../utils';
+import {
+  getDayOfWeekAbbreviationChip,
+  buildMonthSpans,
+  computeContainerMinWidth,
+  LEFT_PLOT_RESERVE_FALLBACK,
+  RIGHT_PLOT_RESERVE,
+  MIN_CELL_WIDTH,
+  isCycleDayInTail,
+  type MonthSpan,
+} from '../utils';
 
 describe('getDayOfWeekAbbreviationChip', () => {
   it.each([
@@ -98,5 +107,42 @@ describe('computeContainerMinWidth', () => {
     expect(LEFT_PLOT_RESERVE_FALLBACK).toBe(130);
     expect(RIGHT_PLOT_RESERVE).toBe(40);
     expect(MIN_CELL_WIDTH).toBe(22);
+  });
+});
+
+describe('isCycleDayInTail', () => {
+  it('returns false for active cycles at any dayNumber', () => {
+    const active = { isActive: true };
+    expect(isCycleDayInTail(active, 1, 5)).toBe(false);
+    expect(isCycleDayInTail(active, 5, 5)).toBe(false);
+    expect(isCycleDayInTail(active, 28, 5)).toBe(false);
+    expect(isCycleDayInTail(active, 6, 5)).toBe(false);
+  });
+
+  it('returns false for ended cycles within the recorded range', () => {
+    const ended = { isActive: false };
+    expect(isCycleDayInTail(ended, 1, 8)).toBe(false);
+    expect(isCycleDayInTail(ended, 5, 8)).toBe(false);
+    expect(isCycleDayInTail(ended, 8, 8)).toBe(false);
+  });
+
+  it('returns true for ended cycles beyond the recorded max day', () => {
+    const ended = { isActive: false };
+    expect(isCycleDayInTail(ended, 9, 8)).toBe(true);
+    expect(isCycleDayInTail(ended, 14, 8)).toBe(true);
+    expect(isCycleDayInTail(ended, 28, 8)).toBe(true);
+  });
+
+  it('returns false at the exact boundary (dayNumber === recordedMaxDay)', () => {
+    expect(isCycleDayInTail({ isActive: false }, 8, 8)).toBe(false);
+  });
+
+  it('returns false for ended cycles whose recordedMaxDay >= 28 (long cycles)', () => {
+    const ended = { isActive: false };
+    expect(isCycleDayInTail(ended, 28, 35)).toBe(false);
+    expect(isCycleDayInTail(ended, 35, 35)).toBe(false);
+    // numbers above recordedMaxDay still tail, but in practice displayDayRange
+    // wouldn't extend past recordedMaxDay for long cycles so the chart wouldn't ask.
+    expect(isCycleDayInTail(ended, 36, 35)).toBe(true);
   });
 });
