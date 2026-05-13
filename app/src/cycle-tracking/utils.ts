@@ -210,3 +210,23 @@ export function getDayOfWeekAbbreviation(dayName: string): string {
   return abbreviations[dayName] || dayName;
 }
 
+/**
+ * Convert full day name to a chip-sized abbreviation (M, T, W, Th, F, Sa, Su).
+ *
+ * Identical to {@link getDayOfWeekAbbreviation} except Saturday/Sunday return
+ * the 2-letter Sa/Su instead of 3-letter Sat/Sun. Used by the chart's weekday
+ * chips so every chip fits within the realistic minimum cellWidth (~22 px).
+ */
+export function getDayOfWeekAbbreviationChip(dayName: string): string {
+  const abbreviations: Record<string, string> = {
+    Monday: 'M',
+    Tuesday: 'T',
+    Wednesday: 'W',
+    Thursday: 'Th',
+    Friday: 'F',
+    Saturday: 'Sa',
+    Sunday: 'Su',
+  };
+  return abbreviations[dayName] ?? dayName;
+}
+
