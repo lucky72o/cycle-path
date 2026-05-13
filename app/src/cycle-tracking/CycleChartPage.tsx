@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel } from './utils';
+import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 import { useInterpretation } from './interpretation/hooks/useInterpretation';
@@ -399,6 +399,16 @@ export default function CycleChartPage() {
     return map;
   }, [cycle, displayDayRange]);
 
+  // Minimum chart-container width — guarantees cellWidth ≥ 22 px so the
+  // weekday/cycle-day chips fit, even on 40-50 day cycles or with wider
+  // y-axis labels (e.g. some Celsius/Fahrenheit values). Uses the
+  // runtime-measured plotAreaOffset when available, falling back to a
+  // conservative reserve before the first Apex measurement.
+  const containerMinWidth = useMemo(() => {
+    const numDays = displayDayRange.maxDay - displayDayRange.minDay + 1;
+    return computeContainerMinWidth(numDays, plotAreaOffset);
+  }, [displayDayRange, plotAreaOffset]);
+
   // Create a map of ALL cycle days (not just BBT days) for cervical/menstrual data
   const allCycleDaysMap = useMemo(() => {
     if (!cycle) return new Map();
@@ -631,8 +641,12 @@ export default function CycleChartPage() {
       },
       grid: {
         padding: {
-          left: 50, // Increased to create more space between title and labels
-          right: 40 // Extra padding to ensure last data point is fully visible with room
+          // NOTE: If you change `left`, also revisit LEFT_PLOT_RESERVE_FALLBACK
+          // in utils.ts — the chart's min-w math depends on this value.
+          left: 50,
+          // NOTE: If you change `right`, also update RIGHT_PLOT_RESERVE in
+          // utils.ts — the chart's min-w math reserves exactly this many px.
+          right: 40,
         },
         show: true,
         clipMarkers: false, // Don't clip markers at the edge
@@ -1213,8 +1227,9 @@ export default function CycleChartPage() {
             <div className="overflow-x-auto">
             <div
               ref={chartContainerRef}
-              className="relative min-w-[800px]"
-              style={{ paddingTop: '108px', paddingBottom: `${LOWER_TABLE_PADDING_BOTTOM}px` }}
+              className="relative"
+              data-chart-container="cycle-chart"
+              style={{ minWidth: `${containerMinWidth}px`, paddingTop: '130px', paddingBottom: `${LOWER_TABLE_PADDING_BOTTOM}px` }}
               onMouseMove={(e) => {
                 const rect = chartContainerRef.current?.getBoundingClientRect();
                 if (rect) {
