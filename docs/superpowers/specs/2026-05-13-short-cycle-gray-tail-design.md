@@ -81,13 +81,35 @@ Notes:
 - **Tail background:** `#fafafa` (a neutral very-light gray — Tailwind's `neutral-50` / `zinc-50`; intentionally a hair lighter than the top rows' Tailwind `slate-50` = `#f8fafc`). The gradient — header rows slightly darker than the plot body — gives the chart a subtle vertical hierarchy and matches the intent from the "Option A's softer mute" mockup choice.
 - **Horizontal gridlines (the existing temperature reference lines):** **continue unbroken through the tail**, same color and weight as in the recorded portion. The tail's cell background sits *behind* the gridlines; the gridlines themselves are not gated by `isTail`. This keeps the chart legible as a chart.
 - **BBT line + dots:** stop at `recordedMaxDay`. Apex naturally handles this — we feed only real data points; the last point is `recordedMaxDay`. No line is drawn into the tail.
-- **Coverline, thermal-shift band, peak-day marker:** all driven by recorded data; they naturally end at or before `recordedMaxDay`. No code change needed.
+- **Coverline (Sensiplan):** **MUST be clipped at `recordedMaxDay`**. Today the coverline is rendered as an Apex `annotations.yaxis` entry (a horizontal line spanning the full plot width — `CycleChartPage.tsx` line ~725). With `maxDay` extended to 28, leaving this annotation as-is would draw the coverline straight through the tail, defeating the "empty tail" intent. Implementation options for the plan to choose from:
+  1. Replace the Apex `yaxis` annotation with a custom HTML/SVG overlay positioned only over the recorded portion of the plot.
+  2. Keep the Apex annotation and overlay an opaque `#fafafa` rectangle over the tail region with sufficient z-index to mask it.
+  3. Switch to Apex `annotations.points` (per-x-axis-point markers connected by line) limited to days `1..recordedMaxDay`.
+
+  The spec requires the *outcome* (coverline invisible in the tail) and leaves the *mechanism* to the plan; any of the three is acceptable as long as the result is visually clean and survives Apex re-renders.
+- **Thermal-shift band, peak-day marker:** rendered by custom React overlays (`ThermalShiftBand`, `PeakDayMarker`-style components — `CycleChartPage.tsx` lines ~1654, ~1793) keyed on recorded data. They naturally end at or before `recordedMaxDay`. **Verify during implementation** that none of them rely on `plotAreaWidth` × full day range — if they compute their x-extent from `displayDayRange.maxDay`, they'll need an `isTail`-aware clamp. (Most likely they're fine; flagging because the same class of bug as the coverline.)
 - **Y-axis temperature labels (left side):** unchanged. Same range, same labels, same width.
 
-### Lower rows — Period / Fluid / Intercourse / Notes
+### Lower rows — Time Stamp / LH Test / Intimacy / Cervical Fluid / Menstrual Flow / Disturbance / Notes
+
+The complete list of below-plot rows in today's `CycleChartPage.tsx` (in render order):
+
+| Row | File line (approx) |
+|---|---|
+| Time Stamp | 1894 |
+| LH Test | 1958 |
+| Intimacy (Intercourse) | 2055 |
+| Cervical Fluid (Dry / Sticky / Creamy / Egg White / Watery + bleed shades) | 2117 |
+| Menstrual Flow | 2117 (same block) |
+| Disturbance | 2287 |
+| Notes | 2304 |
+
+**All of them** get the same tail treatment — no row may be skipped. An ended 8-day cycle should not show amber/green/violet/red row backgrounds through days 9–28 for *any* of these rows.
+
+For each row in the tail:
 
 - **Tail background:** `#fafafa` (same neutral very-light gray as the BBT zone — visually unified across the chart's lower half).
-- **No icons, dots, period flow bars, or markers** in the tail (no data to render).
+- **No icons, dots, period flow bars, OPK chips, intercourse markers, disturbance pills, note indicators, or row content of any kind** in the tail. The row borders and the row's left-axis label remain so the row structure stays visible.
 - **Row borders** preserved so the row structure stays visible.
 
 ### No vertical divider
@@ -102,7 +124,26 @@ The recorded/unrecorded boundary is communicated entirely through the styling ch
 
 - Crosshair line **stops at the recorded boundary**. Mousing over the tail does **not** draw a crosshair, does **not** show a tooltip, and does **not** change the cursor.
 - The recorded portion's hover behavior is fully preserved (today's crosshair + tooltip).
-- Implementation: the existing `onMouseMove` handler in `CycleChartPage.tsx` already computes the cursor's X position relative to the chart container. Add a derived "which day is the cursor over" computation and short-circuit when that day is a tail cell.
+
+**Implementation: guard the ApexCharts canvas listeners, NOT the container `onMouseMove`.**
+
+The chart's container `onMouseMove` (the inline handler on the `data-chart-container` div, ~line 1298) only writes cursor positions to refs — it does *not* drive the crosshair or tooltip. The actual crosshair/tooltip state is set by `resolveDay()` (line ~953) which is invoked from native listeners attached to `.apexcharts-canvas` for both mouse (`handleMouseMove`, line ~983) and touch (`handleTouchStart`, line ~1011; `handleTouchMove`, line ~1024). There is also a separate `handleClick` (line ~987) on the canvas.
+
+The implementation MUST add an explicit `isTail` early-return at the top of `resolveDay()` and `handleClick()`, *and* the touch handlers. Concretely:
+
+```ts
+const resolveDay = (clientX, clientY, tolerant = false) => {
+  // ... existing day resolution ...
+  if (isCycleDayInTail(cycle, dayNumber, recordedMaxDay)) {
+    lastTouchedDayRef.current = null;
+    dismissTooltipRef.current();    // clears both crosshair + tooltip
+    return;
+  }
+  // ... existing daysWithDataMap branch ...
+};
+```
+
+**Why this is explicit even though `daysWithDataMap.get(dayNumber)` *happens* to be `false` for tail cells today:** that's an accidental side-effect of "no data → dismiss." If someone later adds tooltips for empty days (e.g. "click here to record"), the tail would inadvertently get tooltips. The explicit `isTail` guard makes the contract robust.
 
 ### Click handlers
 
@@ -110,6 +151,12 @@ The recorded/unrecorded boundary is communicated entirely through the styling ch
 - `cursor: default` on tail cells (rather than `cursor: pointer`).
 - Today's click-to-open-note-editor remains intact on recorded cells.
 - No confirmation dialog, no "this cycle has ended" message — clicking a tail cell simply does nothing.
+
+**Implementation:**
+
+- For HTML-cell click handlers (Date/Week/Cycle/lower-row cells rendered as overlays), gate the `onClick` prop with `!isTail && handleCellClick(dayNumber)`.
+- For the canvas-level `handleClick` (line ~987), add an `isTail` early-return identical to the `resolveDay` pattern above.
+- For touch handlers, the same canvas-level guard applies (touch resolves to a day, then routes to either the tooltip or click path).
 
 ---
 
@@ -129,7 +176,7 @@ We chose this approach over two alternatives:
 |---|---|
 | `app/src/cycle-tracking/utils.ts` | Add `isCycleDayInTail(cycle, dayNumber, recordedMaxDay)` predicate. |
 | `app/src/cycle-tracking/__tests__/headerHelpers.test.ts` | Add `describe('isCycleDayInTail', …)` block with 5–6 cases covering active/ended × before/at/after the recorded max boundary. |
-| `app/src/cycle-tracking/CycleChartPage.tsx` | 1) Unify `displayDayRange.maxDay` formula. 2) Memoize `recordedMaxDay` once (defined as the max `dayNumber` across `cycle.days`, the same value `getCycleDayCount` already returns for ended cycles). 3) In each row's per-day render (Date / Week Day / Cycle Day / Period / Fluid / Intercourse / Notes), compute `isTail` and apply tail styling. 4) In click handlers, early-return when `isTail`. 5) In the `onMouseMove` handler, suppress crosshair + tooltip when the cursor maps to a tail cell. 6) BBT data series unchanged — last point at `recordedMaxDay` ends the Apex line naturally. |
+| `app/src/cycle-tracking/CycleChartPage.tsx` | 1) Unify `displayDayRange.maxDay` formula. 2) Memoize `recordedMaxDay` once (the max `dayNumber` across `cycle.days`, the same value `getCycleDayCount` already returns for ended cycles). 3) In each row's per-day render (Date / Week Day / Cycle Day / Time Stamp / LH Test / Intimacy / Cervical Fluid / Menstrual Flow / Disturbance / Notes), compute `isTail` and apply tail styling. 4) In HTML cell click handlers, gate with `!isTail`. 5) In the canvas-level `resolveDay`, `handleClick`, and touch handlers, add an explicit `isTail` early-return that calls `dismissTooltipRef.current()` so the crosshair and tooltip clear in the tail. 6) Clip the Sensiplan coverline (Apex `annotations.yaxis`, line ~725) so it does not draw through the tail — see the BBT zone section for the three implementation options. 7) BBT data series unchanged — last point at `recordedMaxDay` ends the Apex line naturally. |
 
 ### Styling implementation
 
@@ -205,3 +252,12 @@ Resulting state: branch `fix/short-cycle-gray-tail`, one commit ahead of `main` 
 ## Open questions
 
 None at spec time. All four core design questions (frame size, active-cycle behavior, visual style, click behavior) were resolved during the brainstorming session on 2026-05-13.
+
+The one decision deferred to plan-writing time is the **coverline clipping mechanism** (HTML/SVG overlay vs Apex annotation mask vs Apex points-with-line). All three meet the spec's outcome requirement; the plan should pick the one that minimizes Apex re-render fragility.
+
+## Review log
+
+- **2026-05-13 — round 1 review:** Three issues caught and fixed before plan handoff:
+  - P2: coverline clipping was missing (yaxis annotation spans the full plot width with `maxDay = 28`). Added explicit clipping requirement to *BBT plot zone* and *File touchpoints*.
+  - P2: lower rows list was incomplete (omitted Time Stamp, LH Test, Disturbance). Replaced the partial list with the complete row inventory.
+  - P2: hover/click guard was pointed at the container `onMouseMove` (which only updates cursor refs) instead of the ApexCharts canvas listeners (`resolveDay`, `handleClick`, touch handlers). Section rewritten to require explicit `isTail` early-returns in those handlers.
