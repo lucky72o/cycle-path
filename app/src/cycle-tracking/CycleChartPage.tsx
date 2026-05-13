@@ -2455,7 +2455,8 @@ export default function CycleChartPage() {
                         <div
                           key={dayNumber}
                           role="button"
-                          tabIndex={0}
+                          aria-disabled={isTail || undefined}
+                          tabIndex={isTail ? -1 : 0}
                           onClick={isTail ? undefined : () => setEditorOpenForDay(dayNumber)}
                           onKeyDown={(e) => {
                             if (isTail) return;
