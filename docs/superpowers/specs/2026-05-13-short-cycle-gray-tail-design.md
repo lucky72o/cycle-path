@@ -59,6 +59,29 @@ isTail = !cycle.isActive && dayNumber > recordedMaxDay
 
 ## Visual treatment
 
+### Month-label gutter (above the Date row)
+
+The chart renders a per-month gutter pill (e.g. "December", "January") above the Date row via `monthSpans` (CycleChartPage.tsx line ~448) iterated at line ~1342. Today the pills cover the entire `displayDayRange`, so an 8-day ended cycle padded to 28 would render a colored "January" pill spanning days 8–28 — defeating the "tail = no chrome" intent.
+
+**Rule:** the gutter follows the same gray-tail rule as the cells beneath it. The pills cover only `[1..recordedMaxDay]`; no pill renders for any span entirely within the tail.
+
+**Implementation:** clamp the input range to `buildMonthSpans` so the spans never extend past `recordedMaxDay`:
+
+```ts
+// today
+const monthSpans = useMemo(() => buildMonthSpans(cycleStartDate, displayDayRange.minDay, displayDayRange.maxDay), [...]);
+// after
+const monthSpans = useMemo(() => buildMonthSpans(
+  cycleStartDate,
+  displayDayRange.minDay,
+  Math.min(displayDayRange.maxDay, recordedMaxDay),  // clamp to recorded end
+), [...]);
+```
+
+For active cycles `recordedMaxDay >= displayDayRange.maxDay` (active cycles are never in the tail regime), so the clamp is a no-op. For long ended cycles where `recordedMaxDay >= 28`, same — no-op. The clamp only takes effect for short ended cycles, exactly where we want it.
+
+The pill-skip-when-too-narrow logic at line 1351 (`pillMaxWidthPx < 22`) is preserved unchanged.
+
 ### Top three rows — Date / Week Day / Cycle Day
 
 Tail cells:
@@ -81,12 +104,16 @@ Notes:
 - **Tail background:** `#fafafa` (a neutral very-light gray — Tailwind's `neutral-50` / `zinc-50`; intentionally a hair lighter than the top rows' Tailwind `slate-50` = `#f8fafc`). The gradient — header rows slightly darker than the plot body — gives the chart a subtle vertical hierarchy and matches the intent from the "Option A's softer mute" mockup choice.
 - **Horizontal gridlines (the existing temperature reference lines):** **continue unbroken through the tail**, same color and weight as in the recorded portion. The tail's cell background sits *behind* the gridlines; the gridlines themselves are not gated by `isTail`. This keeps the chart legible as a chart.
 - **BBT line + dots:** stop at `recordedMaxDay`. Apex naturally handles this — we feed only real data points; the last point is `recordedMaxDay`. No line is drawn into the tail.
-- **Coverline (Sensiplan):** **MUST be clipped at `recordedMaxDay`**. Today the coverline is rendered as an Apex `annotations.yaxis` entry (a horizontal line spanning the full plot width — `CycleChartPage.tsx` line ~725). With `maxDay` extended to 28, leaving this annotation as-is would draw the coverline straight through the tail, defeating the "empty tail" intent. Implementation options for the plan to choose from:
-  1. Replace the Apex `yaxis` annotation with a custom HTML/SVG overlay positioned only over the recorded portion of the plot.
-  2. Keep the Apex annotation and overlay an opaque `#fafafa` rectangle over the tail region with sufficient z-index to mask it.
-  3. Switch to Apex `annotations.points` (per-x-axis-point markers connected by line) limited to days `1..recordedMaxDay`.
+- **Coverline (Sensiplan):** **MUST be clipped at `recordedMaxDay`**. Today the coverline is rendered as an Apex `annotations.yaxis` entry (a horizontal line spanning the full plot width — `CycleChartPage.tsx` line ~725). With `maxDay` extended to 28, leaving this annotation as-is would draw the coverline straight through the tail, defeating the "empty tail" intent.
 
-  The spec requires the *outcome* (coverline invisible in the tail) and leaves the *mechanism* to the plan; any of the three is acceptable as long as the result is visually clean and survives Apex re-renders.
+  **Required mechanism — custom clipped overlay.** Replace the Apex `annotations.yaxis` entry with a custom React/SVG horizontal-line overlay positioned only over the recorded portion of the plot (from `plotAreaOffset` to `plotAreaOffset + recordedMaxDay × cellWidth`). The overlay sits above the Apex canvas and renders only inside the recorded region. This is the cleanest option because:
+    - It gives full control over the x-extent (limited to recorded days).
+    - It does not interact with Apex's gridline rendering — gridlines stay unbroken.
+    - The line's color, dash style, opacity, and label match today's `styleMap` (SUGGESTED / CONFIRMED / ADJUSTED) so visual continuity is preserved.
+
+  **Why not a mask rectangle:** an opaque `#fafafa` rectangle over the tail would also cover the horizontal gridlines that the spec requires to stay visible. A masked variant would need to redraw the gridlines on top — strictly more code than the overlay approach for no benefit.
+
+  **Why not Apex `annotations.points`:** point markers are dots at discrete x-values; they don't form a connected horizontal line. Not a substitute.
 - **Thermal-shift band, peak-day marker:** rendered by custom React overlays (`ThermalShiftBand`, `PeakDayMarker`-style components — `CycleChartPage.tsx` lines ~1654, ~1793) keyed on recorded data. They naturally end at or before `recordedMaxDay`. **Verify during implementation** that none of them rely on `plotAreaWidth` × full day range — if they compute their x-extent from `displayDayRange.maxDay`, they'll need an `isTail`-aware clamp. (Most likely they're fine; flagging because the same class of bug as the coverline.)
 - **Y-axis temperature labels (left side):** unchanged. Same range, same labels, same width.
 
@@ -176,7 +203,7 @@ We chose this approach over two alternatives:
 |---|---|
 | `app/src/cycle-tracking/utils.ts` | Add `isCycleDayInTail(cycle, dayNumber, recordedMaxDay)` predicate. |
 | `app/src/cycle-tracking/__tests__/headerHelpers.test.ts` | Add `describe('isCycleDayInTail', …)` block with 5–6 cases covering active/ended × before/at/after the recorded max boundary. |
-| `app/src/cycle-tracking/CycleChartPage.tsx` | 1) Unify `displayDayRange.maxDay` formula. 2) Memoize `recordedMaxDay` once (the max `dayNumber` across `cycle.days`, the same value `getCycleDayCount` already returns for ended cycles). 3) In each row's per-day render (Date / Week Day / Cycle Day / Time Stamp / LH Test / Intimacy / Cervical Fluid / Menstrual Flow / Disturbance / Notes), compute `isTail` and apply tail styling. 4) In HTML cell click handlers, gate with `!isTail`. 5) In the canvas-level `resolveDay`, `handleClick`, and touch handlers, add an explicit `isTail` early-return that calls `dismissTooltipRef.current()` so the crosshair and tooltip clear in the tail. 6) Clip the Sensiplan coverline (Apex `annotations.yaxis`, line ~725) so it does not draw through the tail — see the BBT zone section for the three implementation options. 7) BBT data series unchanged — last point at `recordedMaxDay` ends the Apex line naturally. |
+| `app/src/cycle-tracking/CycleChartPage.tsx` | 1) Unify `displayDayRange.maxDay` formula. 2) Memoize `recordedMaxDay` once (the max `dayNumber` across `cycle.days`, the same value `getCycleDayCount` already returns for ended cycles). 3) Clamp `monthSpans` input to `[displayMinDay, min(displayMaxDay, recordedMaxDay)]` so the gutter pills don't extend into the tail (line ~448). 4) In each row's per-day render (Date / Week Day / Cycle Day / Time Stamp / LH Test / Intimacy / Cervical Fluid / Menstrual Flow / Disturbance / Notes), compute `isTail` and apply tail styling. 5) In HTML cell click handlers, gate with `!isTail`. 6) In the canvas-level `resolveDay`, `handleClick`, and touch handlers, add an explicit `isTail` early-return that calls `dismissTooltipRef.current()` so the crosshair and tooltip clear in the tail. 7) Replace the Sensiplan coverline (Apex `annotations.yaxis`, line ~725) with a custom React/SVG overlay limited to the recorded x-extent — see the BBT zone section. 8) BBT data series unchanged — last point at `recordedMaxDay` ends the Apex line naturally. |
 
 ### Styling implementation
 
@@ -251,9 +278,7 @@ Resulting state: branch `fix/short-cycle-gray-tail`, one commit ahead of `main` 
 
 ## Open questions
 
-None at spec time. All four core design questions (frame size, active-cycle behavior, visual style, click behavior) were resolved during the brainstorming session on 2026-05-13.
-
-The one decision deferred to plan-writing time is the **coverline clipping mechanism** (HTML/SVG overlay vs Apex annotation mask vs Apex points-with-line). All three meet the spec's outcome requirement; the plan should pick the one that minimizes Apex re-render fragility.
+None at spec time. All four core design questions (frame size, active-cycle behavior, visual style, click behavior) were resolved during the brainstorming session on 2026-05-13. The coverline clipping mechanism is decided (custom React/SVG overlay — round 2 review tightened this).
 
 ## Review log
 
@@ -261,3 +286,7 @@ The one decision deferred to plan-writing time is the **coverline clipping mecha
   - P2: coverline clipping was missing (yaxis annotation spans the full plot width with `maxDay = 28`). Added explicit clipping requirement to *BBT plot zone* and *File touchpoints*.
   - P2: lower rows list was incomplete (omitted Time Stamp, LH Test, Disturbance). Replaced the partial list with the complete row inventory.
   - P2: hover/click guard was pointed at the container `onMouseMove` (which only updates cursor refs) instead of the ApexCharts canvas listeners (`resolveDay`, `handleClick`, touch handlers). Section rewritten to require explicit `isTail` early-returns in those handlers.
+
+- **2026-05-13 — round 2 review:** Two more issues caught and fixed:
+  - P2: month-label gutter was omitted from the tail treatment. For short ended cycles whose tail crosses or sits inside a later calendar month, the gutter would still render a colored month pill over the gray tail. Added a *Month-label gutter* section requiring `monthSpans` input to be clamped to `min(displayMaxDay, recordedMaxDay)`, and added the corresponding file-touchpoint.
+  - P2: coverline implementation options 2 and 3 were unworkable. The opaque mask (option 2) would also hide the horizontal gridlines that the BBT-zone section requires to stay unbroken, and Apex `annotations.points` (option 3) can't form a connected horizontal line. Narrowed to a single required mechanism: a custom React/SVG overlay limited to the recorded x-extent, with explicit rationale for why the alternatives don't work.
