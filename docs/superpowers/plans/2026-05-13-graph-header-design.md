@@ -723,7 +723,6 @@ Place this immediately after the `containerMinWidth` memo from Task 6:
     // Defensive assertion: today's chart always passes minDay=1; if a future
     // change breaks that, the colors will silently shift, so fail loudly.
     if (displayDayRange.minDay !== 1) {
-      // eslint-disable-next-line no-console
       console.warn(
         'CycleChartPage: monthSpans assumes displayDayRange.minDay === 1 for cycle-relative coloring; got',
         displayDayRange.minDay,
@@ -1020,8 +1019,18 @@ If your local dev database does not already have a cycle of ≥ 40 days, create 
 **Option B — through Prisma Studio** (faster):
 
 1. From `app/`, run `wasp db studio`.
-2. In the `Cycle` table, create a new row: `startDate` = today minus 40 days, `userId` = your dev-user id, `isActive` = `true`.
-3. In the `CycleDay` table, create one row referencing that cycle: `dayNumber` = `40`, `date` = the cycle start date plus 39 days, `bbt` (any value within the BBT range).
+2. In the `Cycle` table, create a new row with **all required fields**:
+   - `startDate` = a date roughly 40 days before today (ISO format Prisma Studio accepts, e.g. `2026-04-03`).
+   - `cycleNumber` = `1` (any positive integer; pick the next free value for your dev user — required field, no default).
+   - `isActive` = `true`.
+   - `userId` = your dev-user id.
+   - `id`, `createdAt` auto-fill; `endDate`, `markedAnovulatoryAt`, `markedUninterpretableAt` stay null.
+3. In the `CycleDay` table, create one row referencing that cycle with **all required fields**:
+   - `cycleId` = the id of the cycle you just created.
+   - `dayNumber` = `40`.
+   - `date` = the cycle's `startDate` plus 39 days.
+   - `dayOfWeek` = the English day-of-week name for that date (`'Monday'`, `'Tuesday'`, `'Wednesday'`, `'Thursday'`, `'Friday'`, `'Saturday'`, or `'Sunday'`) — required field, no default. The exact value doesn't affect the width verification; just use any valid name.
+   - `bbt` = any value in the Celsius BBT range (e.g. `36.8`).
 4. Reload the cycle chart page.
 
 Either way, the chart should now render a 40-column-wide header. Note the cycle's exact `numDays` (40) for the verification snippet.
