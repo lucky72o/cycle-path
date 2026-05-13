@@ -439,9 +439,25 @@ The lower rows (in render order):
 
 Each is rendered as an absolutely-positioned row below the BBT plot, looping over the displayed day range.
 
-- [ ] **Step 2: For each row, gate the cell background and content on `isTail`**
+- [ ] **Step 2: Understand each row's existing interaction model — don't change it**
 
-The pattern for each per-day cell:
+Today's lower rows have **different interaction patterns** that must be preserved. Do NOT add a generic `onClick` to every row.
+
+| Row | Current `pointerEvents` | Current `onClick` |
+|---|---|---|
+| Time Stamp (line ~1894) | `none` (line 1942) | none |
+| LH Test (line ~1958) | `none` (line 2044) | none |
+| Intimacy (line ~2055) | `none` (line 2104) | none |
+| Cervical Fluid (line ~2117) | `none` (line 2178) | none |
+| Menstrual Flow (line ~2117) | `none` (line 2391) | none |
+| Disturbance (line ~2287) | `auto` (line 2325) | none (pure visual) |
+| Notes (line ~2304) | `auto` (line 2453) | `() => setEditorOpenForDay(dayNumber)` (line 2438) |
+
+The rule is: **preserve each row's existing interaction; only gate existing handlers and content rendering on `isTail`.** Don't introduce new click handlers.
+
+- [ ] **Step 3: For each row, apply the tail treatment to the cell**
+
+The per-cell pattern (adapted to each row's existing structure):
 
 ```tsx
 const isTail = isCycleDayInTail(cycle, dayNumber, recordedMaxDay);
@@ -450,51 +466,76 @@ return (
   <div
     key={dayNumber}
     className={clsx(
-      'row-cell',  // existing classes
-      isTail && 'bg-[#fafafa]',  // neutral-50 tail background
+      'row-cell',  // existing classes — keep as-is
+      isTail && 'bg-[#fafafa]',  // add tail background
     )}
-    onClick={isTail ? undefined : () => handleCellClick(dayNumber)}
     style={{
       ...existingPositionAndSize,
-      cursor: isTail ? 'default' : 'pointer',
+      // KEEP the existing pointerEvents value — do not change.
+      // The Notes/Disturbance rows already have pointerEvents: 'auto';
+      // the others have 'none'. Don't override.
     }}
+    // If the row had an existing onClick (only Notes today), wrap it:
+    onClick={existingOnClick ? (isTail ? undefined : existingOnClick) : undefined}
   >
     {!isTail && (
       <>
-        {/* existing row content — icons, chips, dots, period bars, etc. */}
+        {/* existing row content — keep entirely as-is */}
       </>
     )}
   </div>
 );
 ```
 
+Concretely for each row:
+
+**a. Time Stamp row (~line 1894):**
+- Add `bg-[#fafafa]` to the cell className when `isTail`.
+- Gate the existing `{timeData && ...}` content render with `!isTail && (...)` so the time text doesn't show in the tail.
+- Don't touch `pointerEvents: 'none'`. Don't add an `onClick`.
+
+**b. LH Test row (~line 1958):**
+- Same pattern as Time Stamp. Gate the OPK chip render on `!isTail`. Keep `pointerEvents: 'none'`.
+
+**c. Intimacy row (~line 2055):**
+- Same pattern. Gate the intimacy marker (heart icon / dot) render on `!isTail`. Keep `pointerEvents: 'none'`.
+
+**d. Cervical Fluid row (~line 2117):**
+- Same pattern. Gate the fluid-quality icon/color render on `!isTail`. Keep `pointerEvents: 'none'`.
+
+**e. Menstrual Flow row (~line 2117 — adjacent block):**
+- Same pattern. Gate the flow bar render on `!isTail`. Keep `pointerEvents: 'none'`.
+
+**f. Disturbance row (~line 2287):**
+- The disturbance row has `pointerEvents: 'auto'` at line 2325 but no `onClick` (it's purely visual). Add `bg-[#fafafa]` for `isTail`; gate the disturbance pills render on `!isTail`. Keep `pointerEvents: 'auto'` (no change).
+
+**g. Notes row (~line 2304):**
+- This is the only lower row with an existing onClick. At line 2438: `onClick={() => setEditorOpenForDay(dayNumber)}`. Wrap that with `isTail`:
+  ```tsx
+  onClick={isTail ? undefined : () => setEditorOpenForDay(dayNumber)}
+  ```
+- Add `bg-[#fafafa]` for `isTail`.
+- Gate the note indicator render on `!isTail`.
+- Keep `pointerEvents: 'auto'` for non-tail cells; effectively the `onClick` becoming `undefined` for tail cells means clicks are ignored, which is the desired inert behavior.
+
 Key requirements per the spec:
-- **No row content in the tail** — no period flow bars, OPK chips, intercourse markers, disturbance pills, cervical-fluid icons, time-stamp text, or note indicators.
+- **No row content in the tail** — no period flow bars, OPK chips, intimacy markers, disturbance pills, cervical-fluid icons, time-stamp text, or note indicators. Verify each.
 - **Row borders preserved** — the row's structural borders (top/bottom) stay so the row reads as the same row, just empty.
 - **Same `#fafafa` background everywhere** — applied uniformly across all 7 lower rows in the tail.
-
-- [ ] **Step 3: Apply to each of the 7 rows**
-
-Repeat the pattern for:
-
-a. Time Stamp row (line ~1894)
-b. LH Test row (line ~1958)
-c. Intimacy row (line ~2055)
-d. Cervical Fluid row (line ~2117)
-e. Menstrual Flow row (line ~2117)
-f. Disturbance row (line ~2287)
-g. Notes row (line ~2304)
-
-Don't skip any — the spec explicitly calls out that all 7 must get the same treatment.
+- **No new click handlers introduced** — only the existing Notes-row onClick gets gated.
 
 - [ ] **Step 4: Manual visual check**
 
 Refresh the dev server. Open Cycle #6 (8-day ended). Confirm for each of the 7 lower rows:
-- Cells 1–8: full content as before (any recorded data shows).
+- Cells 1–8: full content as before (any recorded data shows; click-to-open behavior on Notes unchanged).
 - Cells 9–28: `#fafafa` background, **completely empty** (no icons, dots, or labels).
 - Row borders visible across all 28 cells.
 
 Pay specific attention to Cervical Fluid and Menstrual Flow — they're stacked in the same row block and easy to miss one. Also Disturbance, which often has subtle visual indicators that could leak through.
+
+Additionally verify the Notes row interaction is preserved correctly:
+- Click a recorded Notes cell (1–8) → note editor opens (today's behavior).
+- Click a tail Notes cell (9–28) → nothing happens.
 
 - [ ] **Step 5: Lint**
 
@@ -508,8 +549,11 @@ git commit -m "feat(chart): gray-tail styling for the 7 lower rows
 
 Time Stamp, LH Test, Intimacy, Cervical Fluid, Menstrual Flow,
 Disturbance, and Notes rows now all show #fafafa backgrounds in the
-gray tail with no row content rendered. Row borders preserved.
-Click handlers gated on !isTail.
+gray tail with no row content rendered. Row borders preserved. Existing
+interaction model preserved per row — most rows kept pointerEvents:
+'none' with no onClick; only the Notes row had an existing onClick
+(setEditorOpenForDay) which is now gated on !isTail. No new click
+handlers introduced.
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ```
@@ -527,18 +571,31 @@ The BBT plot area is rendered by Apex inside an SVG canvas; we can't easily chan
 
 The chart container has `data-chart-container="cycle-chart"`. Inside it, the Apex chart sits between `plotAreaTop` and `plotAreaTop + plotAreaHeight`, spanning `plotAreaOffset` to `plotAreaOffset + plotAreaWidth` horizontally.
 
-- [ ] **Step 2: Add a tail background overlay inside the chart container**
+- [ ] **Step 2: Make the Apex chart background transparent**
 
-Insert a new absolutely-positioned div as a sibling of the existing chart canvas, **before** any other overlays so that:
-- It sits behind the BBT line, dots, gridlines, and other annotations.
-- It sits **above** the Apex chart's default white background but **below** the gridlines.
+In the chart options block (the same area as the `annotations` config, around line 700–880), explicitly set the chart background to transparent so a div positioned BEHIND the Apex SVG can show through:
+
+```ts
+chart: {
+  // ... existing options ...
+  background: 'transparent',
+  // If a theme.mode setting is present, ensure it's compatible with the
+  // transparent background — typically `theme.mode: 'light'` is fine.
+},
+```
+
+This makes Apex's chart-area background empty pixels (transparent), so anything sitting behind the canvas shows through. By default Apex's plot area already doesn't fill itself with white; making it explicit guards against future regressions if Apex's defaults change.
+
+- [ ] **Step 3: Add the tail background overlay BEHIND the Apex SVG**
+
+Insert a new absolutely-positioned div as a sibling of the chart canvas, with `z-index: 0` so it sits behind the Apex SVG (which defaults to z-index `auto`, effectively above z-index `0`). The Apex SVG itself contains the gridlines and BBT line; the tail div sits behind it and shows through the chart's transparent background:
 
 ```tsx
-{/* Gray-tail background overlay for the BBT plot region.
-    Visible only when there is an unrecorded tail (ended short cycle).
-    Sits above the Apex canvas background but below the gridlines — see
-    the comment in spec section "BBT plot zone" about gridlines staying
-    unbroken. */}
+{/* Gray-tail background — sits BEHIND the Apex SVG (z-index: 0). Because
+    we set chart.background = 'transparent' (see Step 2), the chart-area
+    pixels are transparent, so this div's #fafafa fill shows through in
+    the tail region. Apex's gridlines and BBT line render inside the SVG
+    above z-index 0, so they remain visible on top of the tail fill. */}
 {cycle && !cycle.isActive && recordedMaxDay < displayDayRange.maxDay && plotAreaWidth > 0 && (
   <div
     aria-hidden="true"
@@ -550,10 +607,7 @@ Insert a new absolutely-positioned div as a sibling of the existing chart canvas
       width: `${plotAreaWidth - (recordedMaxDay / (displayDayRange.maxDay - displayDayRange.minDay + 1)) * plotAreaWidth}px`,
       background: '#fafafa',
       pointerEvents: 'none',
-      // z-index: keep below gridlines and BBT line. If Apex renders these
-      // *above* this overlay by default, that's perfect. If the gridlines
-      // end up hidden, bump z-index up by 1 and confirm gridlines still show.
-      zIndex: 0,
+      zIndex: 0, // explicitly behind the Apex SVG (which is z-index auto)
     }}
   />
 )}
@@ -561,32 +615,34 @@ Insert a new absolutely-positioned div as a sibling of the existing chart canvas
 
 Explanation of the x-math: the plot area shows `numDays = displayDayRange.maxDay - displayDayRange.minDay + 1` cells. The tail starts at cell index `recordedMaxDay` (since dayNumbers are 1-indexed, the right edge of cell `recordedMaxDay` is at position `recordedMaxDay / numDays` × `plotAreaWidth` from the plot area's left edge).
 
-- [ ] **Step 3: Manual visual check**
+The chart container that holds both the Apex chart and these overlays must have `position: relative` (it already does, since other overlays like the thermal-shift band rely on this — verify in code).
+
+- [ ] **Step 4: Manual visual check**
 
 Refresh the dev server. Open Cycle #6 (8-day ended). Confirm in the BBT plot region:
 - Cells 1–8: white background as before, BBT line + dots visible.
 - Cells 9–28: `#fafafa` gray background.
-- **Horizontal gridlines run unbroken across all 28 cells.** This is critical — if the gridlines are hidden in the tail, the overlay's `zIndex` is too high; reduce it or use a different layering approach.
+- **Horizontal gridlines run unbroken across all 28 cells, fully visible in the tail.** Verify this by eye — if any gridline disappears in the tail, the layering is wrong.
 - BBT line **does NOT extend into the tail** (Apex naturally stops it at the last data point).
 
-If gridlines are hidden in the tail, troubleshoot by:
-1. Setting the overlay `zIndex: -1` and confirming it now sits behind the gridlines.
-2. If `zIndex: -1` makes the overlay invisible (because the Apex chart background overrides it), the alternative is to draw the gridlines yourself in a higher z-index overlay — but try the simpler fix first.
+If gridlines disappear in the tail, that means Apex's SVG is not on top of the tail div. The most likely culprit is the Apex container having `z-index: 0` or `auto` while not being a positioned element. Verify the chart's wrapping element (`.apexcharts-canvas` or the React wrapper around `<Chart />`) is positioned and has a higher z-index than 0 — if not, give it `position: relative; z-index: 1`.
 
-- [ ] **Step 4: Lint**
+- [ ] **Step 5: Lint**
 
 Run: `cd app && npm run lint -- src/cycle-tracking/CycleChartPage.tsx`
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add app/src/cycle-tracking/CycleChartPage.tsx
 git commit -m "feat(chart): tail background overlay for BBT plot region
 
 For ended short cycles, the BBT plot region beyond recordedMaxDay now
-shows a #fafafa background overlay. Horizontal gridlines continue
-unbroken through the tail; the BBT line + dots stop at recordedMaxDay
-naturally (Apex behavior unchanged). The overlay is gated on
+shows a #fafafa background overlay. Implementation: set chart.background
+to transparent so an absolutely-positioned div sitting BEHIND the Apex
+SVG shows through. Horizontal gridlines continue unbroken through the
+tail (they render inside the Apex SVG above the tail div); the BBT line
++ dots stop at recordedMaxDay naturally. The overlay is gated on
 !cycle.isActive && recordedMaxDay < displayMaxDay so active cycles and
 long ended cycles are unaffected.
 
@@ -674,22 +730,37 @@ const coverlineOverlay = useMemo(() => {
 Inside the same JSX block where the BBT tail background overlay lives (from Task 6), add the coverline overlay. Place it **after** the tail-background overlay so it sits on top of it (the coverline should be visible against the recorded portion's white background; it must NOT extend over the tail).
 
 ```tsx
-{/* Custom Sensiplan coverline overlay. Limited to the recorded x-extent
-    so it doesn't draw through the gray tail. Replaces the Apex
-    annotations.yaxis line that used to span the full plot width. */}
-{coverlineOverlay && plotAreaWidth > 0 && yAxisRange && (() => {
+{/* Custom Sensiplan coverline overlay. For ended short cycles with a
+    gray tail, the line is clipped to the recorded x-extent and the
+    label sits INSIDE the recorded portion. For all other cycles
+    (active, or long ended with no tail), the line spans the full plot
+    width and the label sits at the right edge — preserving today's
+    visual appearance. Replaces the Apex annotations.yaxis line that
+    used to span the full plot width. */}
+{coverlineOverlay && plotAreaWidth > 0 && yAxisRange && cycle && (() => {
   const numDays = displayDayRange.maxDay - displayDayRange.minDay + 1;
-  const recordedRightEdgePx =
-    plotAreaOffset +
-    (recordedMaxDay / numDays) * plotAreaWidth;
+
+  // Does this cycle have a gray tail? Only then do we clip.
+  const hasTail = !cycle.isActive && recordedMaxDay < displayDayRange.maxDay;
+
   const lineX1 = plotAreaOffset;
-  const lineX2 = recordedRightEdgePx;
+  const lineX2 = hasTail
+    ? plotAreaOffset + (recordedMaxDay / numDays) * plotAreaWidth
+    : plotAreaOffset + plotAreaWidth; // active or long-ended: full width, today's behavior
+
   // Map yValue to a pixel y-coordinate. yAxisRange is { min, max }; the
   // plot's y-axis is inverted (min at the bottom, max at the top).
   const yFrac =
     (yAxisRange.max - coverlineOverlay.yValue) /
     (yAxisRange.max - yAxisRange.min);
   const lineY = plotAreaTop + yFrac * plotAreaHeight;
+
+  // Label position: anchored to the right end of the line, but always
+  // inside the recorded region for tail cycles. For non-tail cycles,
+  // sit just past the line's right end (today's behavior).
+  // Using SVG text-anchor='end' lets us right-align the label.
+  const labelX = hasTail ? lineX2 - 4 : lineX2 + 4;
+  const labelAnchor = hasTail ? 'end' : 'start';
 
   return (
     <svg
@@ -714,10 +785,10 @@ Inside the same JSX block where the BBT tail background overlay lives (from Task
         strokeWidth={1.5}
         strokeDasharray={coverlineOverlay.dash > 0 ? `${coverlineOverlay.dash}` : undefined}
       />
-      {/* Label — right of the line at the recorded edge */}
       <text
-        x={lineX2 + 4}
-        y={lineY + 4}
+        x={labelX}
+        y={lineY - 4}
+        textAnchor={labelAnchor}
         fill={coverlineOverlay.color}
         fontSize="10"
         fontFamily="-apple-system, BlinkMacSystemFont, sans-serif"
@@ -730,6 +801,11 @@ Inside the same JSX block where the BBT tail background overlay lives (from Task
 ```
 
 If `yAxisRange` isn't yet exposed as a usable shape, look at how `ThermalShiftBand` consumes it (around line 1655) and follow the same pattern.
+
+**Notes on the label position change:**
+- For **active cycles** and **long ended cycles** (no tail): label remains at `lineX2 + 4` with `text-anchor='start'` — identical to today's visual (label just past the line's right end).
+- For **short ended cycles** (with tail): line clips at `recordedMaxDay`, label sits at `lineX2 - 4` with `text-anchor='end'` — i.e. the label's right edge is just inside the line's right end. This keeps the label entirely within the recorded portion.
+- The y-position shifted from `lineY + 4` (below the line) to `lineY - 4` (above the line) so that the right-anchored label doesn't overlap the line. Adjust per browser rendering if it looks off.
 
 - [ ] **Step 4: Manual visual check**
 
