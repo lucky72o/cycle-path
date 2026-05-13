@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getDayOfWeekAbbreviationChip, buildMonthSpans, type MonthSpan } from '../utils';
+import { getDayOfWeekAbbreviationChip, buildMonthSpans, computeContainerMinWidth, LEFT_PLOT_RESERVE_FALLBACK, RIGHT_PLOT_RESERVE, MIN_CELL_WIDTH, type MonthSpan } from '../utils';
 
 describe('getDayOfWeekAbbreviationChip', () => {
   it.each([
@@ -62,5 +62,31 @@ describe('buildMonthSpans', () => {
 
   it('returns an empty array when displayMaxDay < displayMinDay', () => {
     expect(buildMonthSpans(new Date(2026, 9, 1), 5, 3)).toEqual([]);
+  });
+});
+
+describe('computeContainerMinWidth', () => {
+  it('returns the 800-px floor for typical 28-day cycles before measurement', () => {
+    expect(computeContainerMinWidth(28, 0)).toBe(800);
+  });
+
+  it('scales with numDays when the floor is exceeded', () => {
+    expect(computeContainerMinWidth(32, 0)).toBe(874);
+    expect(computeContainerMinWidth(40, 0)).toBe(1050);
+    expect(computeContainerMinWidth(50, 0)).toBe(1270);
+  });
+
+  it('prefers measured plotAreaOffset when larger than the fallback', () => {
+    expect(computeContainerMinWidth(40, 145)).toBe(1065);
+  });
+
+  it('keeps the fallback when measured offset is smaller', () => {
+    expect(computeContainerMinWidth(40, 100)).toBe(1050);
+  });
+
+  it('exports the constants so the chart component can re-use them', () => {
+    expect(LEFT_PLOT_RESERVE_FALLBACK).toBe(130);
+    expect(RIGHT_PLOT_RESERVE).toBe(40);
+    expect(MIN_CELL_WIDTH).toBe(22);
   });
 });

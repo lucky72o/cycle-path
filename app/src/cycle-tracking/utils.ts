@@ -293,3 +293,32 @@ export function buildMonthSpans(
   return spans;
 }
 
+/**
+ * Minimum chart-container width required to keep `cellWidth ≥ 22 px` so the
+ * new header chips always fit, regardless of cycle length or runtime y-axis
+ * label width.
+ *
+ * Reserves both the left non-plot region (Apex y-axis labels + grid.padding.left)
+ * and the right non-plot region (grid.padding.right). The left side uses the
+ * runtime-measured `plotAreaOffset` when available, falling back to a
+ * conservative constant before the first Apex layout. The `Math.max` over
+ * measured + fallback ensures we never under-reserve.
+ *
+ * Why these specific numbers — see the "Long-cycle widening rule" in
+ * docs/superpowers/specs/2026-05-12-graph-header-design.md.
+ */
+export const LEFT_PLOT_RESERVE_FALLBACK = 130;
+export const RIGHT_PLOT_RESERVE = 40;
+export const MIN_CELL_WIDTH = 22;
+
+export function computeContainerMinWidth(
+  numDays: number,
+  measuredPlotAreaOffset: number,
+): number {
+  const effectiveLeftReserve = Math.max(LEFT_PLOT_RESERVE_FALLBACK, measuredPlotAreaOffset);
+  return Math.max(
+    800,
+    effectiveLeftReserve + RIGHT_PLOT_RESERVE + MIN_CELL_WIDTH * numDays,
+  );
+}
+
