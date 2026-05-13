@@ -196,6 +196,8 @@ For each month in `monthSpans`:
 
   After Apex measures (`plotAreaOffset` > 0), `effectiveLeftReserve = max(130, plotAreaOffset)` — if the measured value is, say, 110, the fallback stays in force; if it's 145, the container widens accordingly to preserve cellWidth ≥ 22 px.
 
+  > **Empirical verification (2026-05-13)**: on a 40-day active cycle in dev, measured `plotAreaOffset = 97.41 px` in Celsius and `103.53 px` in Fahrenheit; resulting `cellWidth = 22.81 px` (C) and `22.66 px` (F), both above the 22-px floor. Highest observed offset (103.53 px) stays well under `LEFT_PLOT_RESERVE_FALLBACK = 130`, so no constant bump was required.
+
 ### Cycle Day row
 
 - Height: **36 px**.
