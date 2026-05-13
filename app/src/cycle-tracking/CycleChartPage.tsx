@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth } from './utils';
+import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 import { useInterpretation } from './interpretation/hooks/useInterpretation';
@@ -37,6 +37,34 @@ const DISTURBANCE_EMOJI: Record<string, string> = {
   MEDICATION: '💊',
   HOT_COLD_ROOM: '🌡️',
 };
+
+/**
+ * Per-month-index color tokens for the cycle chart header.
+ *
+ * monthIndex 0 = first calendar month present in the displayed cycle range,
+ * 1 = second, 2+ = fallback (rare; only triggers for cycles spanning three
+ * calendar months). Drives the pill, the date underline, the weekday chip,
+ * the cycle-day chip, and the hover wash for every cell in the column.
+ *
+ * Why these specific hues — see the "Color tokens" section in
+ * docs/superpowers/specs/2026-05-12-graph-header-design.md.
+ */
+const MONTH_PALETTE: Record<number, {
+  pillBg: string;
+  pillText: string;
+  chipBg: string;
+  chipText: string;
+  underline: string;
+  hoverWash: string;
+}> = {
+  0: { pillBg: '#dbeafe', pillText: '#1e3a8a', chipBg: '#dbeafe', chipText: '#1e3a8a', underline: '#60a5fa', hoverWash: '#dbeafe' }, // blue (1st month)
+  1: { pillBg: '#dcfce7', pillText: '#14532d', chipBg: '#dcfce7', chipText: '#14532d', underline: '#4ade80', hoverWash: '#dcfce7' }, // green (2nd month)
+  2: { pillBg: '#f1f5f9', pillText: '#334155', chipBg: '#f1f5f9', chipText: '#334155', underline: '#94a3b8', hoverWash: '#f1f5f9' }, // slate (3rd+ month)
+};
+
+function paletteFor(monthIndex: number) {
+  return MONTH_PALETTE[Math.min(monthIndex, 2)];
+}
 
 export default function CycleChartPage() {
   const { cycleId } = useParams();
@@ -408,6 +436,31 @@ export default function CycleChartPage() {
     const numDays = displayDayRange.maxDay - displayDayRange.minDay + 1;
     return computeContainerMinWidth(numDays, plotAreaOffset);
   }, [displayDayRange, plotAreaOffset]);
+
+  // One element per contiguous calendar-month segment of the displayed range.
+  // Drives the month-label pills in the gutter row.
+  //
+  // Cycle-relative coloring contract: monthIndex 0 == cycle's first calendar
+  // month, 1 == second, etc. This only holds because displayDayRange.minDay
+  // is always 1 in the current chart. If that ever changes (e.g. a "month 2
+  // onwards" detail view), update buildMonthSpans usage to offset monthIndex
+  // by the number of months skipped — see MonthSpan JSDoc in utils.ts.
+  const monthSpans = useMemo(() => {
+    if (!cycle) return [];
+    // Defensive assertion: today's chart always passes minDay=1; if a future
+    // change breaks that, the colors will silently shift, so fail loudly.
+    if (displayDayRange.minDay !== 1) {
+      console.warn(
+        'CycleChartPage: monthSpans assumes displayDayRange.minDay === 1 for cycle-relative coloring; got',
+        displayDayRange.minDay,
+      );
+    }
+    return buildMonthSpans(
+      new Date(cycle.startDate),
+      displayDayRange.minDay,
+      displayDayRange.maxDay,
+    );
+  }, [cycle, displayDayRange]);
 
   // Create a map of ALL cycle days (not just BBT days) for cervical/menstrual data
   const allCycleDaysMap = useMemo(() => {
@@ -1254,6 +1307,53 @@ export default function CycleChartPage() {
                     <div className="flex items-center justify-end px-3 text-xs font-medium bg-white border-b border-slate-200 border-r border-slate-300" style={{ height: '36px' }}>
                       Cycle Day
                     </div>
+                  </div>
+
+                  {/* Gutter overlay — hairline + month-label pills. Lives in
+                      the full-chart coord space (left:0 = container's left
+                      edge); hairline starts at plotAreaOffset, pills are
+                      positioned by monthSpans. */}
+                  <div className="absolute top-0 left-0 right-0" style={{ height: '22px', zIndex: 1 }}>
+                    {/* Hairline running through the gutter band, plot-area only */}
+                    <div
+                      className="absolute"
+                      style={{
+                        left: `${plotAreaOffset}px`,
+                        right: 0,
+                        top: '11px',
+                        height: '1px',
+                        background: '#cbd5e1',
+                      }}
+                    />
+                    {/* One pill per calendar-month span */}
+                    {monthSpans.map((span) => {
+                      const numDays = chartData.maxDay - chartData.minDay + 1;
+                      const cellWidth = plotAreaWidth / numDays;
+                      const leftEdge = plotAreaOffset + (span.startDayNumber - chartData.minDay) * cellWidth;
+                      const palette = paletteFor(span.monthIndex);
+                      return (
+                        <span
+                          key={span.startDayNumber}
+                          className="absolute"
+                          style={{
+                            top: '4px',
+                            left: `${leftEdge + 4}px`,
+                            height: '14px',
+                            lineHeight: '14px',
+                            padding: '0 8px',
+                            borderRadius: '9px',
+                            background: palette.pillBg,
+                            color: palette.pillText,
+                            fontSize: '10px',
+                            fontWeight: 600,
+                            letterSpacing: '0.02em',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {span.monthLabel}
+                        </span>
+                      );
+                    })}
                   </div>
 
                   {/* Grid cells - calculated positions within plot area */}
