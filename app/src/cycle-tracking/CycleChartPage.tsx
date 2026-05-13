@@ -451,12 +451,20 @@ export default function CycleChartPage() {
         displayDayRange.minDay,
       );
     }
+    // For ended cycles, clamp the gutter range to recordedMaxDay so colored
+    // month pills don't render over the gray tail. Active cycles keep the
+    // full displayDayRange — their padded [recordedMaxDay+1..28] cells render
+    // in full color (today's behavior). Long ended cycles
+    // (recordedMaxDay >= 28) get a no-op clamp.
+    const gutterMaxDay = cycle.isActive
+      ? displayDayRange.maxDay
+      : Math.min(displayDayRange.maxDay, recordedMaxDay);
     return buildMonthSpans(
       new Date(cycle.startDate),
       displayDayRange.minDay,
-      displayDayRange.maxDay,
+      gutterMaxDay,
     );
-  }, [cycle, displayDayRange]);
+  }, [cycle, displayDayRange, recordedMaxDay]);
 
   // Lookup: dayNumber -> monthIndex (0 for 1st month of cycle, 1 for 2nd, ...).
   // Drives per-cell color selection (date underline, weekday chip, cycle-day
