@@ -186,9 +186,18 @@ In `app/src/cycle-tracking/utils.ts`, add **after** `getDayOfWeekAbbreviationChi
 /**
  * One contiguous calendar-month segment of the displayed cycle range.
  *
- * `monthIndex` is **cycle-relative**: 0 for the first calendar month present
- * in the displayed range, 1 for the second, etc. The chart uses this to pick
- * the per-month color (blue for 0, green for 1, slate fallback for 2+).
+ * `monthIndex` is **0-indexed from the first month present in the
+ * `[displayMinDay, displayMaxDay]` range** (not from the cycle's first
+ * calendar month). The chart's "cycle-relative" coloring contract (blue
+ * for 0, green for 1, slate fallback for 2+) holds ONLY when the caller
+ * passes `displayMinDay === cycle's first day`. Today's chart always
+ * passes `displayMinDay = 1`, so window-relative and cycle-relative
+ * indices coincide. If a future caller displays a window starting after
+ * the cycle's first day (e.g. a "month 2 onwards" detail view), the
+ * helper as written would emit `monthIndex = 0` for whatever month
+ * starts the window — producing blue for what is actually the cycle's
+ * 2nd or 3rd month. Either pass `displayMinDay = 1` or wrap the helper
+ * with an offset adjustment.
  */
 export type MonthSpan = {
   monthIndex: number;
@@ -202,7 +211,8 @@ export type MonthSpan = {
  *
  * Walks each day in `[displayMinDay, displayMaxDay]`, projects it onto a
  * calendar date relative to `cycleStartDate`, and emits one span per
- * consecutive run of days in the same calendar month.
+ * consecutive run of days in the same calendar month. See {@link MonthSpan}
+ * for the `monthIndex` contract.
  */
 export function buildMonthSpans(
   cycleStartDate: Date,
@@ -702,8 +712,23 @@ Place this immediately after the `containerMinWidth` memo from Task 6:
 ```ts
   // One element per contiguous calendar-month segment of the displayed range.
   // Drives the month-label pills in the gutter row.
+  //
+  // Cycle-relative coloring contract: monthIndex 0 == cycle's first calendar
+  // month, 1 == second, etc. This only holds because displayDayRange.minDay
+  // is always 1 in the current chart. If that ever changes (e.g. a "month 2
+  // onwards" detail view), update buildMonthSpans usage to offset monthIndex
+  // by the number of months skipped — see MonthSpan JSDoc in utils.ts.
   const monthSpans = useMemo(() => {
     if (!cycle) return [];
+    // Defensive assertion: today's chart always passes minDay=1; if a future
+    // change breaks that, the colors will silently shift, so fail loudly.
+    if (displayDayRange.minDay !== 1) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        'CycleChartPage: monthSpans assumes displayDayRange.minDay === 1 for cycle-relative coloring; got',
+        displayDayRange.minDay,
+      );
+    }
     return buildMonthSpans(
       new Date(cycle.startDate),
       displayDayRange.minDay,
@@ -974,23 +999,37 @@ git commit -m "feat(chart): apply D1-light row treatments (underline + chips + h
 
 ---
 
-## Task 10: Width-rule verification (Celsius & Fahrenheit on a long cycle)
+## Task 10: Width-rule verification (Celsius & Fahrenheit on a long cycle) — REQUIRED BEFORE MERGE
 
 **Files:**
-- (No code changes unless verification fails — this task is empirical.)
+- (No code changes unless verification reveals a bumped fallback constant — this task is empirical.)
 
-The chart container already has a stable `data-chart-container="cycle-chart"` attribute from Task 6, so the snippet below can target it unambiguously.
+The unit tests in Task 3 verify the **math** is correct (given a `plotAreaOffset`, the formula reserves the right amount of width). They do **not** verify that the real Apex `plotAreaOffset` at runtime stays within the 130-px `LEFT_PLOT_RESERVE_FALLBACK`. That depends on font rendering, y-axis label width, locale, and unit formatting — none of which the unit tests can simulate. This task closes that gap and is a **hard prerequisite for merging the branch**. Do not skip.
 
-- [ ] **Step 1: Identify or create a long test cycle**
+The chart container has a stable `data-chart-container="cycle-chart"` attribute (added in Task 6), so the snippet below targets it unambiguously.
 
-In the dev app, find an existing cycle of ≥ 40 days, or seed one. If no long cycle exists in the seed data, note this in the verification commit and skip to Step 5 — the width math is unit-tested in Task 3 so correctness is still guaranteed.
+- [ ] **Step 1: Seed a 40-day cycle (required)**
 
-Note the cycle's `numDays` for the snippet below. You can read it from the chart's URL/state in React DevTools, or just count visible day columns.
+If your local dev database does not already have a cycle of ≥ 40 days, create one before running the verification. Two ways:
+
+**Option A — through the app UI** (slow but no DB access needed):
+
+1. Navigate to "New Cycle" and create a cycle with a start date 40 days ago (e.g. today minus 40 days).
+2. Use "Add Cycle Day" to add a single entry on the cycle's day 40 (any temperature). `displayDayRange.maxDay` will pick this up via `Math.max(DEFAULT_DAYS, recordedMaxDay)`.
+
+**Option B — through Prisma Studio** (faster):
+
+1. From `app/`, run `wasp db studio`.
+2. In the `Cycle` table, create a new row: `startDate` = today minus 40 days, `userId` = your dev-user id, `isActive` = `true`.
+3. In the `CycleDay` table, create one row referencing that cycle: `dayNumber` = `40`, `date` = the cycle start date plus 39 days, `bbt` (any value within the BBT range).
+4. Reload the cycle chart page.
+
+Either way, the chart should now render a 40-column-wide header. Note the cycle's exact `numDays` (40) for the verification snippet.
 
 - [ ] **Step 2: Verify in Celsius**
 
 1. Open Settings, set temperature unit to **Celsius**.
-2. Open the long cycle's chart page.
+2. Open the long cycle's chart page; confirm 40 columns are visible.
 3. Open browser devtools, paste this into the Console:
 
 ```js
@@ -1026,16 +1065,31 @@ If the highest observed `plotAreaOffset` is **> 130**, raise `LEFT_PLOT_RESERVE_
 2. Re-run `npm test` and `npm run lint`.
 3. Re-run the verification snippet to confirm `cellWidth >= 22`.
 
-- [ ] **Step 5: Commit verification result**
+- [ ] **Step 5: Record verification result in the spec**
 
-If a bump was made:
+Verification is part of the merge gate. Record the observed values in the spec's *Long-cycle widening rule* section so future readers can see they were empirically confirmed. Open `docs/superpowers/specs/2026-05-12-graph-header-design.md` and append at the end of that section:
+
+```markdown
+> **Empirical verification (YYYY-MM-DD)**: on a 40-day cycle, measured plotAreaOffset = <NN> px in Celsius, <NN> px in Fahrenheit; resulting cellWidth = <NN> px (≥ 22 px floor). Highest offset stays under LEFT_PLOT_RESERVE_FALLBACK = <NN>.
+```
+
+Then commit:
+
+If a fallback bump was needed:
 
 ```bash
-git add app/src/cycle-tracking/utils.ts app/src/cycle-tracking/__tests__/headerHelpers.test.ts
+git add app/src/cycle-tracking/utils.ts app/src/cycle-tracking/__tests__/headerHelpers.test.ts docs/superpowers/specs/2026-05-12-graph-header-design.md
 git commit -m "fix(chart): raise LEFT_PLOT_RESERVE_FALLBACK to <bumped value> per measured offset"
 ```
 
-If no bump was needed, no commit — the existing 130-px value is verified empirically.
+If no bump was needed:
+
+```bash
+git add docs/superpowers/specs/2026-05-12-graph-header-design.md
+git commit -m "docs(spec): record measured plotAreaOffset for Celsius/Fahrenheit on 40-day cycle"
+```
+
+**This commit is required to land on the branch before merging** — it documents that the empirical verification was run.
 
 ---
 
