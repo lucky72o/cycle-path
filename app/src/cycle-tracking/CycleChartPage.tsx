@@ -974,6 +974,17 @@ export default function CycleChartPage() {
       const dayIndex = Math.floor((mouseX - plotAreaOffset) / cellWidth);
       const dayNumber = chartData.minDay + Math.min(dayIndex, numDays - 1);
 
+      // Tail guard: in the gray tail of an ended short cycle, no tooltip
+      // or crosshair — the cell is decorative, not interactive. This is
+      // stricter than the daysWithDataMap check immediately below because
+      // it explicitly says "we mean for the tail to be inert," surviving
+      // any future change to daysWithDataMap's semantics.
+      if (cycle && isCycleDayInTail(cycle, dayNumber, recordedMaxDay)) {
+        lastTouchedDayRef.current = null;
+        dismissTooltipRef.current();
+        return;
+      }
+
       if (daysWithDataMap.get(dayNumber)) {
         lastTouchedDayRef.current = dayNumber;
         handleCellMouseEnterRef.current(dayNumber);
@@ -1008,6 +1019,11 @@ export default function CycleChartPage() {
       const cellWidth = plotAreaWidth / numDays;
       const dayIndex = Math.floor((mouseX - plotAreaOffset) / cellWidth);
       const dayNumber = chartData.minDay + Math.min(dayIndex, numDays - 1);
+      if (cycle && isCycleDayInTail(cycle, dayNumber, recordedMaxDay)) {
+        // Click in the gray tail of an ended cycle — inert.
+        dismissTooltipRef.current();
+        return;
+      }
       handleCellClickRef.current(dayNumber);
     };
 
@@ -1151,7 +1167,7 @@ export default function CycleChartPage() {
       document.removeEventListener('pointerdown', handleDocumentPointerDown);
       document.removeEventListener('touchstart', handleDocumentTouchStart);
     };
-  }, [chartData, plotAreaWidth, plotAreaOffset, plotAreaTop, plotAreaHeight, daysWithDataMap]);
+  }, [chartData, plotAreaWidth, plotAreaOffset, plotAreaTop, plotAreaHeight, daysWithDataMap, cycle, recordedMaxDay]);
 
 
   if (cycleLoading || settingsLoading) {
