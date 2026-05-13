@@ -381,29 +381,21 @@ export default function CycleChartPage() {
     return result;
   }, [chartData, settings]);
 
-  // Build labels for dates and weekdays for the full displayed range using the cycle start date.
+  // Build labels for dates across the full displayed range using the cycle
+  // start date. Each value is just the day-of-month (1..31) as a string;
+  // the calendar month is now communicated by the gutter pill above the row.
   const datesMap = useMemo(() => {
     if (!cycle) return new Map<number, string>();
-    
+
     const map = new Map<number, string>();
-    let previousMonth: number | null = null;
     const startDate = new Date(cycle.startDate);
 
     for (let dayNumber = displayDayRange.minDay; dayNumber <= displayDayRange.maxDay; dayNumber++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + (dayNumber - 1));
-      const dayOfMonth = date.getDate();
-      const month = date.getMonth() + 1;
-
-      if (dayNumber === displayDayRange.minDay || (previousMonth !== null && month !== previousMonth)) {
-        map.set(dayNumber, `${dayOfMonth}/${month}`);
-      } else {
-        map.set(dayNumber, `${dayOfMonth}`);
-      }
-
-      previousMonth = month;
+      map.set(dayNumber, String(date.getDate()));
     }
-    
+
     return map;
   }, [cycle, displayDayRange]);
 
