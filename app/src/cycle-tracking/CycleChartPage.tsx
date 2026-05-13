@@ -311,6 +311,41 @@ export default function CycleChartPage() {
     );
   }, [cycleDayInputs, interpretation, engineResult]);
 
+  // Coverline data for the custom React overlay (replaces the
+  // annotations.yaxis entry, which spanned the full plot width and
+  // drew through the gray tail). See spec section "BBT plot zone".
+  //
+  // IMPORTANT: guard !settings and !cycle at the top — this memo runs
+  // before the component's loading-return when only some deps have
+  // arrived, and we deref settings.temperatureUnit / cycle.* below.
+  const coverlineOverlay = useMemo(() => {
+    if (!settings || !cycle || !interpretation || !engineResult) return null;
+    const shift = engineResult.thermalShift;
+    const state = interpretation.state;
+
+    const coverlineC = getActiveCoverline(cycleDayInputs, interpretation, shift);
+    const isMarked =
+      !!(cycle as any).markedAnovulatoryAt || !!(cycle as any).markedUninterpretableAt;
+    if (coverlineC == null || state === 'DISMISSED' || isMarked) return null;
+
+    const coverlineDisplay = toDisplayTemperature(coverlineC, settings.temperatureUnit);
+
+    const styleMap: Record<string, { color: string; dash: number; opacity: number }> = {
+      SUGGESTED: { color: '#8b5cf6', dash: 6, opacity: 0.6 },
+      CONFIRMED: { color: '#059669', dash: 0, opacity: 1 },
+      ADJUSTED: { color: '#d97706', dash: 0, opacity: 1 },
+    };
+    const style = styleMap[state] ?? styleMap.SUGGESTED;
+
+    return {
+      yValue: coverlineDisplay,
+      labelText: formatTemperature(coverlineC, settings.temperatureUnit),
+      color: style.color,
+      dash: style.dash,
+      opacity: style.opacity,
+    };
+  }, [settings, cycle, interpretation, engineResult, cycleDayInputs]);
+
   // Calculate dynamic Y-axis range based on actual data (including excluded points)
   const yAxisRange = useMemo(() => {
     if (!chartData || !settings) return null;
@@ -728,44 +763,7 @@ export default function CycleChartPage() {
         }
       },
       annotations: {
-        yaxis: (() => {
-          if (!interpretation || !engineResult) return [];
-          const shift = engineResult.thermalShift;
-          const state = interpretation.state;
-
-          // P2.2: derive coverline via getActiveCoverline. For ADJUSTED state, this
-          // recomputes from raw days using userOverrides.shiftDay; for SUGGESTED/CONFIRMED,
-          // it returns the engine's coverline. Fixes two bugs: (1) ADJUSTED+engine.status='none'
-          // (KeptShiftCard) no longer loses the coverline; (2) ADJUSTED with user shiftDay
-          // differing from engine draws the user's coverline, not the engine's.
-          const coverlineC = getActiveCoverline(cycleDayInputs, interpretation, shift);
-
-          const isMarked =
-            !!(cycle as any)?.markedAnovulatoryAt || !!(cycle as any)?.markedUninterpretableAt;
-          if (coverlineC == null || state === 'DISMISSED' || isMarked) return [];
-
-          // Convert to display unit
-          const coverlineDisplay = toDisplayTemperature(coverlineC, settings.temperatureUnit);
-
-          const styleMap: Record<string, { color: string; dash: number; opacity: number }> = {
-            SUGGESTED: { color: '#8b5cf6', dash: 6, opacity: 0.6 },
-            CONFIRMED: { color: '#059669', dash: 0, opacity: 1 },
-            ADJUSTED: { color: '#d97706', dash: 0, opacity: 1 },
-          };
-          const style = styleMap[state] ?? styleMap.SUGGESTED;
-
-          return [{
-            y: coverlineDisplay,
-            borderColor: style.color,
-            strokeDashArray: style.dash,
-            opacity: style.opacity,
-            label: {
-              text: formatTemperature(coverlineC, settings.temperatureUnit),
-              position: 'right' as const,
-              style: { color: style.color, fontSize: '10px', background: 'transparent' },
-            },
-          }];
-        })(),
+        yaxis: [], // Coverline moved to a custom React overlay — see "Coverline overlay" below.
       },
       colors: [
         ...Array(chartData.numSolidSegments).fill('#3b82f6'), // Blue for solid segments
@@ -1816,6 +1814,74 @@ export default function CycleChartPage() {
                   }}
                 />
               )}
+
+              {/* Custom Sensiplan coverline overlay. For ended short cycles with a
+                  gray tail, the line is clipped to the recorded x-extent and the
+                  label sits INSIDE the recorded portion. For all other cycles
+                  (active, or long ended with no tail), the line spans the full plot
+                  width and the label sits at the right edge — preserving today's
+                  visual appearance. Replaces the Apex annotations.yaxis line that
+                  used to span the full plot width. */}
+              {coverlineOverlay && plotAreaWidth > 0 && yAxisRange && cycle && (() => {
+                const numDays = displayDayRange.maxDay - displayDayRange.minDay + 1;
+
+                // Does this cycle have a gray tail? Only then do we clip.
+                const hasTail = !cycle.isActive && recordedMaxDay < displayDayRange.maxDay;
+
+                const lineX1 = plotAreaOffset;
+                const lineX2 = hasTail
+                  ? plotAreaOffset + (recordedMaxDay / numDays) * plotAreaWidth
+                  : plotAreaOffset + plotAreaWidth; // active or long-ended: full width, today's behavior
+
+                // Map yValue to a pixel y-coordinate. yAxisRange is { min, max }; the
+                // plot's y-axis is inverted (min at the bottom, max at the top).
+                const yFrac =
+                  (yAxisRange.max - coverlineOverlay.yValue) /
+                  (yAxisRange.max - yAxisRange.min);
+                const lineY = plotAreaTop + yFrac * plotAreaHeight;
+
+                // Label position: anchored to the right end of the line, but always
+                // inside the recorded region for tail cycles. For non-tail cycles,
+                // sit just past the line's right end (today's behavior).
+                const labelX = hasTail ? lineX2 - 4 : lineX2 + 4;
+                const labelAnchor = hasTail ? 'end' : 'start';
+
+                return (
+                  <svg
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      width: '100%',
+                      height: '100%',
+                      pointerEvents: 'none',
+                      zIndex: 2,
+                    }}
+                  >
+                    <line
+                      x1={lineX1}
+                      x2={lineX2}
+                      y1={lineY}
+                      y2={lineY}
+                      stroke={coverlineOverlay.color}
+                      strokeOpacity={coverlineOverlay.opacity}
+                      strokeWidth={1.5}
+                      strokeDasharray={coverlineOverlay.dash > 0 ? `${coverlineOverlay.dash}` : undefined}
+                    />
+                    <text
+                      x={labelX}
+                      y={lineY - 4}
+                      textAnchor={labelAnchor}
+                      fill={coverlineOverlay.color}
+                      fontSize="10"
+                      fontFamily="-apple-system, BlinkMacSystemFont, sans-serif"
+                    >
+                      {coverlineOverlay.labelText}
+                    </text>
+                  </svg>
+                );
+              })()}
 
               {/* ApexChart */}
               <ReactApexChart
