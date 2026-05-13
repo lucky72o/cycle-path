@@ -443,15 +443,17 @@ Each is rendered as an absolutely-positioned row below the BBT plot, looping ove
 
 Today's lower rows have **different interaction patterns** that must be preserved. Do NOT add a generic `onClick` to every row.
 
-| Row | Current `pointerEvents` | Current `onClick` |
+| Row | Current `pointerEvents` (grid cell) | Current `onClick` |
 |---|---|---|
-| Time Stamp (line ~1894) | `none` (line 1942) | none |
-| LH Test (line ~1958) | `none` (line 2044) | none |
-| Intimacy (line ~2055) | `none` (line 2104) | none |
-| Cervical Fluid (line ~2117) | `none` (line 2178) | none |
-| Menstrual Flow (line ~2117) | `none` (line 2391) | none |
-| Disturbance (line ~2287) | `auto` (line 2325) | none (pure visual) |
-| Notes (line ~2304) | `auto` (line 2453) | `() => setEditorOpenForDay(dayNumber)` (line 2438) |
+| Time Stamp (line ~1894) | `none` (cell at line 1942) | none |
+| LH Test (line ~1958) | `none` (cell at line 2044) | none |
+| Intimacy (line ~2055) | `none` (cell at line 2104) | none |
+| Cervical Fluid (line ~2117) | `none` (cell at line 2178) | none |
+| Menstrual Flow (line ~2117) | `none` (cell at line 2391 — adjacent block) | none |
+| Disturbance (line ~2287) | `none` (cell at line 2391) | none (pure visual) |
+| Notes (line ~2304) | `auto` (cell at line 2453) | `() => setEditorOpenForDay(dayNumber)` (line 2438) |
+
+Note: line 2325 has `pointerEvents: 'auto'` but that's the **Notes-row toggle label** (the row's left axis label that controls row collapse), not a grid cell. Don't touch it.
 
 The rule is: **preserve each row's existing interaction; only gate existing handlers and content rendering on `isTail`.** Don't introduce new click handlers.
 
@@ -507,7 +509,7 @@ Concretely for each row:
 - Same pattern. Gate the flow bar render on `!isTail`. Keep `pointerEvents: 'none'`.
 
 **f. Disturbance row (~line 2287):**
-- The disturbance row has `pointerEvents: 'auto'` at line 2325 but no `onClick` (it's purely visual). Add `bg-[#fafafa]` for `isTail`; gate the disturbance pills render on `!isTail`. Keep `pointerEvents: 'auto'` (no change).
+- The disturbance row's grid cells have `pointerEvents: 'none'` (line 2391) and no `onClick` — purely visual. Add `bg-[#fafafa]` for `isTail`; gate the disturbance pills render on `!isTail`. Keep `pointerEvents: 'none'` (no change).
 
 **g. Notes row (~line 2304):**
 - This is the only lower row with an existing onClick. At line 2438: `onClick={() => setEditorOpenForDay(dayNumber)}`. Wrap that with `isTail`:
@@ -696,17 +698,21 @@ Above the `annotations` block (somewhere near the existing memos), add:
 // Coverline data for the custom React overlay (replaces the
 // annotations.yaxis entry, which spanned the full plot width and
 // drew through the gray tail). See spec section "BBT plot zone".
+//
+// IMPORTANT: guard !settings and !cycle at the top — this memo runs
+// before the component's loading-return when only some deps have
+// arrived, and we deref settings.temperatureUnit / cycle.* below.
 const coverlineOverlay = useMemo(() => {
-  if (!interpretation || !engineResult) return null;
+  if (!settings || !cycle || !interpretation || !engineResult) return null;
   const shift = engineResult.thermalShift;
   const state = interpretation.state;
 
   const coverlineC = getActiveCoverline(cycleDayInputs, interpretation, shift);
   const isMarked =
-    !!(cycle as any)?.markedAnovulatoryAt || !!(cycle as any)?.markedUninterpretableAt;
+    !!(cycle as any).markedAnovulatoryAt || !!(cycle as any).markedUninterpretableAt;
   if (coverlineC == null || state === 'DISMISSED' || isMarked) return null;
 
-  const coverlineDisplay = toDisplayTemperature(coverlineC, settings!.temperatureUnit);
+  const coverlineDisplay = toDisplayTemperature(coverlineC, settings.temperatureUnit);
 
   const styleMap: Record<string, { color: string; dash: number; opacity: number }> = {
     SUGGESTED: { color: '#8b5cf6', dash: 6, opacity: 0.6 },
@@ -717,12 +723,12 @@ const coverlineOverlay = useMemo(() => {
 
   return {
     yValue: coverlineDisplay,
-    labelText: formatTemperature(coverlineC, settings!.temperatureUnit),
+    labelText: formatTemperature(coverlineC, settings.temperatureUnit),
     color: style.color,
     dash: style.dash,
     opacity: style.opacity,
   };
-}, [interpretation, engineResult, cycleDayInputs, cycle, settings]);
+}, [settings, cycle, interpretation, engineResult, cycleDayInputs]);
 ```
 
 - [ ] **Step 3: Render the coverline overlay inside the chart container**
