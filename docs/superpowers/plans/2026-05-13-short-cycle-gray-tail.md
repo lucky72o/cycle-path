@@ -443,6 +443,8 @@ Each is rendered as an absolutely-positioned row below the BBT plot, looping ove
 
 Today's lower rows have **different interaction patterns** that must be preserved. Do NOT add a generic `onClick` to every row.
 
+> **Line-number caveat:** the line numbers below are snapshots taken at plan-write time. If the file has drifted, grep for the row's section comment (e.g. `Time Stamp Row`, `LH Test Row`, `Disturbance Row`) to relocate it. The pattern (grid-cell `pointerEvents` and presence/absence of `onClick`) is what matters, not the exact line.
+
 | Row | Current `pointerEvents` (grid cell) | Current `onClick` |
 |---|---|---|
 | Time Stamp (line ~1894) | `none` (cell at line 1942) | none |
