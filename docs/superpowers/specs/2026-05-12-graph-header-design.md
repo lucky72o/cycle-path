@@ -118,7 +118,7 @@ When a cycle starts on the last day(s) of a calendar month (e.g. Jan 31), the fi
 
 1. **Compute the span's pixel width** per pill: `spanWidthPx = (span.endDayNumber − span.startDayNumber + 1) × cellWidth`.
 2. **Cap `max-width` to `spanWidthPx − 8 px`** (4 px inset on each side) with `box-sizing: border-box` so the value includes the pill's 16 px horizontal padding. Math: pill spans `[leftEdge + 4, leftEdge + spanWidthPx − 4]`, leaving an 8-px guaranteed gap before the next span starts at `leftEdge + spanWidthPx`.
-3. **Switch to a 3-letter abbreviation** when the cap drops below `62 px` (slightly above the natural width of the longest month name "September" with padding). Use `span.monthLabel.slice(0, 3)` — e.g. `Jan`, `Sep`.
+3. **Switch to a 3-letter abbreviation** when the cap drops below `68 px` (the longest English month name "September" renders at ~46–50 px + 16 px padding ≈ 62–66 px; the 68-px threshold gives a small safety margin so the ellipsis fallback rarely fires). Use `span.monthLabel.slice(0, 3)` — e.g. `Jan`, `Sep`.
 4. **Skip the pill entirely** when the cap drops below `22 px`. At that width even an abbreviation can't render usefully, so showing nothing is cleaner than showing a single-letter sliver. The span is still color-coded via the chip + underline on the day cells below; only the gutter pill is suppressed.
 5. **Safety net**: `overflow: hidden` + `text-overflow: ellipsis` to truncate if any threshold heuristic is slightly off.
 

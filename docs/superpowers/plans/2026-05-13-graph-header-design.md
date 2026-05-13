@@ -781,11 +781,12 @@ Inside the `{chartData && plotAreaWidth > 0 && (...)}` block (around line 1235),
                       // cannot render usefully, so suppress the pill.
                       const pillMaxWidthPx = Math.max(0, spanWidthPx - 8);
                       if (pillMaxWidthPx < 22) return null;
-                      // Below ~62 px the longest month name ("September", ~46 px text +
-                      // 16 px padding) wouldn't fit comfortably; fall back to a 3-letter
-                      // abbreviation. The text-overflow:ellipsis safety net below covers
-                      // anything that still slips through.
-                      const useShortLabel = pillMaxWidthPx < 62;
+                      // Below ~68 px the longest month name ("September", ~46–50 px text +
+                      // 16 px padding ≈ 62–66 px) wouldn't fit comfortably; fall back to a
+                      // 3-letter abbreviation. The 68-px threshold (vs the bare 62-px natural
+                      // width) gives a small safety margin so the text-overflow:ellipsis
+                      // fallback below rarely needs to fire.
+                      const useShortLabel = pillMaxWidthPx < 68;
                       const label = useShortLabel ? span.monthLabel.slice(0, 3) : span.monthLabel;
                       const leftEdge = plotAreaOffset + (span.startDayNumber - chartData.minDay) * cellWidth;
                       const palette = paletteFor(span.monthIndex);

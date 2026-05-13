@@ -1351,9 +1351,11 @@ export default function CycleChartPage() {
                       if (pillMaxWidthPx < 22) return null;
 
                       // Use the 3-letter abbreviation when the full month name wouldn't fit.
-                      // Threshold (~62 px) covers padding (16) + 10-px text room for the longest
-                      // month name (~46 px). Below it, fall back to e.g. "Jan" / "Feb".
-                      const useShortLabel = pillMaxWidthPx < 62;
+                      // Threshold 68 px = padding (16) + ~52 px of text room for the longest
+                      // English month name "September" (~46–50 px at this font), with a small
+                      // safety margin so the ellipsis safety net below rarely needs to fire.
+                      // Below it, fall back to e.g. "Jan" / "Sep".
+                      const useShortLabel = pillMaxWidthPx < 68;
                       const label = useShortLabel ? span.monthLabel.slice(0, 3) : span.monthLabel;
 
                       const leftEdge = plotAreaOffset + (span.startDayNumber - chartData.minDay) * cellWidth;
