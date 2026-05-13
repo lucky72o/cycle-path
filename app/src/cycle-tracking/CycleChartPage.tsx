@@ -1243,13 +1243,15 @@ export default function CycleChartPage() {
                 <>
                   {/* Row Labels - positioned in y-axis area */}
                   <div className="absolute top-0 left-0" style={{ width: `${plotAreaOffset}px`, zIndex: 2 }}>
-                    <div className="flex items-center justify-end px-3 h-9 text-xs font-medium bg-blue-50 border-b border-slate-300 border-r border-slate-300">
+                    {/* Gutter cell — blank; the hairline + month pills live in the gutter overlay container (Task 8). */}
+                    <div className="bg-white border-b border-slate-300 border-r border-slate-300" style={{ height: '22px' }} />
+                    <div className="flex items-center justify-end px-3 text-xs font-medium bg-white border-b border-slate-200 border-r border-slate-300" style={{ height: '36px' }}>
                       Date
                     </div>
-                    <div className="flex items-center justify-end px-3 h-9 text-xs font-medium bg-slate-100 border-b border-slate-300 border-r border-slate-300">
+                    <div className="flex items-center justify-end px-3 text-xs font-medium bg-white border-b border-slate-200 border-r border-slate-300" style={{ height: '36px' }}>
                       Week Day
                     </div>
-                    <div className="flex items-center justify-end px-3 h-9 text-xs font-medium bg-white border-b border-slate-200 border-r border-slate-300">
+                    <div className="flex items-center justify-end px-3 text-xs font-medium bg-white border-b border-slate-200 border-r border-slate-300" style={{ height: '36px' }}>
                       Cycle Day
                     </div>
                   </div>
@@ -1279,7 +1281,7 @@ export default function CycleChartPage() {
                             style={{
                               left: `${leftEdge}px`,
                               width: `${cellWidth}px`,
-                              top: 0,
+                              top: '22px',
                               height: '36px',
                               pointerEvents: 'none'
                             }}
@@ -1295,7 +1297,7 @@ export default function CycleChartPage() {
                             style={{
                               left: `${leftEdge}px`,
                               width: `${cellWidth}px`,
-                              top: '36px',
+                              top: '58px',
                               height: '36px',
                               pointerEvents: 'none'
                             }}
@@ -1311,7 +1313,7 @@ export default function CycleChartPage() {
                             style={{
                               left: `${leftEdge}px`,
                               width: `${cellWidth}px`,
-                              top: '72px',
+                              top: '94px',
                               height: '36px',
                               color: hasIntercourse ? '#ec4899' : undefined,
                               pointerEvents: 'none'
