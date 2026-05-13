@@ -1856,11 +1856,14 @@ export default function CycleChartPage() {
                   (yAxisRange.max - yAxisRange.min);
                 const lineY = plotAreaTop + yFrac * plotAreaHeight;
 
-                // Label position: anchored to the right end of the line, but always
-                // inside the recorded region for tail cycles. For non-tail cycles,
-                // sit just past the line's right end (today's behavior).
-                const labelX = hasTail ? lineX2 - 4 : lineX2 + 4;
-                const labelAnchor = hasTail ? 'end' : 'start';
+                // Label position: always just past the line's right end with
+                // text-anchor='start'. For tail cycles, this puts the label into
+                // the gray-tail region next to the line — that's intentional. The
+                // earlier "anchor inside the recorded region" rule jammed the
+                // label against BBT data points; visually the label reads better
+                // sitting in the empty gray area adjacent to the line.
+                const labelX = lineX2 + 4;
+                const labelAnchor = 'start' as const;
 
                 return (
                   <svg
