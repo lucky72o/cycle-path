@@ -697,7 +697,8 @@ export default function CycleChartPage() {
             enabled: true
           }
         },
-        foreColor: '#002142' // Set default text color for axis labels
+        foreColor: '#002142', // Set default text color for axis labels
+        background: 'transparent', // empty plot-area pixels so the gray-tail overlay behind the SVG shows through
       },
       theme: {
         mode: 'light',
@@ -1794,6 +1795,28 @@ export default function CycleChartPage() {
                 );
               })()}
               
+              {/* Gray-tail background overlay for the BBT plot region.
+                  Sits BEHIND the Apex SVG (z-index: 0). Because we set
+                  chart.background = 'transparent' above, the chart-area pixels are
+                  transparent, so this div's #fafafa fill shows through in the tail
+                  region. Apex's gridlines render inside the SVG above z-index 0, so
+                  they remain visible on top of the tail fill. */}
+              {cycle && !cycle.isActive && recordedMaxDay < displayDayRange.maxDay && plotAreaWidth > 0 && (
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    top: `${plotAreaTop}px`,
+                    height: `${plotAreaHeight}px`,
+                    left: `${plotAreaOffset + (recordedMaxDay / (displayDayRange.maxDay - displayDayRange.minDay + 1)) * plotAreaWidth}px`,
+                    width: `${plotAreaWidth - (recordedMaxDay / (displayDayRange.maxDay - displayDayRange.minDay + 1)) * plotAreaWidth}px`,
+                    background: '#fafafa',
+                    pointerEvents: 'none',
+                    zIndex: 0,
+                  }}
+                />
+              )}
+
               {/* ApexChart */}
               <ReactApexChart
                 options={chartOptions}
