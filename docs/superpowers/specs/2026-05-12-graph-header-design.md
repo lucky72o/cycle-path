@@ -56,7 +56,7 @@ All distances in CSS px, all colors as Tailwind class names (or raw hex where th
                   (full-chart coord space — left:0 = container's left edge)
 ┌─────────────────────────────────────────────────────────────────────┐
 │ left-axis     │  plot-area: full-chart x ∈ [plotAreaOffset, width)  │
-│ ◄──── 70 ────►│                                                      │
+│ ◄ plotAreaOffset ► (measured at runtime, ~100–130 px)                │
 ├──────────────┬┴─────────────────────────────────────────────────────┤
 │   (blank)    │  ─── hairline ───   [pill]      [pill]      ←── 22 px│  gutter row    top:  0
 ├──────────────┼──────────────────────────────────────────────────────┤
@@ -70,7 +70,7 @@ All distances in CSS px, all colors as Tailwind class names (or raw hex where th
 Total header height: 22 + 36 + 36 + 36 = 130 px (was 108 px → +22 px).
 ```
 
-**Coordinate space**: everything in this header — left-axis labels, gutter pills, day-column cells, and the hairline — is rendered as an absolutely-positioned descendant of the existing `chartContainerRef` (the *full* chart container, including the 70-px left-axis area). The `top` and `left` values above are in that full-chart coordinate space. This matches the current rendering pattern at lines 1238–1318 of `CycleChartPage.tsx`, where the left-axis label container (top:0, width:plotAreaOffset) and the cells container (top:0, left:0, right:0) live side-by-side as parallel absolute children of the same parent.
+**Coordinate space**: everything in this header — left-axis labels, gutter pills, day-column cells, and the hairline — is rendered as an absolutely-positioned descendant of the existing `chartContainerRef` (the *full* chart container, including the left-axis area whose width is the measured `plotAreaOffset`). The `top` and `left` values above are in that full-chart coordinate space. This matches the current rendering pattern at lines 1238–1318 of `CycleChartPage.tsx`, where the left-axis label container (top:0, width:plotAreaOffset) and the cells container (top:0, left:0, right:0) live side-by-side as parallel absolute children of the same parent.
 
 ### Gutter row (new)
 
