@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviation, getDayOfWeek, getCycleDayCount, getTempNodeLabel } from './utils';
+import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 import { useInterpretation } from './interpretation/hooks/useInterpretation';
@@ -37,6 +37,34 @@ const DISTURBANCE_EMOJI: Record<string, string> = {
   MEDICATION: '💊',
   HOT_COLD_ROOM: '🌡️',
 };
+
+/**
+ * Per-month-index color tokens for the cycle chart header.
+ *
+ * monthIndex 0 = first calendar month present in the displayed cycle range,
+ * 1 = second, 2+ = fallback (rare; only triggers for cycles spanning three
+ * calendar months). Drives the pill, the date underline, the weekday chip,
+ * the cycle-day chip, and the hover wash for every cell in the column.
+ *
+ * Why these specific hues — see the "Color tokens" section in
+ * docs/superpowers/specs/2026-05-12-graph-header-design.md.
+ */
+const MONTH_PALETTE: Record<number, {
+  pillBg: string;
+  pillText: string;
+  chipBg: string;
+  chipText: string;
+  underline: string;
+  hoverWash: string;
+}> = {
+  0: { pillBg: '#dbeafe', pillText: '#1e3a8a', chipBg: '#dbeafe', chipText: '#1e3a8a', underline: '#60a5fa', hoverWash: '#dbeafe' }, // blue (1st month)
+  1: { pillBg: '#dcfce7', pillText: '#14532d', chipBg: '#dcfce7', chipText: '#14532d', underline: '#4ade80', hoverWash: '#dcfce7' }, // green (2nd month)
+  2: { pillBg: '#f1f5f9', pillText: '#334155', chipBg: '#f1f5f9', chipText: '#334155', underline: '#94a3b8', hoverWash: '#f1f5f9' }, // slate (3rd+ month)
+};
+
+function paletteFor(monthIndex: number) {
+  return MONTH_PALETTE[Math.min(monthIndex, 2)];
+}
 
 export default function CycleChartPage() {
   const { cycleId } = useParams();
@@ -272,7 +300,7 @@ export default function CycleChartPage() {
     for (let dayNumber = displayDayRange.minDay; dayNumber <= displayDayRange.maxDay; dayNumber++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + (dayNumber - 1));
-      const abbreviation = getDayOfWeekAbbreviation(getDayOfWeek(date));
+      const abbreviation = getDayOfWeekAbbreviationChip(getDayOfWeek(date));
       map.set(dayNumber, abbreviation);
     }
 
@@ -381,31 +409,71 @@ export default function CycleChartPage() {
     return result;
   }, [chartData, settings]);
 
-  // Build labels for dates and weekdays for the full displayed range using the cycle start date.
+  // Build labels for dates across the full displayed range using the cycle
+  // start date. Each value is just the day-of-month (1..31) as a string;
+  // the calendar month is now communicated by the gutter pill above the row.
   const datesMap = useMemo(() => {
     if (!cycle) return new Map<number, string>();
-    
+
     const map = new Map<number, string>();
-    let previousMonth: number | null = null;
     const startDate = new Date(cycle.startDate);
 
     for (let dayNumber = displayDayRange.minDay; dayNumber <= displayDayRange.maxDay; dayNumber++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + (dayNumber - 1));
-      const dayOfMonth = date.getDate();
-      const month = date.getMonth() + 1;
-
-      if (dayNumber === displayDayRange.minDay || (previousMonth !== null && month !== previousMonth)) {
-        map.set(dayNumber, `${dayOfMonth}/${month}`);
-      } else {
-        map.set(dayNumber, `${dayOfMonth}`);
-      }
-
-      previousMonth = month;
+      map.set(dayNumber, String(date.getDate()));
     }
-    
+
     return map;
   }, [cycle, displayDayRange]);
+
+  // Minimum chart-container width — guarantees cellWidth ≥ 22 px so the
+  // weekday/cycle-day chips fit, even on 40-50 day cycles or with wider
+  // y-axis labels (e.g. some Celsius/Fahrenheit values). Uses the
+  // runtime-measured plotAreaOffset when available, falling back to a
+  // conservative reserve before the first Apex measurement.
+  const containerMinWidth = useMemo(() => {
+    const numDays = displayDayRange.maxDay - displayDayRange.minDay + 1;
+    return computeContainerMinWidth(numDays, plotAreaOffset);
+  }, [displayDayRange, plotAreaOffset]);
+
+  // One element per contiguous calendar-month segment of the displayed range.
+  // Drives the month-label pills in the gutter row.
+  //
+  // Cycle-relative coloring contract: monthIndex 0 == cycle's first calendar
+  // month, 1 == second, etc. This only holds because displayDayRange.minDay
+  // is always 1 in the current chart. If that ever changes (e.g. a "month 2
+  // onwards" detail view), update buildMonthSpans usage to offset monthIndex
+  // by the number of months skipped — see MonthSpan JSDoc in utils.ts.
+  const monthSpans = useMemo(() => {
+    if (!cycle) return [];
+    // Defensive assertion: today's chart always passes minDay=1; if a future
+    // change breaks that, the colors will silently shift, so fail loudly.
+    if (displayDayRange.minDay !== 1) {
+      console.warn(
+        'CycleChartPage: monthSpans assumes displayDayRange.minDay === 1 for cycle-relative coloring; got',
+        displayDayRange.minDay,
+      );
+    }
+    return buildMonthSpans(
+      new Date(cycle.startDate),
+      displayDayRange.minDay,
+      displayDayRange.maxDay,
+    );
+  }, [cycle, displayDayRange]);
+
+  // Lookup: dayNumber -> monthIndex (0 for 1st month of cycle, 1 for 2nd, ...).
+  // Drives per-cell color selection (date underline, weekday chip, cycle-day
+  // chip, hover wash) without re-scanning monthSpans on every cell.
+  const monthIndexByDay = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const span of monthSpans) {
+      for (let d = span.startDayNumber; d <= span.endDayNumber; d++) {
+        map.set(d, span.monthIndex);
+      }
+    }
+    return map;
+  }, [monthSpans]);
 
   // Create a map of ALL cycle days (not just BBT days) for cervical/menstrual data
   const allCycleDaysMap = useMemo(() => {
@@ -639,8 +707,12 @@ export default function CycleChartPage() {
       },
       grid: {
         padding: {
-          left: 50, // Increased to create more space between title and labels
-          right: 40 // Extra padding to ensure last data point is fully visible with room
+          // NOTE: If you change `left`, also revisit LEFT_PLOT_RESERVE_FALLBACK
+          // in utils.ts — the chart's min-w math depends on this value.
+          left: 50,
+          // NOTE: If you change `right`, also update RIGHT_PLOT_RESERVE in
+          // utils.ts — the chart's min-w math reserves exactly this many px.
+          right: 40,
         },
         show: true,
         clipMarkers: false, // Don't clip markers at the edge
@@ -1221,8 +1293,9 @@ export default function CycleChartPage() {
             <div className="overflow-x-auto">
             <div
               ref={chartContainerRef}
-              className="relative min-w-[800px]"
-              style={{ paddingTop: '108px', paddingBottom: `${LOWER_TABLE_PADDING_BOTTOM}px` }}
+              className="relative"
+              data-chart-container="cycle-chart"
+              style={{ minWidth: `${containerMinWidth}px`, paddingTop: '130px', paddingBottom: `${LOWER_TABLE_PADDING_BOTTOM}px` }}
               onMouseMove={(e) => {
                 const rect = chartContainerRef.current?.getBoundingClientRect();
                 if (rect) {
@@ -1236,15 +1309,84 @@ export default function CycleChartPage() {
                 <>
                   {/* Row Labels - positioned in y-axis area */}
                   <div className="absolute top-0 left-0" style={{ width: `${plotAreaOffset}px`, zIndex: 2 }}>
-                    <div className="flex items-center justify-end px-3 h-9 text-xs font-medium bg-blue-50 border-b border-slate-300 border-r border-slate-300">
+                    {/* Gutter cell — blank; the hairline + month pills live in the gutter overlay container (Task 8). */}
+                    <div className="bg-white border-b border-slate-300 border-r border-slate-300" style={{ height: '22px' }} />
+                    <div className="flex items-center justify-end px-3 text-xs font-medium bg-white border-b border-slate-200 border-r border-slate-300" style={{ height: '36px' }}>
                       Date
                     </div>
-                    <div className="flex items-center justify-end px-3 h-9 text-xs font-medium bg-slate-100 border-b border-slate-300 border-r border-slate-300">
+                    <div className="flex items-center justify-end px-3 text-xs font-medium bg-white border-b border-slate-200 border-r border-slate-300" style={{ height: '36px' }}>
                       Week Day
                     </div>
-                    <div className="flex items-center justify-end px-3 h-9 text-xs font-medium bg-white border-b border-slate-200 border-r border-slate-300">
+                    <div className="flex items-center justify-end px-3 text-xs font-medium bg-white border-b border-slate-200 border-r border-slate-300" style={{ height: '36px' }}>
                       Cycle Day
                     </div>
+                  </div>
+
+                  {/* Gutter overlay — hairline + month-label pills. Lives in
+                      the full-chart coord space (left:0 = container's left
+                      edge); hairline starts at plotAreaOffset, pills are
+                      positioned by monthSpans. */}
+                  <div className="absolute top-0 left-0 right-0" style={{ height: '22px', zIndex: 1 }}>
+                    {/* Hairline running through the gutter band, plot-area only */}
+                    <div
+                      className="absolute"
+                      style={{
+                        left: `${plotAreaOffset}px`,
+                        right: 0,
+                        top: '11px',
+                        height: '1px',
+                        background: '#cbd5e1',
+                      }}
+                    />
+                    {/* One pill per calendar-month span */}
+                    {monthSpans.map((span) => {
+                      const numDays = chartData.maxDay - chartData.minDay + 1;
+                      const cellWidth = plotAreaWidth / numDays;
+                      const spanWidthPx = (span.endDayNumber - span.startDayNumber + 1) * cellWidth;
+                      // Pill is anchored at +4 px inset from the span's left edge; reserve 4 px on
+                      // the right too so two adjacent pills never visually overlap. Below ~22 px
+                      // of pill room (the case where a cycle starts on the last day of a month)
+                      // there's no useful label to show, so skip the pill entirely.
+                      const pillMaxWidthPx = Math.max(0, spanWidthPx - 8);
+                      if (pillMaxWidthPx < 22) return null;
+
+                      // Use the 3-letter abbreviation when the full month name wouldn't fit.
+                      // Threshold 68 px = padding (16) + ~52 px of text room for the longest
+                      // English month name "September" (~46–50 px at this font), with a small
+                      // safety margin so the ellipsis safety net below rarely needs to fire.
+                      // Below it, fall back to e.g. "Jan" / "Sep".
+                      const useShortLabel = pillMaxWidthPx < 68;
+                      const label = useShortLabel ? span.monthLabel.slice(0, 3) : span.monthLabel;
+
+                      const leftEdge = plotAreaOffset + (span.startDayNumber - chartData.minDay) * cellWidth;
+                      const palette = paletteFor(span.monthIndex);
+                      return (
+                        <span
+                          key={span.startDayNumber}
+                          className="absolute"
+                          style={{
+                            top: '4px',
+                            left: `${leftEdge + 4}px`,
+                            maxWidth: `${pillMaxWidthPx}px`,
+                            boxSizing: 'border-box',
+                            height: '14px',
+                            lineHeight: '14px',
+                            padding: '0 8px',
+                            borderRadius: '9px',
+                            background: palette.pillBg,
+                            color: palette.pillText,
+                            fontSize: '10px',
+                            fontWeight: 600,
+                            letterSpacing: '0.02em',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {label}
+                        </span>
+                      );
+                    })}
                   </div>
 
                   {/* Grid cells - calculated positions within plot area */}
@@ -1264,54 +1406,114 @@ export default function CycleChartPage() {
                       
                       return (
                         <Fragment key={dayNumber}>
-                          {/* Date Cell */}
-                          <div
-                            className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 transition-colors ${
-                              isHovered ? 'bg-[#bfdbfe]' : 'bg-blue-50'
-                            }`}
-                            style={{
-                              left: `${leftEdge}px`,
-                              width: `${cellWidth}px`,
-                              top: 0,
-                              height: '36px',
-                              pointerEvents: 'none'
-                            }}
-                          >
-                            {dateLabel}
-                          </div>
-                          
-                          {/* Week Day Cell */}
-                          <div
-                            className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 transition-colors ${
-                              isHovered ? 'bg-[#bfdbfe]' : 'bg-slate-100'
-                            }`}
-                            style={{
-                              left: `${leftEdge}px`,
-                              width: `${cellWidth}px`,
-                              top: '36px',
-                              height: '36px',
-                              pointerEvents: 'none'
-                            }}
-                          >
-                            {weekDay}
-                          </div>
-                          
-                          {/* Cycle Day Cell */}
-                          <div
-                            className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-200 transition-colors ${
-                              isHovered ? 'bg-[#bfdbfe]' : 'bg-white'
-                            }`}
-                            style={{
-                              left: `${leftEdge}px`,
-                              width: `${cellWidth}px`,
-                              top: '72px',
-                              height: '36px',
-                              color: hasIntercourse ? '#ec4899' : undefined,
-                              pointerEvents: 'none'
-                            }}
-                          >
-                            {dayNumber}
-                          </div>
+                          {(() => {
+                            const monthIndex = monthIndexByDay.get(dayNumber) ?? 0;
+                            const palette = paletteFor(monthIndex);
+                            const cellBackground = isHovered ? palette.hoverWash : '#ffffff';
+                            return (
+                              <>
+                                {/* Date cell — flat white with a 2-px colored underline spanning the full cell, inset by 4 px each side */}
+                                <div
+                                  className="absolute flex items-center justify-center text-xs"
+                                  style={{
+                                    left: `${leftEdge}px`,
+                                    width: `${cellWidth}px`,
+                                    top: '22px',
+                                    height: '36px',
+                                    background: cellBackground,
+                                    color: '#334155',
+                                    borderRight: '1px solid #f1f5f9',
+                                    borderBottom: '1px solid #e2e8f0',
+                                    pointerEvents: 'none',
+                                  }}
+                                >
+                                  {dateLabel}
+                                  {/* Full-cell-width 2-px underline (per spec): absolutely
+                                      positioned in the cell, NOT inside the text span. */}
+                                  <span
+                                    aria-hidden="true"
+                                    style={{
+                                      position: 'absolute',
+                                      left: '4px',
+                                      right: '4px',
+                                      bottom: '4px',
+                                      height: '2px',
+                                      borderRadius: '1px',
+                                      background: palette.underline,
+                                    }}
+                                  />
+                                </div>
+
+                                {/* Week Day cell — flat white, letter wrapped in a colored chip */}
+                                <div
+                                  className="absolute flex items-center justify-center"
+                                  style={{
+                                    left: `${leftEdge}px`,
+                                    width: `${cellWidth}px`,
+                                    top: '58px',
+                                    height: '36px',
+                                    background: cellBackground,
+                                    borderRight: '1px solid #f1f5f9',
+                                    borderBottom: '1px solid #e2e8f0',
+                                    pointerEvents: 'none',
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      minWidth: '20px',
+                                      height: '18px',
+                                      padding: '0 4px',
+                                      borderRadius: '9px',
+                                      lineHeight: '18px',
+                                      fontSize: '10px',
+                                      fontWeight: 400,
+                                      background: palette.chipBg,
+                                      color: palette.chipText,
+                                    }}
+                                  >
+                                    {weekDay}
+                                  </span>
+                                </div>
+
+                                {/* Cycle Day cell — flat white, number wrapped in a colored chip; intercourse override = pink text */}
+                                <div
+                                  className="absolute flex items-center justify-center"
+                                  style={{
+                                    left: `${leftEdge}px`,
+                                    width: `${cellWidth}px`,
+                                    top: '94px',
+                                    height: '36px',
+                                    background: cellBackground,
+                                    borderRight: '1px solid #f1f5f9',
+                                    borderBottom: '1px solid #e2e8f0',
+                                    pointerEvents: 'none',
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      minWidth: '20px',
+                                      height: '18px',
+                                      padding: '0 4px',
+                                      borderRadius: '9px',
+                                      lineHeight: '18px',
+                                      fontSize: '10px',
+                                      fontWeight: 400,
+                                      background: palette.chipBg,
+                                      color: hasIntercourse ? '#ec4899' : palette.chipText,
+                                    }}
+                                  >
+                                    {dayNumber}
+                                  </span>
+                                </div>
+                              </>
+                            );
+                          })()}
                         </Fragment>
                       );
                     })}
