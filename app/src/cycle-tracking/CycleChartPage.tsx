@@ -462,6 +462,19 @@ export default function CycleChartPage() {
     );
   }, [cycle, displayDayRange]);
 
+  // Lookup: dayNumber -> monthIndex (0 for 1st month of cycle, 1 for 2nd, ...).
+  // Drives per-cell color selection (date underline, weekday chip, cycle-day
+  // chip, hover wash) without re-scanning monthSpans on every cell.
+  const monthIndexByDay = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const span of monthSpans) {
+      for (let d = span.startDayNumber; d <= span.endDayNumber; d++) {
+        map.set(d, span.monthIndex);
+      }
+    }
+    return map;
+  }, [monthSpans]);
+
   // Create a map of ALL cycle days (not just BBT days) for cervical/menstrual data
   const allCycleDaysMap = useMemo(() => {
     if (!cycle) return new Map();
@@ -1373,54 +1386,114 @@ export default function CycleChartPage() {
                       
                       return (
                         <Fragment key={dayNumber}>
-                          {/* Date Cell */}
-                          <div
-                            className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 transition-colors ${
-                              isHovered ? 'bg-[#bfdbfe]' : 'bg-blue-50'
-                            }`}
-                            style={{
-                              left: `${leftEdge}px`,
-                              width: `${cellWidth}px`,
-                              top: '22px',
-                              height: '36px',
-                              pointerEvents: 'none'
-                            }}
-                          >
-                            {dateLabel}
-                          </div>
-                          
-                          {/* Week Day Cell */}
-                          <div
-                            className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 transition-colors ${
-                              isHovered ? 'bg-[#bfdbfe]' : 'bg-slate-100'
-                            }`}
-                            style={{
-                              left: `${leftEdge}px`,
-                              width: `${cellWidth}px`,
-                              top: '58px',
-                              height: '36px',
-                              pointerEvents: 'none'
-                            }}
-                          >
-                            {weekDay}
-                          </div>
-                          
-                          {/* Cycle Day Cell */}
-                          <div
-                            className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-200 transition-colors ${
-                              isHovered ? 'bg-[#bfdbfe]' : 'bg-white'
-                            }`}
-                            style={{
-                              left: `${leftEdge}px`,
-                              width: `${cellWidth}px`,
-                              top: '94px',
-                              height: '36px',
-                              color: hasIntercourse ? '#ec4899' : undefined,
-                              pointerEvents: 'none'
-                            }}
-                          >
-                            {dayNumber}
-                          </div>
+                          {(() => {
+                            const monthIndex = monthIndexByDay.get(dayNumber) ?? 0;
+                            const palette = paletteFor(monthIndex);
+                            const cellBackground = isHovered ? palette.hoverWash : '#ffffff';
+                            return (
+                              <>
+                                {/* Date cell — flat white with a 2-px colored underline spanning the full cell, inset by 4 px each side */}
+                                <div
+                                  className="absolute flex items-center justify-center text-xs"
+                                  style={{
+                                    left: `${leftEdge}px`,
+                                    width: `${cellWidth}px`,
+                                    top: '22px',
+                                    height: '36px',
+                                    background: cellBackground,
+                                    color: '#334155',
+                                    borderRight: '1px solid #f1f5f9',
+                                    borderBottom: '1px solid #e2e8f0',
+                                    pointerEvents: 'none',
+                                  }}
+                                >
+                                  {dateLabel}
+                                  {/* Full-cell-width 2-px underline (per spec): absolutely
+                                      positioned in the cell, NOT inside the text span. */}
+                                  <span
+                                    aria-hidden="true"
+                                    style={{
+                                      position: 'absolute',
+                                      left: '4px',
+                                      right: '4px',
+                                      bottom: '4px',
+                                      height: '2px',
+                                      borderRadius: '1px',
+                                      background: palette.underline,
+                                    }}
+                                  />
+                                </div>
+
+                                {/* Week Day cell — flat white, letter wrapped in a colored chip */}
+                                <div
+                                  className="absolute flex items-center justify-center"
+                                  style={{
+                                    left: `${leftEdge}px`,
+                                    width: `${cellWidth}px`,
+                                    top: '58px',
+                                    height: '36px',
+                                    background: cellBackground,
+                                    borderRight: '1px solid #f1f5f9',
+                                    borderBottom: '1px solid #e2e8f0',
+                                    pointerEvents: 'none',
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      minWidth: '20px',
+                                      height: '18px',
+                                      padding: '0 4px',
+                                      borderRadius: '9px',
+                                      lineHeight: '18px',
+                                      fontSize: '10px',
+                                      fontWeight: 400,
+                                      background: palette.chipBg,
+                                      color: palette.chipText,
+                                    }}
+                                  >
+                                    {weekDay}
+                                  </span>
+                                </div>
+
+                                {/* Cycle Day cell — flat white, number wrapped in a colored chip; intercourse override = pink text */}
+                                <div
+                                  className="absolute flex items-center justify-center"
+                                  style={{
+                                    left: `${leftEdge}px`,
+                                    width: `${cellWidth}px`,
+                                    top: '94px',
+                                    height: '36px',
+                                    background: cellBackground,
+                                    borderRight: '1px solid #f1f5f9',
+                                    borderBottom: '1px solid #e2e8f0',
+                                    pointerEvents: 'none',
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      minWidth: '20px',
+                                      height: '18px',
+                                      padding: '0 4px',
+                                      borderRadius: '9px',
+                                      lineHeight: '18px',
+                                      fontSize: '10px',
+                                      fontWeight: 400,
+                                      background: palette.chipBg,
+                                      color: hasIntercourse ? '#ec4899' : palette.chipText,
+                                    }}
+                                  >
+                                    {dayNumber}
+                                  </span>
+                                </div>
+                              </>
+                            );
+                          })()}
                         </Fragment>
                       );
                     })}
