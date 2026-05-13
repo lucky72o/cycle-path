@@ -1030,6 +1030,7 @@ If your local dev database does not already have a cycle of ≥ 40 days, create 
    - `dayNumber` = `40`.
    - `date` = the cycle's `startDate` plus 39 days.
    - `dayOfWeek` = the English day-of-week name for that date (`'Monday'`, `'Tuesday'`, `'Wednesday'`, `'Thursday'`, `'Friday'`, `'Saturday'`, or `'Sunday'`) — required field, no default. The exact value doesn't affect the width verification; just use any valid name.
+   - `disturbanceFactors` = `[]` (empty array) — required `String[]` with no DB default; insert fails without it.
    - `bbt` = any value in the Celsius BBT range (e.g. `36.8`).
 4. Reload the cycle chart page.
 
