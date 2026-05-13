@@ -872,7 +872,7 @@ export default function CycleChartPage() {
         enabled: false // Disabled - using custom React tooltip + native mousemove listener
       }
     };
-  }, [settings, chartData, allDaysWithBBT, cycle, navigate, yAxisRange, plotAreaWidth, plotAreaOffset, interpretation, engineResult]);
+  }, [settings, chartData, allDaysWithBBT, cycle, navigate, yAxisRange, plotAreaWidth, plotAreaOffset]);
 
   const prevCycle = useMemo(() => {
     if (!cycle || !allCycles) return null;
