@@ -474,8 +474,10 @@ return (
     style={{
       ...existingPositionAndSize,
       // KEEP the existing pointerEvents value — do not change.
-      // The Notes/Disturbance rows already have pointerEvents: 'auto';
-      // the others have 'none'. Don't override.
+      // Only the Notes row's grid cells have pointerEvents: 'auto'
+      // (line 2453); ALL other lower-row grid cells keep
+      // pointerEvents: 'none' (including Disturbance at line 2391).
+      // Don't override.
     }}
     // If the row had an existing onClick (only Notes today), wrap it:
     onClick={existingOnClick ? (isTail ? undefined : existingOnClick) : undefined}
