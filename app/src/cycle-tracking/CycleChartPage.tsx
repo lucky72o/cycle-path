@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans } from './utils';
+import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 import { useInterpretation } from './interpretation/hooks/useInterpretation';
@@ -1414,6 +1414,15 @@ export default function CycleChartPage() {
                             const monthIndex = monthIndexByDay.get(dayNumber) ?? 0;
                             const palette = paletteFor(monthIndex);
                             const cellBackground = isHovered ? palette.hoverWash : '#ffffff';
+                            const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
+                            // Tail-cell colors (slate-50 cell bg, slate-200 chip bg, slate-500 chip text,
+                            // slate-400 date text, slate-300 underline). Hover-wash is suppressed on
+                            // tail cells — they read as inert empty space.
+                            const cellBg = isTail ? '#f8fafc' : cellBackground;
+                            const dateTextColor = isTail ? '#94a3b8' : '#334155';
+                            const underlineColor = isTail ? '#cbd5e1' : palette.underline;
+                            const chipBg = isTail ? '#e2e8f0' : palette.chipBg;
+                            const chipTextColor = isTail ? '#64748b' : palette.chipText;
                             return (
                               <>
                                 {/* Date cell — flat white with a 2-px colored underline spanning the full cell, inset by 4 px each side */}
@@ -1424,8 +1433,8 @@ export default function CycleChartPage() {
                                     width: `${cellWidth}px`,
                                     top: '22px',
                                     height: '36px',
-                                    background: cellBackground,
-                                    color: '#334155',
+                                    background: cellBg,
+                                    color: dateTextColor,
                                     borderRight: '1px solid #f1f5f9',
                                     borderBottom: '1px solid #e2e8f0',
                                     pointerEvents: 'none',
@@ -1443,7 +1452,7 @@ export default function CycleChartPage() {
                                       bottom: '4px',
                                       height: '2px',
                                       borderRadius: '1px',
-                                      background: palette.underline,
+                                      background: underlineColor,
                                     }}
                                   />
                                 </div>
@@ -1456,7 +1465,7 @@ export default function CycleChartPage() {
                                     width: `${cellWidth}px`,
                                     top: '58px',
                                     height: '36px',
-                                    background: cellBackground,
+                                    background: cellBg,
                                     borderRight: '1px solid #f1f5f9',
                                     borderBottom: '1px solid #e2e8f0',
                                     pointerEvents: 'none',
@@ -1474,8 +1483,8 @@ export default function CycleChartPage() {
                                       lineHeight: '18px',
                                       fontSize: '10px',
                                       fontWeight: 400,
-                                      background: palette.chipBg,
-                                      color: palette.chipText,
+                                      background: chipBg,
+                                      color: chipTextColor,
                                     }}
                                   >
                                     {weekDay}
@@ -1490,7 +1499,7 @@ export default function CycleChartPage() {
                                     width: `${cellWidth}px`,
                                     top: '94px',
                                     height: '36px',
-                                    background: cellBackground,
+                                    background: cellBg,
                                     borderRight: '1px solid #f1f5f9',
                                     borderBottom: '1px solid #e2e8f0',
                                     pointerEvents: 'none',
@@ -1508,8 +1517,8 @@ export default function CycleChartPage() {
                                       lineHeight: '18px',
                                       fontSize: '10px',
                                       fontWeight: 400,
-                                      background: palette.chipBg,
-                                      color: hasIntercourse ? '#ec4899' : palette.chipText,
+                                      background: chipBg,
+                                      color: isTail ? chipTextColor : (hasIntercourse ? '#ec4899' : palette.chipText),
                                     }}
                                   >
                                     {dayNumber}
