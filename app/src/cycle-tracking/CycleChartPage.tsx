@@ -1935,6 +1935,7 @@ export default function CycleChartPage() {
                       const dayNumber = chartData.minDay + i;
                       const timeData = timeStampsMap.get(dayNumber);
                       const isHovered = hoveredDayNumber === dayNumber;
+                      const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
 
                       // Calculate cell position within plot area
                       const numDays = chartData.maxDay - chartData.minDay + 1;
@@ -1945,17 +1946,18 @@ export default function CycleChartPage() {
                         <div
                           key={dayNumber}
                           className={`absolute flex flex-col items-center justify-center text-xs border-r border-b border-slate-300 transition-colors ${
-                            isHovered ? 'bg-[#fde68a]' : 'bg-amber-50'
+                            isTail ? '' : (isHovered ? 'bg-[#fde68a]' : 'bg-amber-50')
                           }`}
                           style={{
                             left: `${leftEdge}px`,
                             width: `${cellWidth}px`,
                             top: 0,
                             height: '38px',
+                            backgroundColor: isTail ? '#fafafa' : undefined,
                             pointerEvents: 'none'
                           }}
                         >
-                          {timeData && (
+                          {!isTail && timeData && (
                             <>
                               <div className="font-medium leading-tight">{timeData.hours}</div>
                               <div className="text-xs leading-tight">{timeData.minutes}</div>
@@ -1999,6 +2001,7 @@ export default function CycleChartPage() {
                       const dayNumber = chartData.minDay + i;
                       const opkStatus = opkStatusMap.get(dayNumber);
                       const isHovered = hoveredDayNumber === dayNumber;
+                      const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
 
                       // Calculate cell position within plot area
                       const numDays = chartData.maxDay - chartData.minDay + 1;
@@ -2053,11 +2056,11 @@ export default function CycleChartPage() {
                             width: `${cellWidth}px`,
                             top: 0,
                             height: '28px',
-                            backgroundColor: isHovered ? '#c8e6c9' : '#e8f5e9',
+                            backgroundColor: isTail ? '#fafafa' : (isHovered ? '#c8e6c9' : '#e8f5e9'),
                             pointerEvents: 'none'
                           }}
                         >
-                          {symbol}
+                          {!isTail && symbol}
                         </div>
                       );
                     })}
@@ -2097,6 +2100,7 @@ export default function CycleChartPage() {
                       const dayData = allCycleDaysMap.get(dayNumber);
                       const hasIntercourse = dayData?.hadIntercourse;
                       const isHovered = hoveredDayNumber === dayNumber;
+                      const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
 
                       // Calculate cell position within plot area
                       const numDays = chartData.maxDay - chartData.minDay + 1;
@@ -2107,17 +2111,18 @@ export default function CycleChartPage() {
                         <div
                           key={dayNumber}
                           className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 transition-colors ${
-                            isHovered ? 'bg-pink-100' : 'bg-pink-50'
+                            isTail ? '' : (isHovered ? 'bg-pink-100' : 'bg-pink-50')
                           }`}
                           style={{
                             left: `${leftEdge}px`,
                             width: `${cellWidth}px`,
                             top: 0,
                             height: '28px',
+                            backgroundColor: isTail ? '#fafafa' : undefined,
                             pointerEvents: 'none'
                           }}
                         >
-                          {hasIntercourse && (
+                          {!isTail && hasIntercourse && (
                             <span style={{ color: '#ec4899', fontSize: '18px', lineHeight: 1 }}>❤</span>
                           )}
                         </div>
@@ -2173,6 +2178,7 @@ export default function CycleChartPage() {
                       const dayNumber = chartData.minDay + i;
                       const cfData = cervicalMenstrualMap.get(dayNumber);
                       const isHovered = hoveredDayNumber === dayNumber;
+                      const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
 
                       // Calculate cell position within plot area
                       const numDays = chartData.maxDay - chartData.minDay + 1;
@@ -2201,15 +2207,15 @@ export default function CycleChartPage() {
                                 left: '0.5px',
                                 width: 'calc(100% - 1px)',
                                 height: '27px',
-                                backgroundColor: '#e7f1ff',
+                                backgroundColor: isTail ? '#fafafa' : '#e7f1ff',
                                 borderRadius: '2px',
-                                opacity: isHovered ? 0.7 : 1
+                                opacity: isTail ? 1 : (isHovered ? 0.7 : 1)
                               }}
                             />
                           ))}
 
                           {/* Cervical Fluid Bar - only if CF present and no menstrual flow */}
-                          {cfData?.cervicalAppearance && !cfData?.menstrualFlow && (
+                          {!isTail && cfData?.cervicalAppearance && !cfData?.menstrualFlow && (
                             <div
                               className="absolute left-1/2 -translate-x-1/2 rounded"
                               style={{
@@ -2222,7 +2228,7 @@ export default function CycleChartPage() {
                           )}
 
                           {/* Menstrual Flow Indicators - on Dry row only */}
-                          {cfData?.menstrualFlow && (
+                          {!isTail && cfData?.menstrualFlow && (
                             <div
                               className="absolute left-1/2 -translate-x-1/2 flex items-end justify-center"
                               style={{
@@ -2375,6 +2381,7 @@ export default function CycleChartPage() {
                       const cellWidth = plotAreaWidth / numDays;
                       const leftEdge = plotAreaOffset + (i * cellWidth);
                       const isHovered = hoveredDayNumber === dayNumber;
+                      const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
 
                       let cellContent: React.ReactNode = null;
                       if (factors.length === 1) {
@@ -2412,13 +2419,13 @@ export default function CycleChartPage() {
                               left: '0.5px',
                               width: 'calc(100% - 1px)',
                               height: '27px',
-                              backgroundColor: '#f3e8ff',
+                              backgroundColor: isTail ? '#fafafa' : '#f3e8ff',
                               borderRadius: '2px',
-                              opacity: isHovered ? 0.7 : 1
+                              opacity: isTail ? 1 : (isHovered ? 0.7 : 1)
                             }}
                           />
                           {/* Emoji/count on top */}
-                          <span className="relative z-10">{cellContent}</span>
+                          {!isTail && <span className="relative z-10">{cellContent}</span>}
                         </div>
                       );
                     })}
@@ -2442,14 +2449,16 @@ export default function CycleChartPage() {
                       const numDays = chartData.maxDay - chartData.minDay + 1;
                       const cellWidth = plotAreaWidth / numDays;
                       const leftEdge = plotAreaOffset + (i * cellWidth);
+                      const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
 
                       return (
                         <div
                           key={dayNumber}
                           role="button"
                           tabIndex={0}
-                          onClick={() => setEditorOpenForDay(dayNumber)}
+                          onClick={isTail ? undefined : () => setEditorOpenForDay(dayNumber)}
                           onKeyDown={(e) => {
+                            if (isTail) return;
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
                               setEditorOpenForDay(dayNumber);
@@ -2462,7 +2471,7 @@ export default function CycleChartPage() {
                             top: 0,
                             height: `${NOTES_ROW_HEIGHT}px`,
                             backgroundColor: 'white',
-                            cursor: 'pointer',
+                            cursor: isTail ? 'default' : 'pointer',
                             pointerEvents: 'auto'
                           }}
                         >
@@ -2473,11 +2482,11 @@ export default function CycleChartPage() {
                               left: '0.5px',
                               width: 'calc(100% - 1px)',
                               height: 'calc(100% - 1px)',
-                              backgroundColor: '#f5f5f4',
+                              backgroundColor: isTail ? '#fafafa' : '#f5f5f4',
                               borderRadius: '2px'
                             }}
                           />
-                          {note !== null && note !== '' && (
+                          {!isTail && note !== null && note !== '' && (
                             notesRowExpanded ? (
                               <div
                                 className="absolute"
