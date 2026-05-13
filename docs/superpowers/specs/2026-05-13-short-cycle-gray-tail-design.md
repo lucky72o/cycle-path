@@ -63,22 +63,32 @@ isTail = !cycle.isActive && dayNumber > recordedMaxDay
 
 The chart renders a per-month gutter pill (e.g. "December", "January") above the Date row via `monthSpans` (CycleChartPage.tsx line ~448) iterated at line ~1342. Today the pills cover the entire `displayDayRange`, so an 8-day ended cycle padded to 28 would render a colored "January" pill spanning days 8–28 — defeating the "tail = no chrome" intent.
 
-**Rule:** the gutter follows the same gray-tail rule as the cells beneath it. The pills cover only `[1..recordedMaxDay]`; no pill renders for any span entirely within the tail.
+**Rule:** the gutter follows the same gray-tail rule as the cells beneath it. For ended cycles, the pills cover only `[1..recordedMaxDay]`; no pill renders for any span entirely within the tail. For active cycles, the gutter is unchanged — pills cover the full displayed range, even the padded `[recordedMaxDay+1..28]` cells, since active cycles have no tail.
 
-**Implementation:** clamp the input range to `buildMonthSpans` so the spans never extend past `recordedMaxDay`:
+**Implementation:** gate the clamp on `!cycle.isActive` so it never fires for active cycles:
 
 ```ts
 // today
 const monthSpans = useMemo(() => buildMonthSpans(cycleStartDate, displayDayRange.minDay, displayDayRange.maxDay), [...]);
 // after
+const gutterMaxDay = cycle.isActive
+  ? displayDayRange.maxDay
+  : Math.min(displayDayRange.maxDay, recordedMaxDay);
 const monthSpans = useMemo(() => buildMonthSpans(
   cycleStartDate,
   displayDayRange.minDay,
-  Math.min(displayDayRange.maxDay, recordedMaxDay),  // clamp to recorded end
-), [...]);
+  gutterMaxDay,
+), [cycleStartDate, displayDayRange.minDay, gutterMaxDay]);
 ```
 
-For active cycles `recordedMaxDay >= displayDayRange.maxDay` (active cycles are never in the tail regime), so the clamp is a no-op. For long ended cycles where `recordedMaxDay >= 28`, same — no-op. The clamp only takes effect for short ended cycles, exactly where we want it.
+Behavior across the three regimes:
+
+| Cycle state | `displayMaxDay` | `recordedMaxDay` | `gutterMaxDay` | Effect |
+|---|---|---|---|---|
+| Active, short | 28 | 5 | **28** (no clamp) | Gutter pills cover all 28 cells — today's behavior preserved. |
+| Active, long | 35 | 35 | **35** (no clamp) | Unchanged. |
+| Ended, short | 28 | 8 | **8** (clamp) | Gutter pills cover only days 1–8; tail (9–28) has no pill. |
+| Ended, long | 35 | 35 | **35** (no-op) | Unchanged. |
 
 The pill-skip-when-too-narrow logic at line 1351 (`pillMaxWidthPx < 22`) is preserved unchanged.
 
@@ -203,7 +213,7 @@ We chose this approach over two alternatives:
 |---|---|
 | `app/src/cycle-tracking/utils.ts` | Add `isCycleDayInTail(cycle, dayNumber, recordedMaxDay)` predicate. |
 | `app/src/cycle-tracking/__tests__/headerHelpers.test.ts` | Add `describe('isCycleDayInTail', …)` block with 5–6 cases covering active/ended × before/at/after the recorded max boundary. |
-| `app/src/cycle-tracking/CycleChartPage.tsx` | 1) Unify `displayDayRange.maxDay` formula. 2) Memoize `recordedMaxDay` once (the max `dayNumber` across `cycle.days`, the same value `getCycleDayCount` already returns for ended cycles). 3) Clamp `monthSpans` input to `[displayMinDay, min(displayMaxDay, recordedMaxDay)]` so the gutter pills don't extend into the tail (line ~448). 4) In each row's per-day render (Date / Week Day / Cycle Day / Time Stamp / LH Test / Intimacy / Cervical Fluid / Menstrual Flow / Disturbance / Notes), compute `isTail` and apply tail styling. 5) In HTML cell click handlers, gate with `!isTail`. 6) In the canvas-level `resolveDay`, `handleClick`, and touch handlers, add an explicit `isTail` early-return that calls `dismissTooltipRef.current()` so the crosshair and tooltip clear in the tail. 7) Replace the Sensiplan coverline (Apex `annotations.yaxis`, line ~725) with a custom React/SVG overlay limited to the recorded x-extent — see the BBT zone section. 8) BBT data series unchanged — last point at `recordedMaxDay` ends the Apex line naturally. |
+| `app/src/cycle-tracking/CycleChartPage.tsx` | 1) Unify `displayDayRange.maxDay` formula. 2) Memoize `recordedMaxDay` once (the max `dayNumber` across `cycle.days`, the same value `getCycleDayCount` already returns for ended cycles). 3) Compute `gutterMaxDay = cycle.isActive ? displayMaxDay : min(displayMaxDay, recordedMaxDay)` and feed it to `buildMonthSpans` (line ~448) — clamp fires only for ended cycles. 4) In each row's per-day render (Date / Week Day / Cycle Day / Time Stamp / LH Test / Intimacy / Cervical Fluid / Menstrual Flow / Disturbance / Notes), compute `isTail` and apply tail styling. 5) In HTML cell click handlers, gate with `!isTail`. 6) In the canvas-level `resolveDay`, `handleClick`, and touch handlers, add an explicit `isTail` early-return that calls `dismissTooltipRef.current()` so the crosshair and tooltip clear in the tail. 7) Replace the Sensiplan coverline (Apex `annotations.yaxis`, line ~725) with a custom React/SVG overlay limited to the recorded x-extent — see the BBT zone section. 8) BBT data series unchanged — last point at `recordedMaxDay` ends the Apex line naturally. |
 
 ### Styling implementation
 
@@ -290,3 +300,6 @@ None at spec time. All four core design questions (frame size, active-cycle beha
 - **2026-05-13 — round 2 review:** Two more issues caught and fixed:
   - P2: month-label gutter was omitted from the tail treatment. For short ended cycles whose tail crosses or sits inside a later calendar month, the gutter would still render a colored month pill over the gray tail. Added a *Month-label gutter* section requiring `monthSpans` input to be clamped to `min(displayMaxDay, recordedMaxDay)`, and added the corresponding file-touchpoint.
   - P2: coverline implementation options 2 and 3 were unworkable. The opaque mask (option 2) would also hide the horizontal gridlines that the BBT-zone section requires to stay unbroken, and Apex `annotations.points` (option 3) can't form a connected horizontal line. Narrowed to a single required mechanism: a custom React/SVG overlay limited to the recorded x-extent, with explicit rationale for why the alternatives don't work.
+
+- **2026-05-13 — round 3 review:** One issue caught and fixed:
+  - P2: the round-2 gutter clamp was unconditional, which would have stripped colored month pills from active cycles' padded `[recordedMaxDay+1..28]` cells — violating the spec's "active cycles unchanged" rule. The accompanying rationale also incorrectly claimed `recordedMaxDay >= displayDayRange.maxDay` for active cycles (false when active cycles are padded). Fixed by gating the clamp on `!cycle.isActive`: active cycles get `gutterMaxDay = displayDayRange.maxDay` (today's behavior), ended cycles get `gutterMaxDay = min(displayDayRange.maxDay, recordedMaxDay)`. Added a per-regime behavior table to the *Month-label gutter* section to make the four cases unambiguous.
