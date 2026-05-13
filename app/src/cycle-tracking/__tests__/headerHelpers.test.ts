@@ -63,6 +63,16 @@ describe('buildMonthSpans', () => {
   it('returns an empty array when displayMaxDay < displayMinDay', () => {
     expect(buildMonthSpans(new Date(2026, 9, 1), 5, 3)).toEqual([]);
   });
+
+  it('handles cycle starting on the last day of a month (1-day first span)', () => {
+    // Cycle starts Jan 31, 2026; show days 1..10 → 1-day Jan span then 9-day Feb span.
+    // This is the edge case that motivated pill-width clamping in CycleChartPage.tsx.
+    const spans = buildMonthSpans(new Date(2026, 0, 31), 1, 10);
+    expect(spans).toEqual<MonthSpan[]>([
+      { monthIndex: 0, monthLabel: 'January',  startDayNumber: 1, endDayNumber: 1 },
+      { monthIndex: 1, monthLabel: 'February', startDayNumber: 2, endDayNumber: 10 },
+    ]);
+  });
 });
 
 describe('computeContainerMinWidth', () => {

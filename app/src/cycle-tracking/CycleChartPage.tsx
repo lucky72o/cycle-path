@@ -1342,6 +1342,20 @@ export default function CycleChartPage() {
                     {monthSpans.map((span) => {
                       const numDays = chartData.maxDay - chartData.minDay + 1;
                       const cellWidth = plotAreaWidth / numDays;
+                      const spanWidthPx = (span.endDayNumber - span.startDayNumber + 1) * cellWidth;
+                      // Pill is anchored at +4 px inset from the span's left edge; reserve 4 px on
+                      // the right too so two adjacent pills never visually overlap. Below ~22 px
+                      // of pill room (the case where a cycle starts on the last day of a month)
+                      // there's no useful label to show, so skip the pill entirely.
+                      const pillMaxWidthPx = Math.max(0, spanWidthPx - 8);
+                      if (pillMaxWidthPx < 22) return null;
+
+                      // Use the 3-letter abbreviation when the full month name wouldn't fit.
+                      // Threshold (~62 px) covers padding (16) + 10-px text room for the longest
+                      // month name (~46 px). Below it, fall back to e.g. "Jan" / "Feb".
+                      const useShortLabel = pillMaxWidthPx < 62;
+                      const label = useShortLabel ? span.monthLabel.slice(0, 3) : span.monthLabel;
+
                       const leftEdge = plotAreaOffset + (span.startDayNumber - chartData.minDay) * cellWidth;
                       const palette = paletteFor(span.monthIndex);
                       return (
@@ -1351,6 +1365,8 @@ export default function CycleChartPage() {
                           style={{
                             top: '4px',
                             left: `${leftEdge + 4}px`,
+                            maxWidth: `${pillMaxWidthPx}px`,
+                            boxSizing: 'border-box',
                             height: '14px',
                             lineHeight: '14px',
                             padding: '0 8px',
@@ -1361,9 +1377,11 @@ export default function CycleChartPage() {
                             fontWeight: 600,
                             letterSpacing: '0.02em',
                             whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
                           }}
                         >
-                          {span.monthLabel}
+                          {label}
                         </span>
                       );
                     })}
