@@ -121,6 +121,8 @@ Notes:
     - It does not interact with Apex's gridline rendering — gridlines stay unbroken.
     - The line's color, dash style, opacity, and label match today's `styleMap` (SUGGESTED / CONFIRMED / ADJUSTED) so visual continuity is preserved.
 
+  **Label position (post-smoke-test correction):** the label sits at `lineX2 + 4` with `text-anchor='start'` for all cycles, regardless of tail state. For tail cycles this places the label inside the gray-tail region next to the line — visually cleaner than anchoring it inside the recorded portion, which jammed the label against BBT data points near the recorded boundary. The line itself still clips at `recordedMaxDay`.
+
   **Why not a mask rectangle:** an opaque `#fafafa` rectangle over the tail would also cover the horizontal gridlines that the spec requires to stay visible. A masked variant would need to redraw the gridlines on top — strictly more code than the overlay approach for no benefit.
 
   **Why not Apex `annotations.points`:** point markers are dots at discrete x-values; they don't form a connected horizontal line. Not a substitute.
@@ -303,3 +305,7 @@ None at spec time. All four core design questions (frame size, active-cycle beha
 
 - **2026-05-13 — round 3 review:** One issue caught and fixed:
   - P2: the round-2 gutter clamp was unconditional, which would have stripped colored month pills from active cycles' padded `[recordedMaxDay+1..28]` cells — violating the spec's "active cycles unchanged" rule. The accompanying rationale also incorrectly claimed `recordedMaxDay >= displayDayRange.maxDay` for active cycles (false when active cycles are padded). Fixed by gating the clamp on `!cycle.isActive`: active cycles get `gutterMaxDay = displayDayRange.maxDay` (today's behavior), ended cycles get `gutterMaxDay = min(displayDayRange.maxDay, recordedMaxDay)`. Added a per-regime behavior table to the *Month-label gutter* section to make the four cases unambiguous.
+
+- **2026-05-13 — implementation verification:** All 9 implementation tasks completed (commits `1795e53` through `dd5b076`), plus 2 review fix-ups (`58524bc` Notes-row a11y; `51d5649` chartOptions stale deps) and 1 visual fix-up (`93165bb` coverline label position). Browser smoke-test on Cycle #6 (11-day ended cycle — the user extended it during development) confirmed: 28-cell frame with gray tail on cells 12–28, slate-50/slate-200/slate-300/slate-400/slate-500 mute palette applied correctly across all rows, horizontal gridlines visible through the tail, no month pill in the tail, hover/click inert on tail cells. Active cycles, 28-day cycles, and long ended cycles render unchanged. All 280 unit tests green; no new lint errors introduced.
+
+- **2026-05-13 — coverline label position correction (post-implementation):** Round-1 plan review had specified anchoring the label INSIDE the recorded region for tail cycles (text-anchor='end', `x = lineX2 - 4`) to avoid "violating the empty-tail outcome." Smoke-test revealed the label jammed against BBT data points near the recorded boundary (visible on Cycle #6's day 6 dot). Reverted to anchoring the label at `lineX2 + 4` with `text-anchor='start'` for all cycles — the label now sits in the gray area next to the line for tail cycles, which reads better visually. The line itself still clips at `recordedMaxDay`. Updated in commit `93165bb`.
