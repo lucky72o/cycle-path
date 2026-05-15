@@ -17,7 +17,7 @@ import type {
 } from 'wasp/server/operations';
 import type { Cycle, CycleDay, UserSettings } from 'wasp/entities';
 import { Prisma } from '@prisma/client';
-import { convertToCelsiusForStorage, getDayOfWeek } from './utils';
+import { computeCycleStartDate, convertToCelsiusForStorage, getDayOfWeek } from './utils';
 import { isNoteTooLong, NOTE_MAX_LENGTH } from './notesValidation';
 import {
   buildCycleDayUpdateData,
@@ -591,7 +591,8 @@ export const importCycleCsv: ImportCycleCsv<ImportCycleCsvArgs, ImportSummary> =
     return convertToCelsiusForStorage(value, detectedUnit);
   };
 
-  const firstDate = parsedRows[0].parsedDate as Date;
+  const firstRow = parsedRows[0];
+  const firstDate = firstRow.parsedDate as Date;
   if (!firstDate) {
     throw new HttpError(400, 'First row is missing a valid date.');
   }
@@ -599,20 +600,56 @@ export const importCycleCsv: ImportCycleCsv<ImportCycleCsvArgs, ImportSummary> =
   // Determine the last date from parsed rows (used for endDate hints)
   const lastDate = parsedRows[parsedRows.length - 1].parsedDate as Date;
 
-  // Find cycle by matching startDate to the first date; if not found, create a new one
+  // Back-compute the cycle's true start date (== day 1's calendar date).
+  // The CSV's first row may not be cycle-day-1 (e.g. a partial-cycle import
+  // starting at cd=16). The rest of the app relies on the invariant
+  // `cycleDay.date === cycle.startDate + (dayNumber - 1) days`, so the
+  // cycle's startDate must be the day-1 date, not the first row's date.
+  const firstDayNumberRaw = firstRow.raw.cd ?? firstRow.raw.CD ?? firstRow.raw.cycleDay;
+  const firstDayNumber = firstDayNumberRaw
+    ? Number.parseInt(String(firstDayNumberRaw), 10)
+    : 1;
+  const cycleStartDate = Number.isFinite(firstDayNumber) && firstDayNumber >= 1
+    ? computeCycleStartDate(firstDate, firstDayNumber)
+    : firstDate;
+
+  // Find cycle by matching startDate to the back-computed cycle start date.
+  // Re-imports of a CSV that was already imported with the fixed code land
+  // on the same cycle because the back-computation is deterministic.
   let cycle = await context.entities.Cycle.findFirst({
     where: {
       userId: context.user.id,
-      startDate: firstDate
+      startDate: cycleStartDate
     }
   });
+
+  // Repair path: a CSV imported BEFORE this fix produced a cycle whose
+  // `startDate` equals the CSV's first row date (the pre-fix buggy value),
+  // not the back-computed value. When the two differ and the corrected-key
+  // lookup misses, fall back to the old key so the user can repair their
+  // existing cycle by simply re-importing the same CSV (instead of getting
+  // a duplicate cycle).
+  if (!cycle && cycleStartDate.getTime() !== firstDate.getTime()) {
+    const legacyCycle = await context.entities.Cycle.findFirst({
+      where: {
+        userId: context.user.id,
+        startDate: firstDate
+      }
+    });
+    if (legacyCycle) {
+      cycle = await context.entities.Cycle.update({
+        where: { id: legacyCycle.id },
+        data: { startDate: cycleStartDate }
+      });
+    }
+  }
 
   let createdCycle = false;
   if (!cycle) {
     cycle = await context.entities.Cycle.create({
       data: {
         userId: context.user.id,
-        startDate: firstDate,
+        startDate: cycleStartDate,
         endDate: null, // Will be set after importing days
         isActive: true, // Will be adjusted based on date comparison
         cycleNumber: 1 // Temporary, will be recalculated
@@ -630,7 +667,7 @@ export const importCycleCsv: ImportCycleCsv<ImportCycleCsvArgs, ImportSummary> =
     const dayNumberFromCsv = raw.cd ?? raw.CD ?? raw.cycleDay;
     const computedDayNumber = dayNumberFromCsv
       ? Number.parseInt(String(dayNumberFromCsv), 10)
-      : daysBetween(firstDate, entryDate) + 1;
+      : daysBetween(cycleStartDate, entryDate) + 1;
 
     const temperatureRaw = Number.parseFloat(raw.bf ?? raw.BF ?? raw.temp ?? '');
     const temperature = convertTemperature(Number.isFinite(temperatureRaw) ? temperatureRaw : null);
