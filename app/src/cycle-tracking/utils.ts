@@ -339,3 +339,20 @@ export function isCycleDayInTail(
   return !cycle.isActive && dayNumber > recordedMaxDay;
 }
 
+/**
+ * Back-compute the cycle's `startDate` (== day 1's calendar date) from the
+ * first row of an imported CSV. The CSV may not start at cycle day 1 — e.g. a
+ * user importing a partial cycle whose earliest row is `cd=16, date=2025-01-27`
+ * should produce a cycle whose `startDate` is `2025-01-12` so that the
+ * app-wide invariant `cycleDay.date === cycle.startDate + (dayNumber - 1) days`
+ * continues to hold.
+ *
+ * Pure function: returns a fresh Date, does not mutate the input. Uses
+ * local-calendar arithmetic (Date.prototype.setDate) so it is DST-safe.
+ */
+export function computeCycleStartDate(firstRowDate: Date, firstDayNumber: number): Date {
+  const result = new Date(firstRowDate);
+  result.setDate(firstRowDate.getDate() - (firstDayNumber - 1));
+  return result;
+}
+
