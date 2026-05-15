@@ -44,4 +44,22 @@ describe('computeCycleStartDate', () => {
     expect(result.getHours()).toBe(0);
     expect(result.getMinutes()).toBe(0);
   });
+
+  it('handles year boundaries correctly', () => {
+    // First row 2025-01-05 with cd=10 -> start date = 2024-12-27.
+    // setDate(5 - 9) normalizes back into the previous year.
+    const result = computeCycleStartDate(new Date(2025, 0, 5), 10);
+    expect(result.getFullYear()).toBe(2024);
+    expect(result.getMonth()).toBe(11); // December
+    expect(result.getDate()).toBe(27);
+  });
+
+  it('handles leap-year February correctly', () => {
+    // 2024 is a leap year. First row 2024-03-03 with cd=5 -> start = 2024-02-28
+    // (2024-02-29 exists, so day-1 lands two days before Mar 1, i.e. Feb 28).
+    const result = computeCycleStartDate(new Date(2024, 2, 3), 5);
+    expect(result.getFullYear()).toBe(2024);
+    expect(result.getMonth()).toBe(1); // February
+    expect(result.getDate()).toBe(28);
+  });
 });

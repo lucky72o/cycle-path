@@ -349,6 +349,12 @@ export function isCycleDayInTail(
  *
  * Pure function: returns a fresh Date, does not mutate the input. Uses
  * local-calendar arithmetic (Date.prototype.setDate) so it is DST-safe.
+ *
+ * @param firstRowDate - the earliest date in the CSV, as a local-calendar Date
+ *                       (do NOT pass a Date constructed from a UTC ISO string —
+ *                       the caller must build it via `new Date(y, m-1, d)`).
+ * @param firstDayNumber - the `cd` value from that row; must be `>= 1`. Caller
+ *                         is responsible for validating CSV input.
  */
 export function computeCycleStartDate(firstRowDate: Date, firstDayNumber: number): Date {
   const result = new Date(firstRowDate);
