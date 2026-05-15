@@ -667,7 +667,7 @@ export const importCycleCsv: ImportCycleCsv<ImportCycleCsvArgs, ImportSummary> =
     const dayNumberFromCsv = raw.cd ?? raw.CD ?? raw.cycleDay;
     const computedDayNumber = dayNumberFromCsv
       ? Number.parseInt(String(dayNumberFromCsv), 10)
-      : daysBetween(firstDate, entryDate) + 1;
+      : daysBetween(cycleStartDate, entryDate) + 1;
 
     const temperatureRaw = Number.parseFloat(raw.bf ?? raw.BF ?? raw.temp ?? '');
     const temperature = convertTemperature(Number.isFinite(temperatureRaw) ? temperatureRaw : null);
