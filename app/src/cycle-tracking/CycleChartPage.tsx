@@ -2228,12 +2228,16 @@ export default function CycleChartPage() {
                     ].map((row, idx) => (
                       <div
                         key={row.name}
-                        className="flex items-center justify-end px-3 text-xs font-medium bg-slate-50 border-b border-slate-300 border-r border-slate-300 cf-tooltip-trigger"
-                        style={{ height: '28px' }}
+                        className="cf-tooltip-trigger"
+                        style={{ position: 'relative', height: '28px' }}
                       >
-                        <span>{row.name}</span>
-                        <span className="ml-1 text-slate-400 cursor-help">ⓘ</span>
-                        <span className="cf-tooltip-content">{row.tooltip}</span>
+                        <div className="absolute flex items-center justify-end px-3 font-montserrat"
+                          style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#f3f8ff',
+                            color: '#1e3a8a', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em' }}>
+                          <span>{row.name}</span>
+                          <span className="ml-1 text-slate-400 cursor-help">ⓘ</span>
+                          <span className="cf-tooltip-content">{row.tooltip}</span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -2276,15 +2280,14 @@ export default function CycleChartPage() {
                           {[0, 1, 2, 3, 4].map((rowIdx) => (
                             <div
                               key={rowIdx}
-                              className="absolute transition-opacity"
+                              className="absolute"
                               style={{
-                                top: `${rowIdx * 28 + 0.5}px`,
-                                left: '0.5px',
-                                width: 'calc(100% - 1px)',
-                                height: '27px',
-                                backgroundColor: isTail ? '#fafafa' : '#e7f1ff',
-                                borderRadius: '2px',
-                                opacity: isTail ? 1 : (isHovered ? 0.7 : 1)
+                                top: `${rowIdx * 28 + 1.5}px`,
+                                left: '1.5px',
+                                width: 'calc(100% - 3px)',
+                                height: '25px',
+                                backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#dce8fb' : '#f3f8ff'),
+                                borderRadius: '3px',
                               }}
                             />
                           ))}
