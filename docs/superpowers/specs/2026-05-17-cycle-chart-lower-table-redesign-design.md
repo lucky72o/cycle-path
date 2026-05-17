@@ -112,7 +112,7 @@ Logged `NONE` MUST remain a visible Dry-row marker (it is a recorded data state)
 
 ### Hover (must be preserved)
 
-The existing hover machinery (`hoveredDayNumber`, `setCrosshairX`, the mouse-move handlers and tooltip) **must keep working unchanged** — only the *visual* of the highlighted column adapts. On hover of a day, every row's cell in that column deepens to a richer tint of its own colour, and the Cycle-Day number gets an emphasis chip:
+The existing hover machinery (`hoveredDayNumber`, `setCrosshairX`, the mouse-move handlers and tooltip) **must keep working unchanged** — only the *visual* of the highlighted column adapts. On hover of a day, every row's cell in that column deepens to a richer tint of its own colour:
 
 | Row | Hover (deepened) |
 |---|---|
