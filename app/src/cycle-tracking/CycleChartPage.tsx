@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail } from './utils';
+import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 import { useInterpretation } from './interpretation/hooks/useInterpretation';
@@ -540,32 +540,9 @@ export default function CycleChartPage() {
     return map;
   }, [cycle, chartData, displayDayRange]);
 
-  // Helper functions for cervical fluid bars
-  const CF_ROW_HEIGHT = 28;
+  // Notes row sizing (cervical-fluid bar helpers now live in ./utils)
   const NOTES_ROW_HEIGHT = notesRowExpanded ? 120 : 28;
   const LOWER_TABLE_PADDING_BOTTOM = 262 + NOTES_ROW_HEIGHT;
-
-  const getCFBarHeight = (appearance: string): number => {
-    switch (appearance) {
-      case 'NONE': return CF_ROW_HEIGHT * 1;      // 28px
-      case 'STICKY': return CF_ROW_HEIGHT * 2;    // 56px
-      case 'CREAMY': return CF_ROW_HEIGHT * 3;    // 84px
-      case 'WATERY': return CF_ROW_HEIGHT * 4;    // 112px
-      case 'EGGWHITE': return CF_ROW_HEIGHT * 5;  // 140px
-      default: return 0;
-    }
-  };
-
-  const getCFBarColor = (appearance: string): string => {
-    switch (appearance) {
-      case 'NONE': return '#D4D8DA';
-      case 'STICKY': return '#c0eef0';
-      case 'CREAMY': return '#7bdcdf';
-      case 'WATERY': return '#86d9ec';
-      case 'EGGWHITE': return '#0cc0df';
-      default: return 'transparent';
-    }
-  };
 
   // Create a map of day numbers to disturbance factors
   const disturbanceMap = useMemo(() => {
