@@ -51,14 +51,46 @@ The outer positioned cell keeps `left/width/top/height` and becomes a transparen
 </div>
 ```
 
-For row-label cells, the label `<div>` must become the **same inset rounded tile** as a day cell (spec: "Row label cell uses the same inset/radius/tint"). It must NOT remain a solid full-height band. Concretely, on the existing label `<div>` (the one that currently carries `flex items-center justify-end px-3 ... border-* bg-*`):
+For row-label cells, the label must become the **same inset rounded tile** as a day cell (spec: "Row label cell uses the same inset/radius/tint"), and it must NOT change the row's height. **Do not use `margin`** (it would inflate the layout: a 28 px label + 1.5 px top/bottom margin = 31 px, and the five CF labels would stack to 155 px instead of 140 px, breaking every `top:` offset). Instead, use a **fixed-height wrapper + absolutely-positioned inner inset tile** (identical to the day-cell pattern):
 
-- remove `border-b border-slate-300 border-r border-slate-300` and the old `bg-*`/inline bg;
-- keep `flex items-center justify-end px-3` and its `height`;
-- add Tailwind class `font-montserrat`;
-- add inline style: `margin: '1.5px'`, `borderRadius: '3px'`, `backgroundColor: <REST_TINT>`, `color: '#1e3a8a'`, `fontWeight: 600`, `fontSize: '11px'`, `letterSpacing: '0.02em'`.
+The existing label markup looks like:
 
-The `margin:1.5px` produces the same ~3 px white gap as the day-cell `inset:1.5px`, giving an inset rounded tile flush in colour with its row (no positioned-parent change needed, so Notes/Disturbance label handlers stay intact). Keep any existing `role`/`tabIndex`/`onClick`/`onKeyDown` on a label (the Notes label is a toggle button) — only the visual styling changes.
+```tsx
+<div className="absolute left-0" style={{ width:`${plotAreaOffset}px`, top:`${...}px`, zIndex:2 }}>
+  <div className="flex items-center justify-end px-3 text-xs font-medium <oldBg> border-b border-slate-300 border-r border-slate-300" style={{ height:'28px' /* or 38px for Time Stamp */ }}>
+    Label
+  </div>
+</div>
+```
+
+Transform the inner block into a fixed-height *wrapper* (unchanged height → all offsets preserved) containing an absolutely-positioned inset tile:
+
+```tsx
+<div className="absolute left-0" style={{ width:`${plotAreaOffset}px`, top:`${...}px`, zIndex:2 }}>
+  <div
+    style={{ position:'relative', height:'28px' /* keep the original 28px / 38px */ }}
+    /* If the original carried role/tabIndex/onClick/onKeyDown (Notes & Disturbance label toggles),
+       move those attributes/handlers HERE so the full-height slot stays the click target. */
+  >
+    <div
+      className="absolute flex items-center justify-end px-3 font-montserrat"
+      style={{
+        inset: '1.5px',
+        borderRadius: '3px',
+        backgroundColor: '<REST_TINT>',
+        color: '#1e3a8a',
+        fontWeight: 600,
+        fontSize: '11px',
+        letterSpacing: '0.02em',
+      }}
+    >
+      Label
+    </div>
+  </div>
+</div>
+```
+
+The wrapper keeps the original `height` (28 px, or 38 px for Time Stamp), so every `top:` offset and the 140 px CF label stack are byte-for-byte unchanged. The inner `inset:1.5px` produces the same ~3 px white gap as day cells. Drop the old `border-*-slate-300` and `text-xs font-medium <oldBg>` classes.
 
 **Notes-row exception:** the Notes *grid* cell is an interactive `role="button"` (`CycleChartPage.tsx:2563-2597`) with `onClick`/`onKeyDown`/`aria-disabled`/`tabIndex`/`cursor` and `pointerEvents:'auto'`, and it *already* contains an inner tile div. For Notes, do **not** apply the generic outer (no `pointerEvents:'none'`): keep the outer `<div>`'s `role`/`aria-disabled`/`tabIndex`/`onClick`/`onKeyDown`/`cursor`/`pointerEvents:'auto'` exactly as-is and only recolour/resize its existing inner tile. See Task 3 Step 5.
 
@@ -69,6 +101,7 @@ The `margin:1.5px` produces the same ~3 px white gap as the day-cell `inset:1.5p
 - The CF bar suppression guard `!isTail && cfData?.cervicalAppearance && !cfData?.menstrualFlow` and all menstrual-flow marker markup/colours (`#E53935`, `#d65866`, `#c82739`).
 - Logged `NONE` cervical appearance must keep rendering the Dry-row bar (height 28); only a *missing* entry renders nothing.
 - The Cycle-Day chip / upper header — not touched by this plan.
+- All row/label `top:` offsets and heights (Time Stamp 38px; LH/Intimacy/Disturbance/Notes 28px; the 5-row CF block 140px). Labels become inset tiles via a **fixed-height wrapper + absolute inner tile** (never `margin`), so total heights and every `top:` offset stay byte-for-byte unchanged.
 
 ### Verification note
 
@@ -300,12 +333,12 @@ style={{
 
 Keep the note-text rendering (`notesRowExpanded` vertical text, pencil, etc.) below it unchanged. Do **not** set `pointerEvents:'none'` anywhere on this cell.
 
-- [ ] **Step 6: Restyle all five non-CF row LABELS as inset tiles** — the spec requires every lower-table row label restyled to the same inset/radius/tint tile as day cells (not a solid full-height band). For each label `<div>` below, apply the **"For row-label cells" recipe from Conventions**: remove `border-b border-slate-300 border-r border-slate-300` and the old `bg-*`/inline bg; keep `flex items-center justify-end px-3` and `height`; add Tailwind class `font-montserrat`; add inline style `margin:'1.5px'`, `borderRadius:'3px'`, `backgroundColor:<REST_TINT>`, `color:'#1e3a8a'`, `fontWeight:600`, `fontSize:'11px'`, `letterSpacing:'0.02em'`:
-  - **Time Stamp label** `~2027` — REST `#fffdf2` (was `bg-amber-50`).
-  - **LH Test label** `~2093` — REST `#f2faf3` (was `backgroundColor:'#e8f5e9'`).
-  - **Intimacy label** `~2191` — REST `#fdf2f8` (was `bg-pink-50`).
-  - **Disturbance label** `~2423-2428` — REST `#faf5ff` (was `backgroundColor:'#f5f3ff'`).
-  - **Notes label** `~2441+` — REST `#fafaf9` (was its old bg). This label is a `role="button"` toggle (`onClick`/`onKeyDown`/`tabIndex` for `toggleNotesRow`) — keep all those handlers/attributes; change only the visual styling.
+- [ ] **Step 6: Restyle all five non-CF row LABELS as inset tiles** — apply the **wrapper + inner inset tile recipe from Conventions** to each label (fixed-height wrapper keeps the original height so no offset shifts; inner absolute tile carries `inset:1.5px`, `borderRadius:3px`, tint, `font-montserrat`, `#1e3a8a`, 600/11px/0.02em). Per-label REST tint and wrapper height:
+  - **Time Stamp label** `~2027` — wrapper height **`38px`**, REST `#fffdf2` (was `bg-amber-50`).
+  - **LH Test label** `~2093` — wrapper height `28px`, REST `#f2faf3` (was `backgroundColor:'#e8f5e9'`).
+  - **Intimacy label** `~2191` — wrapper height `28px`, REST `#fdf2f8` (was `bg-pink-50`).
+  - **Disturbance label** `~2423-2428` — wrapper height `28px`, REST `#faf5ff` (was `backgroundColor:'#f5f3ff'`).
+  - **Notes label** `~2441+` — wrapper height `28px`, REST `#fafaf9` (was its old bg). This label is a `role="button"` toggle (`onClick`/`onKeyDown`/`tabIndex` for `toggleNotesRow`) — move those handlers/attributes onto the **fixed-height wrapper** so the full label slot stays the click target; change only the visual styling on the inner tile.
 
 - [ ] **Step 7: Lint + tests**
 
@@ -353,7 +386,7 @@ style={{
 
 - [ ] **Step 3: Leave the menstrual-flow markers (`~2338-2408`) byte-for-byte unchanged.** Verify the SPOTTING/LIGHT/MEDIUM/HEAVY/VERY_HEAVY markup and colours `#E53935`/`#d65866`/`#c82739` are untouched.
 
-- [ ] **Step 4: Recolour the 5 CF labels as inset tiles** (`~2262-2270`). Apply the same "For row-label cells" recipe from Conventions to each of the five label `<div>`s: remove `bg-slate-50 border-b border-slate-300 border-r border-slate-300`; keep `flex items-center justify-end px-3` and `height:'28px'`; add Tailwind class `font-montserrat`; add inline style `margin:'1.5px'`, `borderRadius:'3px'`, `backgroundColor:'#f3f8ff'`, `color:'#1e3a8a'`, `fontWeight:600`, `fontSize:'11px'`, `letterSpacing:'0.02em'`. Keep the `cf-tooltip-trigger`, `ⓘ`, and tooltip span exactly as-is.
+- [ ] **Step 4: Recolour the 5 CF labels as inset tiles** (`~2261-2271`). The five labels are 5 stacked `<div>`s of `height:'28px'` in normal flow (total 140px — must stay 140px). For **each** of the five, apply the **wrapper + inner inset tile recipe from Conventions**: keep the existing per-row `<div>` as the fixed-height wrapper (`position:'relative'`, `height:'28px'`, keep `key` and the `cf-tooltip-trigger` class so the tooltip still triggers), remove `bg-slate-50 border-b border-slate-300 border-r border-slate-300` and `text-xs font-medium`; render an inner absolute tile inside it with `inset:'1.5px'`, `borderRadius:'3px'`, `backgroundColor:'#f3f8ff'`, `color:'#1e3a8a'`, `fontWeight:600`, `fontSize:'11px'`, `letterSpacing:'0.02em'`, class `flex items-center justify-end px-3 font-montserrat`, and move the `<span>{row.name}</span>`, the `ⓘ` span, and the `cf-tooltip-content` span inside that inner tile unchanged. 5 × 28px wrappers = 140px total, unchanged.
 
 - [ ] **Step 5: Lint + tests**
 
