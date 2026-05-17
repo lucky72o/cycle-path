@@ -42,6 +42,7 @@ After this change:
 - Apply the pale row tints, the coloured (tinted) title column, the dark-blue Montserrat title text, and the rounded-tile + 3 px white-gap treatment.
 - Replace the LH symbol set (`~lines 2119–2156`) with Set A, including the bottom-aligned Low dash and the green-arrow + amber-dot Peak.
 - Soften the Cervical Fluid palette (`getCFBarColor`, `~lines 559–568`) and keep the five sub-rows; keep `CF_ROW_HEIGHT = 28`.
+- **Preserve the existing menstrual-flow rendering and its precedence exactly.** Flow markers (SPOTTING droplet; LIGHT/MEDIUM/HEAVY/VERY_HEAVY bars; current colours `#E53935`, `#d65866`, `#c82739`) render on the Dry row, and the CF bar is suppressed when `cfData.menstrualFlow` is set (`CycleChartPage.tsx:2325` guard `&& !cfData?.menstrualFlow`). This guard, the markers, and their colours are **not** changed by this work.
 - Recolour Time-Stamp values to `#3b82f6`.
 - Adapt the existing hover-column highlight and tail/out-of-cycle ("`isCycleDayInTail`") styling to the new tile look, **without** changing the cell layout math (`cellWidth`, `leftEdge`, `plotAreaOffset`) so the crosshair/tooltip keep working.
 - Add the **Montserrat** webfont to the app (weights 500 & 600).
@@ -53,7 +54,7 @@ After this change:
 - The upper calendar header (Month gutter / Date / Week Day / Cycle Day) — untouched (already redesigned in the 2026-05-12 spec).
 - Any interpretation / Sensiplan logic — untouched. This is purely visual; the meaning of every symbol and CF state is unchanged.
 - Dark mode — chart is light-mode only; no dark-mode styling introduced.
-- **Menstruation / flow row redesign** — explicitly deferred. "Set B" (signal-bars) from brainstorming is parked as the leading candidate for that future work; do not implement it here, but keep the mockup for reference.
+- **Menstruation / flow row *re-styling*** — explicitly deferred. Only a *future* restyle is out of scope; the **existing** flow markers and the flow-over-CF precedence are preserved unchanged by this work (see Scope-in and the CF section). "Set B" (signal-bars) from brainstorming is parked as the leading candidate for that future restyle; do not implement it here, but keep the mockup for reference.
 
 ## Visual design — exact specification
 
@@ -92,18 +93,22 @@ Symbols are SVG, drawn in a `24×24` viewBox unless noted. Base (Low/Rising/Decl
 
 ### Cervical Fluid — 5 sub-rows, softened palette
 
-Keep the five real sub-rows in order top→bottom: **Eggwhite, Watery, Creamy, Sticky, Dry**, each `CF_ROW_HEIGHT = 28`px, each labelled (coloured title column, same dark-blue Montserrat). A day's entry fills as a stacked column from the Dry row upward to its quality level, every filled tile in that day's *appearance* colour:
+The cervical-appearance enum is exactly `'NONE' | 'STICKY' | 'CREAMY' | 'WATERY' | 'EGGWHITE'` (`cycleDayDataBuilders.ts:9`); there is **no `DRY` value**. The bottom sub-row is *labelled* "Dry" but represents the logged **`NONE`** ("nothing observed / dry") appearance. A **missing** entry (`cervicalAppearance` null/undefined — *not logged*) renders nothing at all, and is visually distinct from a logged `NONE`.
 
-| Appearance | Fills rows (from Dry up) | Softened colour | Old (`getCFBarColor`) |
+Keep the five real sub-rows in order top→bottom: **Eggwhite, Watery, Creamy, Sticky, Dry**, each `CF_ROW_HEIGHT = 28`px, each labelled (coloured title column, same dark-blue Montserrat). The current code already renders the CF column as five rounded background tiles + a single overlay bar whose height = `getCFBarHeight(cervicalAppearance)` and colour = `getCFBarColor(cervicalAppearance)` (`CycleChartPage.tsx:~2308–2335`). This redesign **only recolours** that palette and applies the borderless/tint system; the height mapping, the 5-tile structure, and the bar/flow conditionals are unchanged.
+
+| Logged appearance | Bar height (rows from Dry up) | Softened colour | Old (`getCFBarColor`) |
 |---|---|---|---|
-| EGGWHITE | all 5 | `#8fd9e6` | `#0cc0df` |
-| WATERY | Watery→Dry (4) | `#bfe9f3` | `#86d9ec` |
-| CREAMY | Creamy→Dry (3) | `#cdeef0` | `#7bdcdf` |
-| STICKY | Sticky→Dry (2) | `#dcf0f1` | `#c0eef0` |
-| DRY | Dry only (1) | `#e2e8f0` | n/a |
-| NONE / not logged | none | transparent (row tint shows) | `#D4D8DA` |
+| EGGWHITE | all 5 (140px) | `#8fd9e6` | `#0cc0df` |
+| WATERY | Watery→Dry (4, 112px) | `#bfe9f3` | `#86d9ec` |
+| CREAMY | Creamy→Dry (3, 84px) | `#cdeef0` | `#7bdcdf` |
+| STICKY | Sticky→Dry (2, 56px) | `#dcf0f1` | `#c0eef0` |
+| **NONE** (logged "dry/nothing") | Dry only (1, 28px) | `#e2e8f0` | `#D4D8DA` |
+| *not logged* (`null`/undefined) | — nothing rendered — | (resting row tint only) | n/a |
 
-Filled tiles use the same rounded-tile + 3 px gap treatment, so the column reads as five soft stacked segments rather than one hard bar.
+Logged `NONE` MUST remain a visible Dry-row marker (it is a recorded data state); only a genuinely absent entry renders empty. The recoloured tiles use the existing rounded-tile + ~3 px gap treatment, so the column reads as five soft stacked segments rather than one hard bar.
+
+**Flow precedence (preserved, not changed):** when `cfData.menstrualFlow` is set, the CF appearance bar is suppressed for that day and the menstrual-flow marker is drawn on the Dry row instead (`CycleChartPage.tsx:2325`). The recolour work must keep this exact guard and the existing flow markers/colours intact (see Scope-in).
 
 ### Hover (must be preserved)
 
@@ -117,9 +122,10 @@ The existing hover machinery (`hoveredDayNumber`, `setCrosshairX`, the mouse-mov
 | Cervical Fluid (empty tiles) | `#dce8fb` |
 | Disturbance | `#ece0fb` |
 | Notes | `#edebe7` |
-| Cycle-Day chip | bg `#e2e8f0`, text `#1e293b`, bold |
 
-CF tiles already filled with an appearance colour keep that colour on hover (the surrounding empty tiles + cycle-day chip carry the column highlight). This replaces today's per-row `isHovered` ternaries (e.g. Time Stamp `bg-[#fde68a]`, LH `#c8e6c9`, etc.).
+CF tiles already filled with an appearance colour keep that colour on hover (the surrounding empty tiles carry the column highlight; the CF block's existing `isHovered` opacity behaviour at `CycleChartPage.tsx:~2320` is retained). This replaces today's per-row `isHovered` ternaries (e.g. Time Stamp `bg-[#fde68a]`, LH `#c8e6c9`, etc.).
+
+**Cycle-Day chip — out of scope.** The Cycle-Day row/chip lives in the *upper header*, owned by the 2026-05-12 graph-header spec, which already preserves a hover-column highlight adapted to that design. This lower-table spec does **not** modify the Cycle-Day chip's background, text colour, or weight; whatever the upper-header design does on column hover is preserved as-is. Only the lower-table cells listed above are restyled here.
 
 ### Tail / out-of-cycle days
 
