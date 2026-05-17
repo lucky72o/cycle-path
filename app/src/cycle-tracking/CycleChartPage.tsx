@@ -2538,7 +2538,6 @@ export default function CycleChartPage() {
                           <div
                             className="absolute"
                             style={{
-                              position: 'absolute',
                               inset: '1.5px',
                               borderRadius: '3px',
                               backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#edebe7' : '#fafaf9')
