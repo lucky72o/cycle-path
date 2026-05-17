@@ -14,6 +14,7 @@ export default {
     extend: {
       fontFamily: {
         satoshi: ['Satoshi', 'system-ui', 'sans-serif'],
+        montserrat: ['Montserrat', 'system-ui', 'sans-serif'],
       },
       colors: {
         current: 'currentColor',
