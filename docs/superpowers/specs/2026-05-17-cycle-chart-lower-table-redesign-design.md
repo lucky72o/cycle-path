@@ -123,7 +123,7 @@ The existing hover machinery (`hoveredDayNumber`, `setCrosshairX`, the mouse-mov
 | Disturbance | `#ece0fb` |
 | Notes | `#edebe7` |
 
-CF tiles already filled with an appearance colour keep that colour on hover (the surrounding empty tiles carry the column highlight; the CF block's existing `isHovered` opacity behaviour at `CycleChartPage.tsx:~2320` is retained). This replaces today's per-row `isHovered` ternaries (e.g. Time Stamp `bg-[#fde68a]`, LH `#c8e6c9`, etc.).
+For consistency with every other row, the CF block's empty background tiles deepen to `#dce8fb` on hover — i.e. the current `isHovered` opacity trick at `CycleChartPage.tsx:~2320` is **replaced** by the deepened-tint approach (not retained). CF tiles already filled with an appearance colour keep that colour on hover; the surrounding empty tiles carry the column highlight. This replaces today's per-row `isHovered` ternaries (e.g. Time Stamp `bg-[#fde68a]`, LH `#c8e6c9`, etc.).
 
 **Cycle-Day chip — out of scope.** The Cycle-Day row/chip lives in the *upper header*, owned by the 2026-05-12 graph-header spec, which already preserves a hover-column highlight adapted to that design. This lower-table spec does **not** modify the Cycle-Day chip's background, text colour, or weight; whatever the upper-header design does on column hover is preserved as-is. Only the lower-table cells listed above are restyled here.
 

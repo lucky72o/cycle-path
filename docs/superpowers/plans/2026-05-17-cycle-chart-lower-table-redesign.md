@@ -51,7 +51,9 @@ The outer positioned cell keeps `left/width/top/height` and becomes a transparen
 </div>
 ```
 
-For row-label cells, the equivalent: remove the border classes + old `bg-*`, set inline `backgroundColor: <REST_TINT>`, add `font-montserrat`, set `style.color:'#1e3a8a'`, `fontWeight:600`, `fontSize:'11px'`, `letterSpacing:'0.02em'`.
+For row-label cells, the equivalent: remove the border classes + old `bg-*`, set inline `backgroundColor: <REST_TINT>`, add `font-montserrat`, set `style.color:'#1e3a8a'`, `fontWeight:600`, `fontSize:'11px'`, `letterSpacing:'0.02em'`. Keep any existing `role`/`tabIndex`/`onClick`/`onKeyDown` on a label (the Notes label is a toggle button) — only the visual styling changes.
+
+**Notes-row exception:** the Notes *grid* cell is an interactive `role="button"` (`CycleChartPage.tsx:2563-2597`) with `onClick`/`onKeyDown`/`aria-disabled`/`tabIndex`/`cursor` and `pointerEvents:'auto'`, and it *already* contains an inner tile div. For Notes, do **not** apply the generic outer (no `pointerEvents:'none'`): keep the outer `<div>`'s `role`/`aria-disabled`/`tabIndex`/`onClick`/`onKeyDown`/`cursor`/`pointerEvents:'auto'` exactly as-is and only recolour/resize its existing inner tile. See Task 3 Step 5.
 
 ### Invariants — DO NOT CHANGE
 
@@ -185,10 +187,10 @@ Expected: FAIL — `getCFBarColor`/`getCFBarHeight` not exported from `../utils`
 
 Append to `app/src/cycle-tracking/utils.ts`:
 
-```ts
-export type CervicalAppearance = 'NONE' | 'STICKY' | 'CREAMY' | 'WATERY' | 'EGGWHITE';
+The call sites pass `cfData.cervicalAppearance`, which is typed `string | null` (`CycleChartPage.tsx:592`) and is narrowed only to `string` by the truthiness guard. So the utilities **accept `string`** (not a narrowed union) — this keeps the call sites unchanged and avoids retyping `cervicalMenstrualMap`.
 
-export function getCFBarColor(appearance: CervicalAppearance): string {
+```ts
+export function getCFBarColor(appearance: string): string {
   switch (appearance) {
     case 'EGGWHITE': return '#8fd9e6';
     case 'WATERY':   return '#bfe9f3';
@@ -199,7 +201,7 @@ export function getCFBarColor(appearance: CervicalAppearance): string {
   }
 }
 
-export function getCFBarHeight(appearance: CervicalAppearance): number {
+export function getCFBarHeight(appearance: string): number {
   switch (appearance) {
     case 'EGGWHITE': return 140;
     case 'WATERY':   return 112;
@@ -273,22 +275,40 @@ Apply the canonical inner-tile pattern to the five non-CF rows' day cells, remov
 
 - [ ] **Step 4: Disturbance cells** — locate the grid block paired with the Disturbance label (`~2414`). Apply the canonical pattern: height `28px`, REST `#faf5ff` / HOVER `#ece0fb`, tail `#f1f5f9`; remove `border-*-slate-300` and the old bg; keep the disturbance emoji/count content unchanged.
 
-- [ ] **Step 5: Notes cells** — locate the grid block paired with the Notes label (`~2431+`). Apply the canonical pattern: REST `#fafafa` → use `#fafaf9`, HOVER `#edebe7`, tail `#f1f5f9`; preserve the existing expand/`notesRowExpanded` height behaviour (use the existing dynamic height for the outer cell; the inner tile still uses `inset:1.5px`). Remove `border-*-slate-300`; keep the pencil/notes content unchanged.
+- [ ] **Step 5: Notes cells (interactive — DO NOT apply the generic outer)** — the Notes grid cell at `CycleChartPage.tsx:2563-2597` is a `role="button"` with `aria-disabled`, `tabIndex`, `onClick`, `onKeyDown`, `cursor`, `pointerEvents:'auto'`, and an existing inner tile div (`~2587-2597`). Keep the **outer** `<div>`'s `role`/`aria-disabled`/`tabIndex`/`onClick`/`onKeyDown`/`cursor`/`pointerEvents:'auto'`/position/size exactly as they are (drop only its `backgroundColor:'white'`). Add `const isHovered = hoveredDayNumber === dayNumber;` alongside the existing `isTail` (line ~2560). Then replace **only the existing inner tile** style (`~2589-2596`) with:
 
-- [ ] **Step 6: Lint + tests**
+```tsx
+style={{
+  position: 'absolute',
+  inset: '1.5px',
+  borderRadius: '3px',
+  backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#edebe7' : '#fafaf9'),
+}}
+```
+
+Keep the note-text rendering (`notesRowExpanded` vertical text, pencil, etc.) below it unchanged. Do **not** set `pointerEvents:'none'` anywhere on this cell.
+
+- [ ] **Step 6: Restyle all five non-CF row LABELS** — the spec requires every lower-table row label restyled, not just the grid cells. For each label `<div>` below, remove `border-b border-slate-300 border-r border-slate-300` and the old `bg-*`/inline bg, add the Tailwind class `font-montserrat`, and add inline style `backgroundColor:<REST_TINT>`, `color:'#1e3a8a'`, `fontWeight:600`, `fontSize:'11px'`, `letterSpacing:'0.02em'` (keep the existing `flex items-center justify-end px-3` and the `height`):
+  - **Time Stamp label** `~2027` — REST `#fffdf2` (was `bg-amber-50`).
+  - **LH Test label** `~2093` — REST `#f2faf3` (was `backgroundColor:'#e8f5e9'`).
+  - **Intimacy label** `~2191` — REST `#fdf2f8` (was `bg-pink-50`).
+  - **Disturbance label** `~2423-2428` — REST `#faf5ff` (was `backgroundColor:'#f5f3ff'`).
+  - **Notes label** `~2441+` — REST `#fafaf9` (was its old bg). This label is a `role="button"` toggle (`onClick`/`onKeyDown`/`tabIndex` for `toggleNotesRow`) — keep all those handlers/attributes; change only the visual styling.
+
+- [ ] **Step 7: Lint + tests**
 
 Run: `cd /Users/olgapak/work/cycle-path/app && npm run lint && npx vitest run`
 Expected: clean + green.
 
-- [ ] **Step 7: Visual verify**
+- [ ] **Step 8: Visual verify**
 
-Start dev server (`wasp start` in `app/`) and use `preview_*` tools: navigate to `/cycles/:cycleId/chart`. Confirm: no grey grid lines on these 5 rows; each day is a soft rounded tile with white gaps; Time-Stamp digits are blue `#3b82f6`; tail days are grey. `preview_screenshot` for the record.
+Start dev server (`wasp start` in `app/`) and use `preview_*` tools: navigate to `/cycles/:cycleId/chart`. Confirm: no grey grid lines on these 5 rows or their labels; each day + each label is a soft rounded tile with white gaps; labels are dark-blue `#1e3a8a` Montserrat; Time-Stamp digits are blue `#3b82f6`; tail days are grey; the Notes cell is still clickable (opens the day editor) and the Notes label still toggles the row. `preview_screenshot` for the record.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 cd /Users/olgapak/work/cycle-path && git add app/src/cycle-tracking/CycleChartPage.tsx && \
-git commit -m "feat(chart): borderless soft-tint tiles for time/LH/intimacy/disturbance/notes rows"
+git commit -m "feat(chart): borderless soft-tint tiles + montserrat labels for non-CF rows"
 ```
 
 ---
@@ -451,15 +471,20 @@ Verify via `preview_*`: (a) a long cycle (35+ days) still scrolls horizontally w
 
 ```bash
 cd /Users/olgapak/work/cycle-path && git status --porcelain
-# If changes from fixing a regression remain:
-git add -A && git commit -m "fix(chart): address lower-table redesign regression findings"
+# If changes from fixing a regression remain, stage ONLY the files this plan touches
+# (never `git add -A` / `git add .` — an untracked .claude/scheduled_tasks.lock exists):
+git add app/src/cycle-tracking/CycleChartPage.tsx app/src/cycle-tracking/utils.ts \
+  app/src/cycle-tracking/__tests__/headerHelpers.test.ts app/src/client/Main.css \
+  app/tailwind.config.js app/public/fonts/Montserrat-Medium.woff2 app/public/fonts/Montserrat-SemiBold.woff2 && \
+git commit -m "fix(chart): address lower-table redesign regression findings"
 ```
 
 ---
 
 ## Self-review
 
-- **Spec coverage:** borderless/no-grid → Tasks 3,4; soft tints + 3 px tiles → Tasks 3,4 (canonical pattern); coloured title column + dark-blue Montserrat titles → Tasks 3,4; blue two-line time stamps → Task 3 Step 1; Set A LH incl. bottom Low + green/amber Peak → Task 5; softened 5-row CF + logged-NONE preserved + flow precedence preserved → Tasks 2,4; hover deepened tints + crosshair/tooltip preserved → Tasks 3,4,7; tail grey → Tasks 3,4; Montserrat font-loading (self-host) → Task 1; Fertile-Window font → Task 6; Cycle-Day chip untouched → enforced by Invariants. All spec sections mapped.
-- **Placeholders:** none — every code step has concrete code/commands; line numbers are anchors with "locate" guidance where the exact block wasn't quoted (Disturbance/Notes grid), with the full canonical pattern + exact tokens supplied.
-- **Type consistency:** `getCFBarColor`/`getCFBarHeight` signatures and `CervicalAppearance` type defined in Task 2 match the call sites kept in Task 4; token hex values match the spec and the Conventions table throughout.
+- **Spec coverage:** borderless/no-grid → Tasks 3,4; soft tints + 3 px tiles → Tasks 3,4 (canonical pattern); coloured title column + dark-blue Montserrat titles → Task 3 Step 6 (all five non-CF labels) + Task 4 Step 4 (CF labels); blue two-line time stamps → Task 3 Step 1; Set A LH incl. bottom Low + green/amber Peak → Task 5; softened 5-row CF + logged-NONE preserved + flow precedence preserved → Tasks 2,4; hover deepened tints + crosshair/tooltip preserved → Tasks 3,4,7; tail grey → Tasks 3,4; Notes-cell interactivity preserved → Task 3 Step 5 (explicit, no `pointerEvents:'none'`); Montserrat font-loading (self-host) → Task 1; Fertile-Window font → Task 6; Cycle-Day chip untouched → enforced by Invariants. All spec sections mapped.
+- **Placeholders:** none — every code step has concrete code/commands; line numbers are anchors with "locate" guidance where the exact block wasn't quoted, with the full canonical pattern + exact tokens supplied.
+- **Type consistency:** `getCFBarColor`/`getCFBarHeight` accept `string` (Task 2 Step 3) to match `cfData.cervicalAppearance: string | null` (`CycleChartPage.tsx:592`) narrowed to `string` by the existing guard — so the kept call sites in Task 4 type-check without retyping `cervicalMenstrualMap`; token hex values match the spec and the Conventions table throughout.
+- **CF hover consistency:** plan (Task 4 Step 1, deepen empty tiles to `#dce8fb`) and spec (`design.md:126`, opacity trick *replaced* by deepened tint) now agree.
 - **Scope:** single component + utils + one CSS/asset + one tailwind line — one cohesive plan, no decomposition needed.
