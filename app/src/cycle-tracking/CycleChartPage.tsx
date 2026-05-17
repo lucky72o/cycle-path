@@ -2096,38 +2096,34 @@ export default function CycleChartPage() {
                       // Render symbol based on status
                       let symbol: JSX.Element | null = null;
                       if (opkStatus === 'low') {
-                        // Short horizontal dash at bottom
+                        // bottom-aligned dash
                         symbol = (
-                          <svg width="20" height="28" viewBox="0 0 20 28">
-                            <line x1="5" y1="24" x2="15" y2="24" stroke="currentColor" strokeWidth="2" />
-                          </svg>
+                          <span style={{ position:'absolute', left:0, right:0, bottom:'3px', display:'flex', justifyContent:'center' }}>
+                            <svg width="13" height="6" viewBox="0 0 24 6">
+                              <line x1="6" y1="3" x2="18" y2="3" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" />
+                            </svg>
+                          </span>
                         );
                       } else if (opkStatus === 'rising') {
-                        // Diagonal arrow pointing upper-right
                         symbol = (
-                          <svg width="20" height="28" viewBox="0 0 20 28">
-                            <line x1="6" y1="20" x2="14" y2="12" stroke="currentColor" strokeWidth="2" />
-                            <line x1="14" y1="12" x2="11" y2="12" stroke="currentColor" strokeWidth="2" />
-                            <line x1="14" y1="12" x2="14" y2="15" stroke="currentColor" strokeWidth="2" />
+                          <svg width="13" height="13" viewBox="0 0 24 24">
+                            <line x1="6" y1="17" x2="17" y2="7" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
+                            <polyline points="11,7 17,7 17,13" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         );
                       } else if (opkStatus === 'peak') {
-                        // Mountain with sparkle at summit
                         symbol = (
-                          <svg width="24" height="28" viewBox="0 0 24 28">
-                            <path d="M4 20 L12 8 L20 20 Z" fill="currentColor" />
-                            <circle cx="12" cy="8" r="2" fill="#FFD700" />
-                            <line x1="12" y1="4" x2="12" y2="6" stroke="#FFD700" strokeWidth="1" />
-                            <line x1="10" y1="6" x2="14" y2="6" stroke="#FFD700" strokeWidth="1" />
+                          <svg width="13" height="13" viewBox="0 0 24 24">
+                            <line x1="12" y1="19" x2="12" y2="6" stroke="#16a34a" strokeWidth="2.4" strokeLinecap="round" />
+                            <polyline points="7,11 12,6 17,11" fill="none" stroke="#16a34a" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                            <circle cx="12" cy="3" r="2" fill="#f59e0b" />
                           </svg>
                         );
                       } else if (opkStatus === 'declining') {
-                        // Diagonal arrow pointing lower-right
                         symbol = (
-                          <svg width="20" height="28" viewBox="0 0 20 28">
-                            <line x1="6" y1="12" x2="14" y2="20" stroke="currentColor" strokeWidth="2" />
-                            <line x1="14" y1="20" x2="11" y2="20" stroke="currentColor" strokeWidth="2" />
-                            <line x1="14" y1="20" x2="14" y2="17" stroke="currentColor" strokeWidth="2" />
+                          <svg width="13" height="13" viewBox="0 0 24 24">
+                            <line x1="6" y1="7" x2="17" y2="17" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
+                            <polyline points="17,11 17,17 11,17" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         );
                       }
