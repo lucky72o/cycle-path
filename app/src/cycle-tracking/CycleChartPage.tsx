@@ -1648,6 +1648,7 @@ export default function CycleChartPage() {
                       fontSize: '12px',
                       fontWeight: 600,
                       color: '#2e7d32',
+                      fontFamily: "'Montserrat', sans-serif",
                       textShadow: '0 1px 2px rgba(255,255,255,0.8)'
                     }}>
                       Fertile Window
