@@ -2280,7 +2280,7 @@ export default function CycleChartPage() {
                           {[0, 1, 2, 3, 4].map((rowIdx) => (
                             <div
                               key={rowIdx}
-                              className="absolute"
+                              className="absolute transition-colors"
                               style={{
                                 top: `${rowIdx * 28 + 1.5}px`,
                                 left: '1.5px',
