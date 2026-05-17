@@ -2001,8 +2001,12 @@ export default function CycleChartPage() {
                       zIndex: 2
                     }}
                   >
-                    <div className="flex items-center justify-end px-3 text-xs font-medium bg-amber-50 border-b border-slate-300 border-r border-slate-300" style={{ height: '38px' }}>
-                      Time Stamp
+                    <div style={{ position: 'relative', height: '38px' }}>
+                      <div className="absolute flex items-center justify-end px-3 font-montserrat"
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#fffdf2',
+                          color: '#1e3a8a', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em' }}>
+                        Time Stamp
+                      </div>
                     </div>
                   </div>
 
@@ -2028,26 +2032,18 @@ export default function CycleChartPage() {
                       const leftEdge = plotAreaOffset + (i * cellWidth);
 
                       return (
-                        <div
-                          key={dayNumber}
-                          className={`absolute flex flex-col items-center justify-center text-xs border-r border-b border-slate-300 transition-colors ${
-                            isTail ? '' : (isHovered ? 'bg-[#fde68a]' : 'bg-amber-50')
-                          }`}
-                          style={{
-                            left: `${leftEdge}px`,
-                            width: `${cellWidth}px`,
-                            top: 0,
-                            height: '38px',
-                            backgroundColor: isTail ? '#fafafa' : undefined,
-                            pointerEvents: 'none'
-                          }}
-                        >
-                          {!isTail && timeData && (
-                            <>
-                              <div className="font-medium leading-tight">{timeData.hours}</div>
-                              <div className="text-xs leading-tight">{timeData.minutes}</div>
-                            </>
-                          )}
+                        <div key={dayNumber} className="absolute"
+                          style={{ left: `${leftEdge}px`, width: `${cellWidth}px`, top: 0, height: '38px', pointerEvents: 'none' }}>
+                          <div className="absolute flex flex-col items-center justify-center text-xs transition-colors"
+                            style={{ inset: '1.5px', borderRadius: '3px',
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#fdf0c8' : '#fffdf2') }}>
+                            {!isTail && timeData && (
+                              <>
+                                <div className="font-medium leading-tight" style={{ color: '#3b82f6' }}>{timeData.hours}</div>
+                                <div className="text-xs leading-tight" style={{ color: '#3b82f6' }}>{timeData.minutes}</div>
+                              </>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -2067,8 +2063,12 @@ export default function CycleChartPage() {
                       zIndex: 2
                     }}
                   >
-                    <div className="flex items-center justify-end px-3 text-xs font-medium border-b border-slate-300 border-r border-slate-300" style={{ height: '28px', backgroundColor: '#e8f5e9' }}>
-                      LH Test
+                    <div style={{ position: 'relative', height: '28px' }}>
+                      <div className="absolute flex items-center justify-end px-3 font-montserrat"
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#f2faf3',
+                          color: '#1e3a8a', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em' }}>
+                        LH Test
+                      </div>
                     </div>
                   </div>
 
@@ -2133,19 +2133,13 @@ export default function CycleChartPage() {
                       }
 
                       return (
-                        <div
-                          key={dayNumber}
-                          className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 transition-colors`}
-                          style={{
-                            left: `${leftEdge}px`,
-                            width: `${cellWidth}px`,
-                            top: 0,
-                            height: '28px',
-                            backgroundColor: isTail ? '#fafafa' : (isHovered ? '#c8e6c9' : '#e8f5e9'),
-                            pointerEvents: 'none'
-                          }}
-                        >
-                          {!isTail && symbol}
+                        <div key={dayNumber} className="absolute"
+                          style={{ left: `${leftEdge}px`, width: `${cellWidth}px`, top: 0, height: '28px', pointerEvents: 'none' }}>
+                          <div className="absolute flex items-center justify-center text-xs transition-colors"
+                            style={{ inset: '1.5px', borderRadius: '3px',
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#dff0e2' : '#f2faf3') }}>
+                            {!isTail && symbol}
+                          </div>
                         </div>
                       );
                     })}
@@ -2165,8 +2159,12 @@ export default function CycleChartPage() {
                       zIndex: 2
                     }}
                   >
-                    <div className="flex items-center justify-end px-3 text-xs font-medium bg-pink-50 border-b border-slate-300 border-r border-slate-300" style={{ height: '28px' }}>
-                      Intimacy
+                    <div style={{ position: 'relative', height: '28px' }}>
+                      <div className="absolute flex items-center justify-end px-3 font-montserrat"
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#fdf2f8',
+                          color: '#1e3a8a', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em' }}>
+                        Intimacy
+                      </div>
                     </div>
                   </div>
 
@@ -2193,23 +2191,15 @@ export default function CycleChartPage() {
                       const leftEdge = plotAreaOffset + (i * cellWidth);
 
                       return (
-                        <div
-                          key={dayNumber}
-                          className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 transition-colors ${
-                            isTail ? '' : (isHovered ? 'bg-pink-100' : 'bg-pink-50')
-                          }`}
-                          style={{
-                            left: `${leftEdge}px`,
-                            width: `${cellWidth}px`,
-                            top: 0,
-                            height: '28px',
-                            backgroundColor: isTail ? '#fafafa' : undefined,
-                            pointerEvents: 'none'
-                          }}
-                        >
-                          {!isTail && hasIntercourse && (
-                            <span style={{ color: '#ec4899', fontSize: '18px', lineHeight: 1 }}>❤</span>
-                          )}
+                        <div key={dayNumber} className="absolute"
+                          style={{ left: `${leftEdge}px`, width: `${cellWidth}px`, top: 0, height: '28px', pointerEvents: 'none' }}>
+                          <div className="absolute flex items-center justify-center text-xs transition-colors"
+                            style={{ inset: '1.5px', borderRadius: '3px',
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#f9d6e8' : '#fdf2f8') }}>
+                            {!isTail && hasIntercourse && (
+                              <span style={{ color: '#ec4899', fontSize: '18px', lineHeight: 1 }}>❤</span>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -2397,11 +2387,12 @@ export default function CycleChartPage() {
                       zIndex: 2
                     }}
                   >
-                    <div
-                      className="flex items-center justify-end px-3 text-xs font-medium border-b border-slate-300 border-r border-slate-300"
-                      style={{ height: '28px', backgroundColor: '#f5f3ff' }}
-                    >
-                      Disturbance
+                    <div style={{ position: 'relative', height: '28px' }}>
+                      <div className="absolute flex items-center justify-end px-3 font-montserrat"
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#faf5ff',
+                          color: '#1e3a8a', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em' }}>
+                        Disturbance
+                      </div>
                     </div>
                   </div>
 
@@ -2425,23 +2416,26 @@ export default function CycleChartPage() {
                           void toggleNotesRow();
                         }
                       }}
-                      className="flex items-center justify-end px-3 text-xs font-medium border-b border-slate-300 border-r border-slate-300"
-                      style={{ height: '28px', backgroundColor: '#f8fafc', cursor: 'pointer', pointerEvents: 'auto' }}
+                      style={{ position: 'relative', height: '28px', cursor: 'pointer', pointerEvents: 'auto' }}
                     >
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          transform: notesRowExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                          transition: 'transform 120ms ease',
-                          marginRight: '4px',
-                          color: '#64748b',
-                          fontSize: '10px'
-                        }}
-                      >
-                        ▶
-                      </span>
-                      <span>Notes</span>
-                      <span className="ml-1 text-slate-400 cursor-help" title="Free-text notes for this day (max 150 characters). Click row label to expand.">ⓘ</span>
+                      <div className="absolute flex items-center justify-end px-3 font-montserrat"
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#fafaf9',
+                          color: '#1e3a8a', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em' }}>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            transform: notesRowExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                            transition: 'transform 120ms ease',
+                            marginRight: '4px',
+                            color: '#64748b',
+                            fontSize: '10px'
+                          }}
+                        >
+                          ▶
+                        </span>
+                        <span>Notes</span>
+                        <span className="ml-1 text-slate-400 cursor-help" title="Free-text notes for this day (max 150 characters). Click row label to expand.">ⓘ</span>
+                      </div>
                     </div>
                   </div>
 
@@ -2484,33 +2478,13 @@ export default function CycleChartPage() {
                       }
 
                       return (
-                        <div
-                          key={dayNumber}
-                          className="absolute flex items-center justify-center text-sm"
-                          style={{
-                            left: `${leftEdge}px`,
-                            width: `${cellWidth}px`,
-                            top: 0,
-                            height: '28px',
-                            backgroundColor: 'white',
-                            pointerEvents: 'none'
-                          }}
-                        >
-                          {/* Violet background square matching CF cell style */}
-                          <div
-                            className="absolute transition-opacity"
-                            style={{
-                              top: '0.5px',
-                              left: '0.5px',
-                              width: 'calc(100% - 1px)',
-                              height: '27px',
-                              backgroundColor: isTail ? '#fafafa' : '#f3e8ff',
-                              borderRadius: '2px',
-                              opacity: isTail ? 1 : (isHovered ? 0.7 : 1)
-                            }}
-                          />
-                          {/* Emoji/count on top */}
-                          {!isTail && <span className="relative z-10">{cellContent}</span>}
+                        <div key={dayNumber} className="absolute"
+                          style={{ left: `${leftEdge}px`, width: `${cellWidth}px`, top: 0, height: '28px', pointerEvents: 'none' }}>
+                          <div className="absolute flex items-center justify-center text-sm transition-colors"
+                            style={{ inset: '1.5px', borderRadius: '3px',
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#ece0fb' : '#faf5ff') }}>
+                            {!isTail && <span className="relative z-10">{cellContent}</span>}
+                          </div>
                         </div>
                       );
                     })}
@@ -2535,6 +2509,7 @@ export default function CycleChartPage() {
                       const cellWidth = plotAreaWidth / numDays;
                       const leftEdge = plotAreaOffset + (i * cellWidth);
                       const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
+                      const isHovered = hoveredDayNumber === dayNumber;
 
                       return (
                         <div
@@ -2556,7 +2531,6 @@ export default function CycleChartPage() {
                             width: `${cellWidth}px`,
                             top: 0,
                             height: `${NOTES_ROW_HEIGHT}px`,
-                            backgroundColor: 'white',
                             cursor: isTail ? 'default' : 'pointer',
                             pointerEvents: 'auto'
                           }}
@@ -2564,12 +2538,10 @@ export default function CycleChartPage() {
                           <div
                             className="absolute"
                             style={{
-                              top: '0.5px',
-                              left: '0.5px',
-                              width: 'calc(100% - 1px)',
-                              height: 'calc(100% - 1px)',
-                              backgroundColor: isTail ? '#fafafa' : '#f5f5f4',
-                              borderRadius: '2px'
+                              position: 'absolute',
+                              inset: '1.5px',
+                              borderRadius: '3px',
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#edebe7' : '#fafaf9')
                             }}
                           />
                           {!isTail && note !== null && note !== '' && (
