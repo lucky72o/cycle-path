@@ -51,7 +51,14 @@ The outer positioned cell keeps `left/width/top/height` and becomes a transparen
 </div>
 ```
 
-For row-label cells, the equivalent: remove the border classes + old `bg-*`, set inline `backgroundColor: <REST_TINT>`, add `font-montserrat`, set `style.color:'#1e3a8a'`, `fontWeight:600`, `fontSize:'11px'`, `letterSpacing:'0.02em'`. Keep any existing `role`/`tabIndex`/`onClick`/`onKeyDown` on a label (the Notes label is a toggle button) — only the visual styling changes.
+For row-label cells, the label `<div>` must become the **same inset rounded tile** as a day cell (spec: "Row label cell uses the same inset/radius/tint"). It must NOT remain a solid full-height band. Concretely, on the existing label `<div>` (the one that currently carries `flex items-center justify-end px-3 ... border-* bg-*`):
+
+- remove `border-b border-slate-300 border-r border-slate-300` and the old `bg-*`/inline bg;
+- keep `flex items-center justify-end px-3` and its `height`;
+- add Tailwind class `font-montserrat`;
+- add inline style: `margin: '1.5px'`, `borderRadius: '3px'`, `backgroundColor: <REST_TINT>`, `color: '#1e3a8a'`, `fontWeight: 600`, `fontSize: '11px'`, `letterSpacing: '0.02em'`.
+
+The `margin:1.5px` produces the same ~3 px white gap as the day-cell `inset:1.5px`, giving an inset rounded tile flush in colour with its row (no positioned-parent change needed, so Notes/Disturbance label handlers stay intact). Keep any existing `role`/`tabIndex`/`onClick`/`onKeyDown` on a label (the Notes label is a toggle button) — only the visual styling changes.
 
 **Notes-row exception:** the Notes *grid* cell is an interactive `role="button"` (`CycleChartPage.tsx:2563-2597`) with `onClick`/`onKeyDown`/`aria-disabled`/`tabIndex`/`cursor` and `pointerEvents:'auto'`, and it *already* contains an inner tile div. For Notes, do **not** apply the generic outer (no `pointerEvents:'none'`): keep the outer `<div>`'s `role`/`aria-disabled`/`tabIndex`/`onClick`/`onKeyDown`/`cursor`/`pointerEvents:'auto'` exactly as-is and only recolour/resize its existing inner tile. See Task 3 Step 5.
 
@@ -79,14 +86,19 @@ Inline-style/JSX restyles have no meaningful unit test; the only pure logic here
 
 - [ ] **Step 1: Download the two woff2 files (stable jsDelivr/fontsource URLs, no npm install)**
 
+Use a **pinned, immutable** `@fontsource/montserrat` version (not `@latest`) so the binary assets are reproducible. Pinned version: **`5.0.8`**.
+
 Run:
 ```bash
 cd /Users/olgapak/work/cycle-path/app && \
-curl -fsSL -o public/fonts/Montserrat-Medium.woff2 "https://cdn.jsdelivr.net/fontsource/fonts/montserrat@latest/latin-500-normal.woff2" && \
-curl -fsSL -o public/fonts/Montserrat-SemiBold.woff2 "https://cdn.jsdelivr.net/fontsource/fonts/montserrat@latest/latin-600-normal.woff2" && \
-ls -l public/fonts/Montserrat-*.woff2
+FS_VER=5.0.8 && \
+curl -fsSL -o public/fonts/Montserrat-Medium.woff2 "https://cdn.jsdelivr.net/npm/@fontsource/montserrat@${FS_VER}/files/montserrat-latin-500-normal.woff2" && \
+curl -fsSL -o public/fonts/Montserrat-SemiBold.woff2 "https://cdn.jsdelivr.net/npm/@fontsource/montserrat@${FS_VER}/files/montserrat-latin-600-normal.woff2" && \
+ls -l public/fonts/Montserrat-*.woff2 && file public/fonts/Montserrat-*.woff2
 ```
-Expected: both files exist, each > 10 KB.
+Expected: both files exist, each > 10 KB, and `file` reports `Web Open Font Format (Version 2)`.
+
+If `5.0.8` 404s on jsDelivr, do **not** fall back to `@latest`: pick the newest published `@fontsource/montserrat` version, substitute it into `FS_VER`, and record the exact version used in the Step 5 commit message (keeps the asset reproducible).
 
 - [ ] **Step 2: Add the `@font-face` rules to `Main.css`**
 
@@ -288,7 +300,7 @@ style={{
 
 Keep the note-text rendering (`notesRowExpanded` vertical text, pencil, etc.) below it unchanged. Do **not** set `pointerEvents:'none'` anywhere on this cell.
 
-- [ ] **Step 6: Restyle all five non-CF row LABELS** — the spec requires every lower-table row label restyled, not just the grid cells. For each label `<div>` below, remove `border-b border-slate-300 border-r border-slate-300` and the old `bg-*`/inline bg, add the Tailwind class `font-montserrat`, and add inline style `backgroundColor:<REST_TINT>`, `color:'#1e3a8a'`, `fontWeight:600`, `fontSize:'11px'`, `letterSpacing:'0.02em'` (keep the existing `flex items-center justify-end px-3` and the `height`):
+- [ ] **Step 6: Restyle all five non-CF row LABELS as inset tiles** — the spec requires every lower-table row label restyled to the same inset/radius/tint tile as day cells (not a solid full-height band). For each label `<div>` below, apply the **"For row-label cells" recipe from Conventions**: remove `border-b border-slate-300 border-r border-slate-300` and the old `bg-*`/inline bg; keep `flex items-center justify-end px-3` and `height`; add Tailwind class `font-montserrat`; add inline style `margin:'1.5px'`, `borderRadius:'3px'`, `backgroundColor:<REST_TINT>`, `color:'#1e3a8a'`, `fontWeight:600`, `fontSize:'11px'`, `letterSpacing:'0.02em'`:
   - **Time Stamp label** `~2027` — REST `#fffdf2` (was `bg-amber-50`).
   - **LH Test label** `~2093` — REST `#f2faf3` (was `backgroundColor:'#e8f5e9'`).
   - **Intimacy label** `~2191` — REST `#fdf2f8` (was `bg-pink-50`).
@@ -341,7 +353,7 @@ style={{
 
 - [ ] **Step 3: Leave the menstrual-flow markers (`~2338-2408`) byte-for-byte unchanged.** Verify the SPOTTING/LIGHT/MEDIUM/HEAVY/VERY_HEAVY markup and colours `#E53935`/`#d65866`/`#c82739` are untouched.
 
-- [ ] **Step 4: Recolour the 5 CF labels** (`~2262-2270`). On each label `<div>`: remove `bg-slate-50 border-b border-slate-300 border-r border-slate-300`; add inline `backgroundColor:'#f3f8ff'`, `color:'#1e3a8a'`, `fontWeight:600`, `fontSize:'11px'`, `letterSpacing:'0.02em'`, and add Tailwind class `font-montserrat`. Keep the `cf-tooltip-trigger`, `ⓘ`, and tooltip span exactly as-is.
+- [ ] **Step 4: Recolour the 5 CF labels as inset tiles** (`~2262-2270`). Apply the same "For row-label cells" recipe from Conventions to each of the five label `<div>`s: remove `bg-slate-50 border-b border-slate-300 border-r border-slate-300`; keep `flex items-center justify-end px-3` and `height:'28px'`; add Tailwind class `font-montserrat`; add inline style `margin:'1.5px'`, `borderRadius:'3px'`, `backgroundColor:'#f3f8ff'`, `color:'#1e3a8a'`, `fontWeight:600`, `fontSize:'11px'`, `letterSpacing:'0.02em'`. Keep the `cf-tooltip-trigger`, `ⓘ`, and tooltip span exactly as-is.
 
 - [ ] **Step 5: Lint + tests**
 
