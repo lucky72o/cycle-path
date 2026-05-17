@@ -157,6 +157,11 @@ describe('getCFBarColor (softened palette)', () => {
     expect(getCFBarColor('STICKY')).toBe('#dcf0f1');
     expect(getCFBarColor('NONE')).toBe('#e2e8f0');
   });
+
+  it('falls back to transparent for unknown/empty appearance', () => {
+    expect(getCFBarColor('BOGUS')).toBe('transparent');
+    expect(getCFBarColor('')).toBe('transparent');
+  });
 });
 
 describe('getCFBarHeight (unchanged mapping)', () => {
@@ -166,5 +171,10 @@ describe('getCFBarHeight (unchanged mapping)', () => {
     expect(getCFBarHeight('CREAMY')).toBe(84);
     expect(getCFBarHeight('WATERY')).toBe(112);
     expect(getCFBarHeight('EGGWHITE')).toBe(140);
+  });
+
+  it('falls back to 0 for unknown/empty appearance', () => {
+    expect(getCFBarHeight('BOGUS')).toBe(0);
+    expect(getCFBarHeight('')).toBe(0);
   });
 });
