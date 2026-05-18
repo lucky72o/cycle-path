@@ -14,6 +14,8 @@
 
 ### Design tokens
 
+> ⚠️ **Superseded by "As-built token values" at the end of this plan.** The table below is the first-pass target; several tints/colours/icon sizes were refined during implementation review — see the end of the doc for what shipped.
+
 | Row | Resting tint | Hover (deepened) tint |
 |---|---|---|
 | Time Stamp | `#fffdf2` | `#fdf0c8` |
@@ -533,3 +535,27 @@ git commit -m "fix(chart): address lower-table redesign regression findings"
 - **Type consistency:** `getCFBarColor`/`getCFBarHeight` accept `string` (Task 2 Step 3) to match `cfData.cervicalAppearance: string | null` (`CycleChartPage.tsx:592`) narrowed to `string` by the existing guard — so the kept call sites in Task 4 type-check without retyping `cervicalMenstrualMap`; token hex values match the spec and the Conventions table throughout.
 - **CF hover consistency:** plan (Task 4 Step 1, deepen empty tiles to `#dce8fb`) and spec (`design.md:126`, opacity trick *replaced* by deepened tint) now agree.
 - **Scope:** single component + utils + one CSS/asset + one tailwind line — one cohesive plan, no decomposition needed.
+
+---
+
+## As-built token values (post-implementation, 2026-05-17 → 2026-05-18)
+
+These supersede the Conventions "Design tokens" table. Refined during the user's iterative visual review:
+
+- **Title text:** `#002142` (chart ApexCharts `foreColor` / temperature y-axis label colour), Montserrat 600, 11px, `letter-spacing: 0.02em`, **`textAlign: 'right'`** (wrapped labels right-align). All six row labels. (Was `#1e3a8a`.)
+- **Time-Stamp digits:** `#334155` (Date-row text colour). (Was `#3b82f6`.)
+- **Row resting / hover tints (shipped):**
+
+  | Row | Resting | Hover |
+  |---|---|---|
+  | Time Stamp | `#fff7d9` | `#fde68a` |
+  | LH Test | `#e8f5e9` | `#c8e6c9` |
+  | Intimacy | `#fdedf6` | `#fbcfe8` |
+  | Cervical Fluid (5 sub-rows) | `#e5f0ff` | `#bfdbfe` |
+  | Disturbance | `#f1eeff` | `#ddd6fe` |
+  | Notes | `#f8f8f7` | `#e7e5e4` |
+  | Tail (any row) | `#f1f5f9` | — |
+
+  Rule: resting = Tailwind 50↔100 midpoint ("~75") for the row hue; hover = Tailwind-200. **Exception — LH Test** = original pre-redesign app green (`#e8f5e9` / `#c8e6c9`), restored at user request. Label tile + grid share the resting tint. Upper-header month palette (`#dbeafe`/`#dcfce7`) left untouched despite shared Tailwind hexes.
+- **Icon sizes:** LH Set A SVGs **17×17** (Low dash **17×8**); Notes `✎` **16px**. (Were 13px / 12px.) ~55–65 % of the 28px cell is the legibility guideline.
+- **Unchanged from plan/spec:** LH stroke colours (`#3b82f6` low/rising/declining; `#16a34a`+`#f59e0b` peak), CF-bar guard, flow markers, hover/crosshair/tooltip, all layout invariants. Tests 291/291 green; eslint baseline unchanged.

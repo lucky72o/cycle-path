@@ -22,6 +22,28 @@ Key changes:
 
 This is the design validated in the brainstorming session; mockups are archived under [`.superpowers/brainstorm/`](../../../.superpowers/brainstorm/) (final: `full-chart-v4.html`). The visual-companion session content can be discarded after merge.
 
+## As-built adjustments (post-spec, 2026-05-17 → 2026-05-18)
+
+During implementation review the colours/sizes below were refined. **These supersede the original token tables further down** (the tables in "Per-row tints and title text" and "Hover" record the first-pass targets; the values here are what shipped):
+
+- **Title text colour:** `#002142` (the chart's ApexCharts `foreColor` — i.e. the same colour as the temperature y-axis labels), **not** `#1e3a8a`. Still Montserrat 600, 11px, `letter-spacing: 0.02em`, and now **`text-align: right`** so wrapped labels (e.g. "Time Stamp") align flush-right like the single-word labels. Applies to all six row labels (5 non-CF + CF).
+- **Time-Stamp digit colour:** `#334155` (the Date-row text colour from the upper header), **not** `#3b82f6`.
+- **Row resting / hover tints (final, shipped):**
+
+  | Row | Resting | Hover |
+  |---|---|---|
+  | Time Stamp | `#fff7d9` | `#fde68a` |
+  | LH Test | `#e8f5e9` | `#c8e6c9` |
+  | Intimacy | `#fdedf6` | `#fbcfe8` |
+  | Cervical Fluid (5 sub-rows) | `#e5f0ff` | `#bfdbfe` |
+  | Disturbance | `#f1eeff` | `#ddd6fe` |
+  | Notes | `#f8f8f7` | `#e7e5e4` |
+  | Tail / out-of-cycle (any row) | `#f1f5f9` | — |
+
+  Tint rule: **resting = the midpoint between Tailwind-50 and Tailwind-100 for the row's hue** ("~75"); **hover = Tailwind-200**. The label tile and the day cells share the resting tint (coloured-title-column parity). **Exception — LH Test** uses the *original pre-redesign* app green (`#e8f5e9` resting / `#c8e6c9` hover), restored at the user's request, rather than the 75/200 rule. The upper-header month palette (`#dbeafe` / `#dcfce7`) was deliberately left untouched even though some final lower-table values share those Tailwind hexes.
+- **Icon sizes:** LH Set A symbols render at **17×17** (Low dash **17×8**), ≈61 % of the 28 px cell; the Notes `✎` glyph at **16 px** (≈57 %). (Originally 13 px / 12 px.) Guideline: table glyphs read best at ~55–65 % of cell height.
+- **Unchanged from spec:** LH symbol stroke colours (Low/Rising/Declining `#3b82f6`; Peak `#16a34a` + amber `#f59e0b` dot), hover/crosshair/tooltip behaviour, the CF-bar guard, menstrual-flow markers, and every layout invariant.
+
 ## User-facing description
 
 Today the lower table is six (really ten, counting the CF sub-rows) solid colour bands running edge to edge, every cell boxed by a light-grey grid line, even on days with no data. It visually competes with the lighter calendar header and graph above it.
@@ -61,6 +83,8 @@ After this change:
 All colours as hex; all distances CSS px. The current implementation positions each cell as an absolutely-positioned `div` at `left = plotAreaOffset + i*cellWidth`, `width = cellWidth`. **Keep that positioning maths unchanged.** The new tile/gap look is produced by an *inner* element inset inside the existing positioned box, so `cellWidth`, crosshair X, `MIN_CELL_WIDTH = 22`, and `computeContainerMinWidth` all stay valid.
 
 ### Per-row tints and title text
+
+> ⚠️ **Superseded by "As-built adjustments" (top of doc).** The tints, title colour, and time-stamp colour below are the first-pass targets; see As-built for the values that shipped.
 
 | Row | Cell + label tint (resting) | Old (being replaced) |
 |---|---|---|
@@ -111,6 +135,8 @@ Logged `NONE` MUST remain a visible Dry-row marker (it is a recorded data state)
 **Flow precedence (preserved, not changed):** when `cfData.menstrualFlow` is set, the CF appearance bar is suppressed for that day and the menstrual-flow marker is drawn on the Dry row instead (`CycleChartPage.tsx:2325`). The recolour work must keep this exact guard and the existing flow markers/colours intact (see Scope-in).
 
 ### Hover (must be preserved)
+
+> ⚠️ **Hover tint values superseded by "As-built adjustments" (top of doc).** The hover *behaviour* below (full-column deepen, crosshair/tooltip preserved) is accurate; the specific hover hexes shipped per the As-built table.
 
 The existing hover machinery (`hoveredDayNumber`, `setCrosshairX`, the mouse-move handlers and tooltip) **must keep working unchanged** — only the *visual* of the highlighted column adapts. On hover of a day, every row's cell in that column deepens to a richer tint of its own colour:
 
