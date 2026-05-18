@@ -2004,7 +2004,7 @@ export default function CycleChartPage() {
                   >
                     <div style={{ position: 'relative', height: '38px' }}>
                       <div className="absolute flex items-center justify-end px-3 font-montserrat"
-                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#fffdf2',
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#fef3c7',
                           color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
                         Time Stamp
                       </div>
@@ -2037,7 +2037,7 @@ export default function CycleChartPage() {
                           style={{ left: `${leftEdge}px`, width: `${cellWidth}px`, top: 0, height: '38px', pointerEvents: 'none' }}>
                           <div className="absolute flex flex-col items-center justify-center text-xs transition-colors"
                             style={{ inset: '1.5px', borderRadius: '3px',
-                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#fdf0c8' : '#fffdf2') }}>
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#fde68a' : '#fef3c7') }}>
                             {!isTail && timeData && (
                               <>
                                 <div className="font-medium leading-tight" style={{ color: '#334155' }}>{timeData.hours}</div>
@@ -2066,7 +2066,7 @@ export default function CycleChartPage() {
                   >
                     <div style={{ position: 'relative', height: '28px' }}>
                       <div className="absolute flex items-center justify-end px-3 font-montserrat"
-                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#f2faf3',
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#dcfce7',
                           color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
                         LH Test
                       </div>
@@ -2134,7 +2134,7 @@ export default function CycleChartPage() {
                           style={{ left: `${leftEdge}px`, width: `${cellWidth}px`, top: 0, height: '28px', pointerEvents: 'none' }}>
                           <div className="absolute flex items-center justify-center text-xs transition-colors"
                             style={{ inset: '1.5px', borderRadius: '3px',
-                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#dff0e2' : '#f2faf3') }}>
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#bbf7d0' : '#dcfce7') }}>
                             {!isTail && symbol}
                           </div>
                         </div>
@@ -2158,7 +2158,7 @@ export default function CycleChartPage() {
                   >
                     <div style={{ position: 'relative', height: '28px' }}>
                       <div className="absolute flex items-center justify-end px-3 font-montserrat"
-                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#fdf2f8',
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#fce7f3',
                           color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
                         Intimacy
                       </div>
@@ -2192,7 +2192,7 @@ export default function CycleChartPage() {
                           style={{ left: `${leftEdge}px`, width: `${cellWidth}px`, top: 0, height: '28px', pointerEvents: 'none' }}>
                           <div className="absolute flex items-center justify-center text-xs transition-colors"
                             style={{ inset: '1.5px', borderRadius: '3px',
-                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#f9d6e8' : '#fdf2f8') }}>
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#fbcfe8' : '#fce7f3') }}>
                             {!isTail && hasIntercourse && (
                               <span style={{ color: '#ec4899', fontSize: '18px', lineHeight: 1 }}>❤</span>
                             )}
@@ -2229,7 +2229,7 @@ export default function CycleChartPage() {
                         style={{ position: 'relative', height: '28px' }}
                       >
                         <div className="absolute flex items-center justify-end px-3 font-montserrat"
-                          style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#f3f8ff',
+                          style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#dbeafe',
                             color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
                           <span>{row.name}</span>
                           <span className="ml-1 text-slate-400 cursor-help">ⓘ</span>
@@ -2283,7 +2283,7 @@ export default function CycleChartPage() {
                                 left: '1.5px',
                                 width: 'calc(100% - 3px)',
                                 height: '25px',
-                                backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#dce8fb' : '#f3f8ff'),
+                                backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#bfdbfe' : '#dbeafe'),
                                 borderRadius: '3px',
                               }}
                             />
@@ -2389,7 +2389,7 @@ export default function CycleChartPage() {
                   >
                     <div style={{ position: 'relative', height: '28px' }}>
                       <div className="absolute flex items-center justify-end px-3 font-montserrat"
-                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#faf5ff',
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#ede9fe',
                           color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
                         Disturbance
                       </div>
@@ -2419,7 +2419,7 @@ export default function CycleChartPage() {
                       style={{ position: 'relative', height: '28px', cursor: 'pointer', pointerEvents: 'auto' }}
                     >
                       <div className="absolute flex items-center justify-end px-3 font-montserrat"
-                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#fafaf9',
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#f5f5f4',
                           color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
                         <span
                           style={{
@@ -2482,7 +2482,7 @@ export default function CycleChartPage() {
                           style={{ left: `${leftEdge}px`, width: `${cellWidth}px`, top: 0, height: '28px', pointerEvents: 'none' }}>
                           <div className="absolute flex items-center justify-center text-sm transition-colors"
                             style={{ inset: '1.5px', borderRadius: '3px',
-                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#ece0fb' : '#faf5ff') }}>
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#ddd6fe' : '#ede9fe') }}>
                             {!isTail && <span className="relative z-10">{cellContent}</span>}
                           </div>
                         </div>
@@ -2540,7 +2540,7 @@ export default function CycleChartPage() {
                             style={{
                               inset: '1.5px',
                               borderRadius: '3px',
-                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#edebe7' : '#fafaf9')
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#e7e5e4' : '#f5f5f4')
                             }}
                           />
                           {!isTail && note !== null && note !== '' && (
