@@ -2037,7 +2037,7 @@ export default function CycleChartPage() {
                           style={{ left: `${leftEdge}px`, width: `${cellWidth}px`, top: 0, height: '38px', pointerEvents: 'none' }}>
                           <div className="absolute flex flex-col items-center justify-center text-xs transition-colors"
                             style={{ inset: '1.5px', borderRadius: '3px',
-                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#fdf0c8' : '#ffffff') }}>
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#fdf0c8' : '#fffdf2') }}>
                             {!isTail && timeData && (
                               <>
                                 <div className="font-medium leading-tight" style={{ color: '#3b82f6' }}>{timeData.hours}</div>
