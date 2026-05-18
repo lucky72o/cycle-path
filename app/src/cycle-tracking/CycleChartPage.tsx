@@ -2100,21 +2100,21 @@ export default function CycleChartPage() {
                         // bottom-aligned dash
                         symbol = (
                           <span style={{ position:'absolute', left:0, right:0, bottom:'3px', display:'flex', justifyContent:'center' }}>
-                            <svg width="13" height="6" viewBox="0 0 24 6">
+                            <svg width="17" height="8" viewBox="0 0 24 6">
                               <line x1="6" y1="3" x2="18" y2="3" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" />
                             </svg>
                           </span>
                         );
                       } else if (opkStatus === 'rising') {
                         symbol = (
-                          <svg width="13" height="13" viewBox="0 0 24 24">
+                          <svg width="17" height="17" viewBox="0 0 24 24">
                             <line x1="6" y1="17" x2="17" y2="7" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
                             <polyline points="11,7 17,7 17,13" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         );
                       } else if (opkStatus === 'peak') {
                         symbol = (
-                          <svg width="13" height="13" viewBox="0 0 24 24">
+                          <svg width="17" height="17" viewBox="0 0 24 24">
                             <line x1="12" y1="19" x2="12" y2="6" stroke="#16a34a" strokeWidth="2.4" strokeLinecap="round" />
                             <polyline points="7,11 12,6 17,11" fill="none" stroke="#16a34a" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
                             <circle cx="12" cy="3" r="2" fill="#f59e0b" />
@@ -2122,7 +2122,7 @@ export default function CycleChartPage() {
                         );
                       } else if (opkStatus === 'declining') {
                         symbol = (
-                          <svg width="13" height="13" viewBox="0 0 24 24">
+                          <svg width="17" height="17" viewBox="0 0 24 24">
                             <line x1="6" y1="7" x2="17" y2="17" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
                             <polyline points="17,11 17,17 11,17" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
@@ -2570,7 +2570,7 @@ export default function CycleChartPage() {
                             ) : (
                               <span
                                 className="relative z-10"
-                                style={{ color: '#78350f', fontSize: '12px', lineHeight: 1, pointerEvents: 'none' }}
+                                style={{ color: '#78350f', fontSize: '16px', lineHeight: 1, pointerEvents: 'none' }}
                               >
                                 ✎
                               </span>
