@@ -2273,34 +2273,38 @@ export default function CycleChartPage() {
                             pointerEvents: 'none'
                           }}
                         >
-                          {/* 5 background cells - solid fill with rounded corners and white space gaps */}
-                          {[0, 1, 2, 3, 4].map((rowIdx) => (
-                            <div
-                              key={rowIdx}
-                              className="absolute transition-colors"
-                              style={{
-                                top: `${rowIdx * 28 + 1.5}px`,
-                                left: '1.5px',
-                                width: 'calc(100% - 3px)',
-                                height: '25px',
-                                backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#bfdbfe' : '#e5f0ff'),
-                                borderRadius: '3px',
-                              }}
-                            />
-                          ))}
-
-                          {/* Cervical Fluid Bar - only if CF present and no menstrual flow */}
-                          {!isTail && cfData?.cervicalAppearance && !cfData?.menstrualFlow && (
-                            <div
-                              className="absolute left-1/2 -translate-x-1/2 rounded"
-                              style={{
-                                bottom: 0,
-                                width: '70%',
-                                height: `${getCFBarHeight(cfData.cervicalAppearance)}px`,
-                                backgroundColor: getCFBarColor(cfData.cervicalAppearance)
-                              }}
-                            />
-                          )}
+                          {/* 5 stacked sub-tiles (Eggwhite→Dry). A logged appearance fills
+                              the bottom-N tiles (N = getCFBarHeight/28) with the appearance
+                              colour, keeping the 3px white gaps so the column reads as
+                              separated tiles, not one band. Menstrual flow present → no CF
+                              fill (flow markers render on the Dry row below instead). */}
+                          {(() => {
+                            const appearance = cfData?.cervicalAppearance ?? '';
+                            const cfFilledRows = (!isTail && appearance && !cfData?.menstrualFlow)
+                              ? getCFBarHeight(appearance) / 28
+                              : 0;
+                            return [0, 1, 2, 3, 4].map((rowIdx) => {
+                              const isFilled = cfFilledRows > 0 && rowIdx >= 5 - cfFilledRows;
+                              return (
+                                <div
+                                  key={rowIdx}
+                                  className="absolute transition-colors"
+                                  style={{
+                                    top: `${rowIdx * 28 + 1.5}px`,
+                                    left: '1.5px',
+                                    width: 'calc(100% - 3px)',
+                                    height: '25px',
+                                    backgroundColor: isTail
+                                      ? '#f1f5f9'
+                                      : isFilled
+                                        ? getCFBarColor(appearance)
+                                        : (isHovered ? '#bfdbfe' : '#e5f0ff'),
+                                    borderRadius: '3px',
+                                  }}
+                                />
+                              );
+                            });
+                          })()}
 
                           {/* Menstrual Flow Indicators - on Dry row only */}
                           {!isTail && cfData?.menstrualFlow && (
