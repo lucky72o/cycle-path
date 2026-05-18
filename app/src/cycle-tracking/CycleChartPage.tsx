@@ -2005,7 +2005,7 @@ export default function CycleChartPage() {
                     <div style={{ position: 'relative', height: '38px' }}>
                       <div className="absolute flex items-center justify-end px-3 font-montserrat"
                         style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#fffdf2',
-                          color: '#1e3a8a', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em' }}>
+                          color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
                         Time Stamp
                       </div>
                     </div>
@@ -2067,7 +2067,7 @@ export default function CycleChartPage() {
                     <div style={{ position: 'relative', height: '28px' }}>
                       <div className="absolute flex items-center justify-end px-3 font-montserrat"
                         style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#f2faf3',
-                          color: '#1e3a8a', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em' }}>
+                          color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
                         LH Test
                       </div>
                     </div>
@@ -2159,7 +2159,7 @@ export default function CycleChartPage() {
                     <div style={{ position: 'relative', height: '28px' }}>
                       <div className="absolute flex items-center justify-end px-3 font-montserrat"
                         style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#fdf2f8',
-                          color: '#1e3a8a', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em' }}>
+                          color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
                         Intimacy
                       </div>
                     </div>
@@ -2230,7 +2230,7 @@ export default function CycleChartPage() {
                       >
                         <div className="absolute flex items-center justify-end px-3 font-montserrat"
                           style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#f3f8ff',
-                            color: '#1e3a8a', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em' }}>
+                            color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
                           <span>{row.name}</span>
                           <span className="ml-1 text-slate-400 cursor-help">ⓘ</span>
                           <span className="cf-tooltip-content">{row.tooltip}</span>
@@ -2390,7 +2390,7 @@ export default function CycleChartPage() {
                     <div style={{ position: 'relative', height: '28px' }}>
                       <div className="absolute flex items-center justify-end px-3 font-montserrat"
                         style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#faf5ff',
-                          color: '#1e3a8a', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em' }}>
+                          color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
                         Disturbance
                       </div>
                     </div>
@@ -2420,7 +2420,7 @@ export default function CycleChartPage() {
                     >
                       <div className="absolute flex items-center justify-end px-3 font-montserrat"
                         style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#fafaf9',
-                          color: '#1e3a8a', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em' }}>
+                          color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
                         <span
                           style={{
                             display: 'inline-block',
