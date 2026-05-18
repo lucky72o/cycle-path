@@ -7,6 +7,8 @@ import {
   RIGHT_PLOT_RESERVE,
   MIN_CELL_WIDTH,
   isCycleDayInTail,
+  getCFBarColor,
+  getCFBarHeight,
   type MonthSpan,
 } from '../utils';
 
@@ -144,5 +146,35 @@ describe('isCycleDayInTail', () => {
     // numbers above recordedMaxDay still tail, but in practice displayDayRange
     // wouldn't extend past recordedMaxDay for long cycles so the chart wouldn't ask.
     expect(isCycleDayInTail(ended, 36, 35)).toBe(true);
+  });
+});
+
+describe('getCFBarColor (softened palette)', () => {
+  it('maps each appearance to the softened hex', () => {
+    expect(getCFBarColor('EGGWHITE')).toBe('#8fd9e6');
+    expect(getCFBarColor('WATERY')).toBe('#bfe9f3');
+    expect(getCFBarColor('CREAMY')).toBe('#cdeef0');
+    expect(getCFBarColor('STICKY')).toBe('#dcf0f1');
+    expect(getCFBarColor('NONE')).toBe('#e2e8f0');
+  });
+
+  it('falls back to transparent for unknown/empty appearance', () => {
+    expect(getCFBarColor('BOGUS')).toBe('transparent');
+    expect(getCFBarColor('')).toBe('transparent');
+  });
+});
+
+describe('getCFBarHeight (unchanged mapping)', () => {
+  it('keeps the existing per-quality heights', () => {
+    expect(getCFBarHeight('NONE')).toBe(28);
+    expect(getCFBarHeight('STICKY')).toBe(56);
+    expect(getCFBarHeight('CREAMY')).toBe(84);
+    expect(getCFBarHeight('WATERY')).toBe(112);
+    expect(getCFBarHeight('EGGWHITE')).toBe(140);
+  });
+
+  it('falls back to 0 for unknown/empty appearance', () => {
+    expect(getCFBarHeight('BOGUS')).toBe(0);
+    expect(getCFBarHeight('')).toBe(0);
   });
 });

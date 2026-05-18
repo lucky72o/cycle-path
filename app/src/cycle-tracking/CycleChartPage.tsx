@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail } from './utils';
+import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight } from './utils';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 import { useInterpretation } from './interpretation/hooks/useInterpretation';
@@ -540,32 +540,9 @@ export default function CycleChartPage() {
     return map;
   }, [cycle, chartData, displayDayRange]);
 
-  // Helper functions for cervical fluid bars
-  const CF_ROW_HEIGHT = 28;
+  // Notes row sizing (cervical-fluid bar helpers now live in ./utils)
   const NOTES_ROW_HEIGHT = notesRowExpanded ? 120 : 28;
   const LOWER_TABLE_PADDING_BOTTOM = 262 + NOTES_ROW_HEIGHT;
-
-  const getCFBarHeight = (appearance: string): number => {
-    switch (appearance) {
-      case 'NONE': return CF_ROW_HEIGHT * 1;      // 28px
-      case 'STICKY': return CF_ROW_HEIGHT * 2;    // 56px
-      case 'CREAMY': return CF_ROW_HEIGHT * 3;    // 84px
-      case 'WATERY': return CF_ROW_HEIGHT * 4;    // 112px
-      case 'EGGWHITE': return CF_ROW_HEIGHT * 5;  // 140px
-      default: return 0;
-    }
-  };
-
-  const getCFBarColor = (appearance: string): string => {
-    switch (appearance) {
-      case 'NONE': return '#D4D8DA';
-      case 'STICKY': return '#c0eef0';
-      case 'CREAMY': return '#7bdcdf';
-      case 'WATERY': return '#86d9ec';
-      case 'EGGWHITE': return '#0cc0df';
-      default: return 'transparent';
-    }
-  };
 
   // Create a map of day numbers to disturbance factors
   const disturbanceMap = useMemo(() => {
@@ -1671,6 +1648,7 @@ export default function CycleChartPage() {
                       fontSize: '12px',
                       fontWeight: 600,
                       color: '#2e7d32',
+                      fontFamily: "'Montserrat', sans-serif",
                       textShadow: '0 1px 2px rgba(255,255,255,0.8)'
                     }}>
                       Fertile Window
@@ -2024,8 +2002,12 @@ export default function CycleChartPage() {
                       zIndex: 2
                     }}
                   >
-                    <div className="flex items-center justify-end px-3 text-xs font-medium bg-amber-50 border-b border-slate-300 border-r border-slate-300" style={{ height: '38px' }}>
-                      Time Stamp
+                    <div style={{ position: 'relative', height: '38px' }}>
+                      <div className="absolute flex items-center justify-end px-3 font-montserrat"
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#fff7d9',
+                          color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
+                        Time Stamp
+                      </div>
                     </div>
                   </div>
 
@@ -2051,26 +2033,18 @@ export default function CycleChartPage() {
                       const leftEdge = plotAreaOffset + (i * cellWidth);
 
                       return (
-                        <div
-                          key={dayNumber}
-                          className={`absolute flex flex-col items-center justify-center text-xs border-r border-b border-slate-300 transition-colors ${
-                            isTail ? '' : (isHovered ? 'bg-[#fde68a]' : 'bg-amber-50')
-                          }`}
-                          style={{
-                            left: `${leftEdge}px`,
-                            width: `${cellWidth}px`,
-                            top: 0,
-                            height: '38px',
-                            backgroundColor: isTail ? '#fafafa' : undefined,
-                            pointerEvents: 'none'
-                          }}
-                        >
-                          {!isTail && timeData && (
-                            <>
-                              <div className="font-medium leading-tight">{timeData.hours}</div>
-                              <div className="text-xs leading-tight">{timeData.minutes}</div>
-                            </>
-                          )}
+                        <div key={dayNumber} className="absolute"
+                          style={{ left: `${leftEdge}px`, width: `${cellWidth}px`, top: 0, height: '38px', pointerEvents: 'none' }}>
+                          <div className="absolute flex flex-col items-center justify-center text-xs transition-colors"
+                            style={{ inset: '1.5px', borderRadius: '3px',
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#fde68a' : '#fff7d9') }}>
+                            {!isTail && timeData && (
+                              <>
+                                <div className="font-medium leading-tight" style={{ color: '#334155' }}>{timeData.hours}</div>
+                                <div className="text-xs leading-tight" style={{ color: '#334155' }}>{timeData.minutes}</div>
+                              </>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -2090,8 +2064,12 @@ export default function CycleChartPage() {
                       zIndex: 2
                     }}
                   >
-                    <div className="flex items-center justify-end px-3 text-xs font-medium border-b border-slate-300 border-r border-slate-300" style={{ height: '28px', backgroundColor: '#e8f5e9' }}>
-                      LH Test
+                    <div style={{ position: 'relative', height: '28px' }}>
+                      <div className="absolute flex items-center justify-end px-3 font-montserrat"
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#e8f5e9',
+                          color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
+                        LH Test
+                      </div>
                     </div>
                   </div>
 
@@ -2119,56 +2097,46 @@ export default function CycleChartPage() {
                       // Render symbol based on status
                       let symbol: JSX.Element | null = null;
                       if (opkStatus === 'low') {
-                        // Short horizontal dash at bottom
+                        // bottom-aligned dash
                         symbol = (
-                          <svg width="20" height="28" viewBox="0 0 20 28">
-                            <line x1="5" y1="24" x2="15" y2="24" stroke="currentColor" strokeWidth="2" />
-                          </svg>
+                          <span style={{ position:'absolute', left:0, right:0, bottom:'3px', display:'flex', justifyContent:'center' }}>
+                            <svg width="17" height="8" viewBox="0 0 24 6">
+                              <line x1="6" y1="3" x2="18" y2="3" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" />
+                            </svg>
+                          </span>
                         );
                       } else if (opkStatus === 'rising') {
-                        // Diagonal arrow pointing upper-right
                         symbol = (
-                          <svg width="20" height="28" viewBox="0 0 20 28">
-                            <line x1="6" y1="20" x2="14" y2="12" stroke="currentColor" strokeWidth="2" />
-                            <line x1="14" y1="12" x2="11" y2="12" stroke="currentColor" strokeWidth="2" />
-                            <line x1="14" y1="12" x2="14" y2="15" stroke="currentColor" strokeWidth="2" />
+                          <svg width="17" height="17" viewBox="0 0 24 24">
+                            <line x1="6" y1="17" x2="17" y2="7" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
+                            <polyline points="11,7 17,7 17,13" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         );
                       } else if (opkStatus === 'peak') {
-                        // Mountain with sparkle at summit
                         symbol = (
-                          <svg width="24" height="28" viewBox="0 0 24 28">
-                            <path d="M4 20 L12 8 L20 20 Z" fill="currentColor" />
-                            <circle cx="12" cy="8" r="2" fill="#FFD700" />
-                            <line x1="12" y1="4" x2="12" y2="6" stroke="#FFD700" strokeWidth="1" />
-                            <line x1="10" y1="6" x2="14" y2="6" stroke="#FFD700" strokeWidth="1" />
+                          <svg width="17" height="17" viewBox="0 0 24 24">
+                            <line x1="12" y1="19" x2="12" y2="6" stroke="#16a34a" strokeWidth="2.4" strokeLinecap="round" />
+                            <polyline points="7,11 12,6 17,11" fill="none" stroke="#16a34a" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                            <circle cx="12" cy="3" r="2" fill="#f59e0b" />
                           </svg>
                         );
                       } else if (opkStatus === 'declining') {
-                        // Diagonal arrow pointing lower-right
                         symbol = (
-                          <svg width="20" height="28" viewBox="0 0 20 28">
-                            <line x1="6" y1="12" x2="14" y2="20" stroke="currentColor" strokeWidth="2" />
-                            <line x1="14" y1="20" x2="11" y2="20" stroke="currentColor" strokeWidth="2" />
-                            <line x1="14" y1="20" x2="14" y2="17" stroke="currentColor" strokeWidth="2" />
+                          <svg width="17" height="17" viewBox="0 0 24 24">
+                            <line x1="6" y1="7" x2="17" y2="17" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
+                            <polyline points="17,11 17,17 11,17" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         );
                       }
 
                       return (
-                        <div
-                          key={dayNumber}
-                          className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 transition-colors`}
-                          style={{
-                            left: `${leftEdge}px`,
-                            width: `${cellWidth}px`,
-                            top: 0,
-                            height: '28px',
-                            backgroundColor: isTail ? '#fafafa' : (isHovered ? '#c8e6c9' : '#e8f5e9'),
-                            pointerEvents: 'none'
-                          }}
-                        >
-                          {!isTail && symbol}
+                        <div key={dayNumber} className="absolute"
+                          style={{ left: `${leftEdge}px`, width: `${cellWidth}px`, top: 0, height: '28px', pointerEvents: 'none' }}>
+                          <div className="absolute flex items-center justify-center text-xs transition-colors"
+                            style={{ inset: '1.5px', borderRadius: '3px',
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#c8e6c9' : '#e8f5e9') }}>
+                            {!isTail && symbol}
+                          </div>
                         </div>
                       );
                     })}
@@ -2188,8 +2156,12 @@ export default function CycleChartPage() {
                       zIndex: 2
                     }}
                   >
-                    <div className="flex items-center justify-end px-3 text-xs font-medium bg-pink-50 border-b border-slate-300 border-r border-slate-300" style={{ height: '28px' }}>
-                      Intimacy
+                    <div style={{ position: 'relative', height: '28px' }}>
+                      <div className="absolute flex items-center justify-end px-3 font-montserrat"
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#fdedf6',
+                          color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
+                        Intimacy
+                      </div>
                     </div>
                   </div>
 
@@ -2216,23 +2188,15 @@ export default function CycleChartPage() {
                       const leftEdge = plotAreaOffset + (i * cellWidth);
 
                       return (
-                        <div
-                          key={dayNumber}
-                          className={`absolute flex items-center justify-center text-xs border-r border-b border-slate-300 transition-colors ${
-                            isTail ? '' : (isHovered ? 'bg-pink-100' : 'bg-pink-50')
-                          }`}
-                          style={{
-                            left: `${leftEdge}px`,
-                            width: `${cellWidth}px`,
-                            top: 0,
-                            height: '28px',
-                            backgroundColor: isTail ? '#fafafa' : undefined,
-                            pointerEvents: 'none'
-                          }}
-                        >
-                          {!isTail && hasIntercourse && (
-                            <span style={{ color: '#ec4899', fontSize: '18px', lineHeight: 1 }}>❤</span>
-                          )}
+                        <div key={dayNumber} className="absolute"
+                          style={{ left: `${leftEdge}px`, width: `${cellWidth}px`, top: 0, height: '28px', pointerEvents: 'none' }}>
+                          <div className="absolute flex items-center justify-center text-xs transition-colors"
+                            style={{ inset: '1.5px', borderRadius: '3px',
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#fbcfe8' : '#fdedf6') }}>
+                            {!isTail && hasIntercourse && (
+                              <span style={{ color: '#ec4899', fontSize: '18px', lineHeight: 1 }}>❤</span>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -2261,12 +2225,16 @@ export default function CycleChartPage() {
                     ].map((row, idx) => (
                       <div
                         key={row.name}
-                        className="flex items-center justify-end px-3 text-xs font-medium bg-slate-50 border-b border-slate-300 border-r border-slate-300 cf-tooltip-trigger"
-                        style={{ height: '28px' }}
+                        className="cf-tooltip-trigger"
+                        style={{ position: 'relative', height: '28px' }}
                       >
-                        <span>{row.name}</span>
-                        <span className="ml-1 text-slate-400 cursor-help">ⓘ</span>
-                        <span className="cf-tooltip-content">{row.tooltip}</span>
+                        <div className="absolute flex items-center justify-end px-3 font-montserrat"
+                          style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#e5f0ff',
+                            color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
+                          <span>{row.name}</span>
+                          <span className="ml-1 text-slate-400 cursor-help">ⓘ</span>
+                          <span className="cf-tooltip-content">{row.tooltip}</span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -2305,35 +2273,38 @@ export default function CycleChartPage() {
                             pointerEvents: 'none'
                           }}
                         >
-                          {/* 5 background cells - solid fill with rounded corners and white space gaps */}
-                          {[0, 1, 2, 3, 4].map((rowIdx) => (
-                            <div
-                              key={rowIdx}
-                              className="absolute transition-opacity"
-                              style={{
-                                top: `${rowIdx * 28 + 0.5}px`,
-                                left: '0.5px',
-                                width: 'calc(100% - 1px)',
-                                height: '27px',
-                                backgroundColor: isTail ? '#fafafa' : '#e7f1ff',
-                                borderRadius: '2px',
-                                opacity: isTail ? 1 : (isHovered ? 0.7 : 1)
-                              }}
-                            />
-                          ))}
-
-                          {/* Cervical Fluid Bar - only if CF present and no menstrual flow */}
-                          {!isTail && cfData?.cervicalAppearance && !cfData?.menstrualFlow && (
-                            <div
-                              className="absolute left-1/2 -translate-x-1/2 rounded"
-                              style={{
-                                bottom: 0,
-                                width: '70%',
-                                height: `${getCFBarHeight(cfData.cervicalAppearance)}px`,
-                                backgroundColor: getCFBarColor(cfData.cervicalAppearance)
-                              }}
-                            />
-                          )}
+                          {/* 5 stacked sub-tiles (Eggwhite→Dry). A logged appearance fills
+                              the bottom-N tiles (N = getCFBarHeight/28) with the appearance
+                              colour, keeping the 3px white gaps so the column reads as
+                              separated tiles, not one band. Menstrual flow present → no CF
+                              fill (flow markers render on the Dry row below instead). */}
+                          {(() => {
+                            const appearance = cfData?.cervicalAppearance ?? '';
+                            const cfFilledRows = (!isTail && appearance && !cfData?.menstrualFlow)
+                              ? getCFBarHeight(appearance) / 28
+                              : 0;
+                            return [0, 1, 2, 3, 4].map((rowIdx) => {
+                              const isFilled = cfFilledRows > 0 && rowIdx >= 5 - cfFilledRows;
+                              return (
+                                <div
+                                  key={rowIdx}
+                                  className="absolute transition-colors"
+                                  style={{
+                                    top: `${rowIdx * 28 + 1.5}px`,
+                                    left: '1.5px',
+                                    width: 'calc(100% - 3px)',
+                                    height: '25px',
+                                    backgroundColor: isTail
+                                      ? '#f1f5f9'
+                                      : isFilled
+                                        ? getCFBarColor(appearance)
+                                        : (isHovered ? '#bfdbfe' : '#e5f0ff'),
+                                    borderRadius: '3px',
+                                  }}
+                                />
+                              );
+                            });
+                          })()}
 
                           {/* Menstrual Flow Indicators - on Dry row only */}
                           {!isTail && cfData?.menstrualFlow && (
@@ -2420,11 +2391,12 @@ export default function CycleChartPage() {
                       zIndex: 2
                     }}
                   >
-                    <div
-                      className="flex items-center justify-end px-3 text-xs font-medium border-b border-slate-300 border-r border-slate-300"
-                      style={{ height: '28px', backgroundColor: '#f5f3ff' }}
-                    >
-                      Disturbance
+                    <div style={{ position: 'relative', height: '28px' }}>
+                      <div className="absolute flex items-center justify-end px-3 font-montserrat"
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#f1eeff',
+                          color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
+                        Disturbance
+                      </div>
                     </div>
                   </div>
 
@@ -2448,23 +2420,26 @@ export default function CycleChartPage() {
                           void toggleNotesRow();
                         }
                       }}
-                      className="flex items-center justify-end px-3 text-xs font-medium border-b border-slate-300 border-r border-slate-300"
-                      style={{ height: '28px', backgroundColor: '#f8fafc', cursor: 'pointer', pointerEvents: 'auto' }}
+                      style={{ position: 'relative', height: '28px', cursor: 'pointer', pointerEvents: 'auto' }}
                     >
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          transform: notesRowExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                          transition: 'transform 120ms ease',
-                          marginRight: '4px',
-                          color: '#64748b',
-                          fontSize: '10px'
-                        }}
-                      >
-                        ▶
-                      </span>
-                      <span>Notes</span>
-                      <span className="ml-1 text-slate-400 cursor-help" title="Free-text notes for this day (max 150 characters). Click row label to expand.">ⓘ</span>
+                      <div className="absolute flex items-center justify-end px-3 font-montserrat"
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#f8f8f7',
+                          color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            transform: notesRowExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                            transition: 'transform 120ms ease',
+                            marginRight: '4px',
+                            color: '#64748b',
+                            fontSize: '10px'
+                          }}
+                        >
+                          ▶
+                        </span>
+                        <span>Notes</span>
+                        <span className="ml-1 text-slate-400 cursor-help" title="Free-text notes for this day (max 150 characters). Click row label to expand.">ⓘ</span>
+                      </div>
                     </div>
                   </div>
 
@@ -2507,33 +2482,13 @@ export default function CycleChartPage() {
                       }
 
                       return (
-                        <div
-                          key={dayNumber}
-                          className="absolute flex items-center justify-center text-sm"
-                          style={{
-                            left: `${leftEdge}px`,
-                            width: `${cellWidth}px`,
-                            top: 0,
-                            height: '28px',
-                            backgroundColor: 'white',
-                            pointerEvents: 'none'
-                          }}
-                        >
-                          {/* Violet background square matching CF cell style */}
-                          <div
-                            className="absolute transition-opacity"
-                            style={{
-                              top: '0.5px',
-                              left: '0.5px',
-                              width: 'calc(100% - 1px)',
-                              height: '27px',
-                              backgroundColor: isTail ? '#fafafa' : '#f3e8ff',
-                              borderRadius: '2px',
-                              opacity: isTail ? 1 : (isHovered ? 0.7 : 1)
-                            }}
-                          />
-                          {/* Emoji/count on top */}
-                          {!isTail && <span className="relative z-10">{cellContent}</span>}
+                        <div key={dayNumber} className="absolute"
+                          style={{ left: `${leftEdge}px`, width: `${cellWidth}px`, top: 0, height: '28px', pointerEvents: 'none' }}>
+                          <div className="absolute flex items-center justify-center text-sm transition-colors"
+                            style={{ inset: '1.5px', borderRadius: '3px',
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#ddd6fe' : '#f1eeff') }}>
+                            {!isTail && <span className="relative z-10">{cellContent}</span>}
+                          </div>
                         </div>
                       );
                     })}
@@ -2558,6 +2513,7 @@ export default function CycleChartPage() {
                       const cellWidth = plotAreaWidth / numDays;
                       const leftEdge = plotAreaOffset + (i * cellWidth);
                       const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
+                      const isHovered = hoveredDayNumber === dayNumber;
 
                       return (
                         <div
@@ -2579,7 +2535,6 @@ export default function CycleChartPage() {
                             width: `${cellWidth}px`,
                             top: 0,
                             height: `${NOTES_ROW_HEIGHT}px`,
-                            backgroundColor: 'white',
                             cursor: isTail ? 'default' : 'pointer',
                             pointerEvents: 'auto'
                           }}
@@ -2587,12 +2542,9 @@ export default function CycleChartPage() {
                           <div
                             className="absolute"
                             style={{
-                              top: '0.5px',
-                              left: '0.5px',
-                              width: 'calc(100% - 1px)',
-                              height: 'calc(100% - 1px)',
-                              backgroundColor: isTail ? '#fafafa' : '#f5f5f4',
-                              borderRadius: '2px'
+                              inset: '1.5px',
+                              borderRadius: '3px',
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#e7e5e4' : '#f8f8f7')
                             }}
                           />
                           {!isTail && note !== null && note !== '' && (
@@ -2622,7 +2574,7 @@ export default function CycleChartPage() {
                             ) : (
                               <span
                                 className="relative z-10"
-                                style={{ color: '#78350f', fontSize: '12px', lineHeight: 1, pointerEvents: 'none' }}
+                                style={{ color: '#78350f', fontSize: '16px', lineHeight: 1, pointerEvents: 'none' }}
                               >
                                 ✎
                               </span>

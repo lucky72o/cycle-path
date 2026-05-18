@@ -362,3 +362,39 @@ export function computeCycleStartDate(firstRowDate: Date, firstDayNumber: number
   return result;
 }
 
+/**
+ * Maps a cervical-fluid appearance to its (softened) bar colour for the chart.
+ *
+ * Accepts a plain `string` (not a narrowed union) because call sites pass
+ * `cfData.cervicalAppearance`, typed `string | null` and narrowed only by a
+ * truthiness guard. Unknown values fall back to `'transparent'`.
+ */
+export function getCFBarColor(appearance: string): string {
+  switch (appearance) {
+    case 'EGGWHITE': return '#8fd9e6';
+    case 'WATERY':   return '#bfe9f3';
+    case 'CREAMY':   return '#cdeef0';
+    case 'STICKY':   return '#dcf0f1';
+    case 'NONE':     return '#e2e8f0';
+    default:         return 'transparent';
+  }
+}
+
+/**
+ * Maps a cervical-fluid appearance to its bar height in pixels (28px per
+ * quality step). Mapping is unchanged from the previous inline implementation.
+ *
+ * Accepts a plain `string` for the same reason as {@link getCFBarColor}.
+ * Unknown values fall back to `0`.
+ */
+export function getCFBarHeight(appearance: string): number {
+  switch (appearance) {
+    case 'EGGWHITE': return 140;
+    case 'WATERY':   return 112;
+    case 'CREAMY':   return 84;
+    case 'STICKY':   return 56;
+    case 'NONE':     return 28;
+    default:         return 0;
+  }
+}
+
