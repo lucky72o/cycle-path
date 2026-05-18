@@ -2040,8 +2040,8 @@ export default function CycleChartPage() {
                               backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#fdf0c8' : '#fffdf2') }}>
                             {!isTail && timeData && (
                               <>
-                                <div className="font-medium leading-tight" style={{ color: '#3b82f6' }}>{timeData.hours}</div>
-                                <div className="text-xs leading-tight" style={{ color: '#3b82f6' }}>{timeData.minutes}</div>
+                                <div className="font-medium leading-tight" style={{ color: '#334155' }}>{timeData.hours}</div>
+                                <div className="text-xs leading-tight" style={{ color: '#334155' }}>{timeData.minutes}</div>
                               </>
                             )}
                           </div>
