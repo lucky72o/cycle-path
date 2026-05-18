@@ -2066,7 +2066,7 @@ export default function CycleChartPage() {
                   >
                     <div style={{ position: 'relative', height: '28px' }}>
                       <div className="absolute flex items-center justify-end px-3 font-montserrat"
-                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#e6fdee',
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#e8f5e9',
                           color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
                         LH Test
                       </div>
@@ -2134,7 +2134,7 @@ export default function CycleChartPage() {
                           style={{ left: `${leftEdge}px`, width: `${cellWidth}px`, top: 0, height: '28px', pointerEvents: 'none' }}>
                           <div className="absolute flex items-center justify-center text-xs transition-colors"
                             style={{ inset: '1.5px', borderRadius: '3px',
-                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#bbf7d0' : '#e6fdee') }}>
+                              backgroundColor: isTail ? '#f1f5f9' : (isHovered ? '#c8e6c9' : '#e8f5e9') }}>
                             {!isTail && symbol}
                           </div>
                         </div>
