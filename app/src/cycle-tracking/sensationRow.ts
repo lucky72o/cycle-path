@@ -116,3 +116,41 @@ export const ACCENT_PRESETS: readonly AccentPreset[] = [
 ] as const;
 
 export const PRESET_KEYS: readonly string[] = ACCENT_PRESETS.map((p) => p.key);
+
+// --- Mode A and dispatcher ---
+
+export type HoverMode = 'A' | 'B' | 'C';
+
+export interface ChipStyleArgs {
+  mode: HoverMode;
+  accent: string | null;   // accent hex (visual target) for A/B; ignored for C; null when no preset (resting only)
+  hover: boolean;
+}
+
+function darkenShade(hex: string, factor = 0.7): string {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex(r * factor, g * factor, b * factor);
+}
+
+function modeAChip(value: SensationValue, accentRaw: string, hover: boolean): ChipStyle {
+  if (!hover) return restingChip(value);
+  const accent = autoDarkenFor45(accentRaw);
+  const base = restingChip(value);
+  return {
+    letter: base.letter,
+    background: accent,
+    color: '#ffffff',
+    border: '1px solid ' + accent,
+    ringColor: value === 'SLIPPERY' ? darkenShade(accent) : null,
+  };
+}
+
+export function chipStyleFor(value: SensationValue, args: ChipStyleArgs): ChipStyle {
+  if (!args.hover) return restingChip(value);
+  if (args.mode === 'A') {
+    if (!args.accent) return restingChip(value);
+    return modeAChip(value, args.accent, args.hover);
+  }
+  // Modes B and C arrive in later tasks.
+  return restingChip(value);
+}

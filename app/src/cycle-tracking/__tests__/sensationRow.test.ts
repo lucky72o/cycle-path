@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { letterFor, restingChip, contrastRatio, relativeLuminance, autoDarkenFor45, ACCENT_PRESETS, PRESET_KEYS } from '../sensationRow';
+import { letterFor, restingChip, contrastRatio, relativeLuminance, autoDarkenFor45, ACCENT_PRESETS, PRESET_KEYS, chipStyleFor, HoverMode } from '../sensationRow';
 
 describe('letterFor', () => {
   it('maps each enum value to its single-letter chart glyph', () => {
@@ -138,5 +138,39 @@ describe('ACCENT_PRESETS table', () => {
     expect(byKey['indigo']).toBe('#7c83e8');
     expect(byKey['bbt-blue']).toBe('#3b82f6');
     expect(byKey['lh-green']).toBe('#16a34a');
+  });
+});
+
+describe('chipStyleFor — Mode A', () => {
+  const A: HoverMode = 'A';
+  const accent = '#bd4a6e'; // Rose bold — passes 4.5:1, so used unchanged
+
+  it('resting returns the locked resting chip regardless of preset/mode', () => {
+    expect(chipStyleFor('WET', { mode: A, accent, hover: false })).toEqual(restingChip('WET'));
+  });
+
+  it('hover Dry: accent fill, white letter, accent border', () => {
+    const s = chipStyleFor('DRY', { mode: A, accent, hover: true });
+    expect(s.letter).toBe('d');
+    expect(s.background).toBe(accent);
+    expect(s.color).toBe('#ffffff');
+    expect(s.border).toBe('1px solid ' + accent);
+    expect(s.ringColor).toBeNull();
+  });
+
+  it('hover Slippery: accent fill + darker-shade ring for peak', () => {
+    const s = chipStyleFor('SLIPPERY', { mode: A, accent, hover: true });
+    expect(s.background).toBe(accent);
+    expect(s.color).toBe('#ffffff');
+    expect(s.ringColor).toBeTruthy();
+    // ring is a darker shade of the accent
+    expect(relativeLuminance(s.ringColor!)).toBeLessThan(relativeLuminance(accent));
+  });
+
+  it('a pale accent is auto-darkened before being applied (Mode A only)', () => {
+    // Golden Yellow fails 4.5:1 with white text; Mode A must darken before painting.
+    const s = chipStyleFor('WET', { mode: A, accent: '#f2b705', hover: true });
+    expect(s.background).not.toBe('#f2b705');
+    expect(contrastRatio('#ffffff', s.background)).toBeGreaterThanOrEqual(4.5);
   });
 });
