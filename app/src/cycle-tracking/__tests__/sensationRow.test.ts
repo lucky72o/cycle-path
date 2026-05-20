@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { letterFor, restingChip, contrastRatio, relativeLuminance, autoDarkenFor45 } from '../sensationRow';
+import { letterFor, restingChip, contrastRatio, relativeLuminance, autoDarkenFor45, ACCENT_PRESETS, PRESET_KEYS } from '../sensationRow';
 
 describe('letterFor', () => {
   it('maps each enum value to its single-letter chart glyph', () => {
@@ -107,5 +107,36 @@ describe('autoDarkenFor45', () => {
   it('respects a custom text colour', () => {
     // Dark text on a light fill — should not darken since contrast is already high.
     expect(autoDarkenFor45('#ffe9d6', '#002142')).toBe('#ffe9d6');
+  });
+});
+
+describe('ACCENT_PRESETS table', () => {
+  it('lists exactly the 10 accent presets from the spec, in spec order', () => {
+    expect(PRESET_KEYS).toEqual([
+      'rose-medium',
+      'rose-contrast',
+      'rose-bold',
+      'sky',
+      'amber',
+      'amber-gold',
+      'gold',
+      'indigo',
+      'bbt-blue',
+      'lh-green',
+    ]);
+  });
+
+  it('every preset has the correct accent hex', () => {
+    const byKey = Object.fromEntries(ACCENT_PRESETS.map((p) => [p.key, p.fill]));
+    expect(byKey['rose-medium']).toBe('#cf7591');
+    expect(byKey['rose-contrast']).toBe('#c75f80');
+    expect(byKey['rose-bold']).toBe('#bd4a6e');
+    expect(byKey['sky']).toBe('#60a5fa');
+    expect(byKey['amber']).toBe('#f59e0b');
+    expect(byKey['amber-gold']).toBe('#f3aa08');
+    expect(byKey['gold']).toBe('#f2b705');
+    expect(byKey['indigo']).toBe('#7c83e8');
+    expect(byKey['bbt-blue']).toBe('#3b82f6');
+    expect(byKey['lh-green']).toBe('#16a34a');
   });
 });

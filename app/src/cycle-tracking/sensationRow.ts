@@ -92,3 +92,27 @@ export function autoDarkenFor45(fill: string, text: string = '#ffffff'): string 
   }
   return best;
 }
+
+// --- Accent colour presets ---
+
+export interface AccentPreset {
+  key: string;
+  name: string;
+  fill: string;                 // visual-target hex (pre-auto-darken)
+  source: 'product' | 'new';
+}
+
+export const ACCENT_PRESETS: readonly AccentPreset[] = [
+  { key: 'rose-medium',   name: 'Dusty Rose · medium',         fill: '#cf7591', source: 'new' },
+  { key: 'rose-contrast', name: 'Dusty Rose · more contrast',  fill: '#c75f80', source: 'new' },
+  { key: 'rose-bold',     name: 'Dusty Rose · bold',           fill: '#bd4a6e', source: 'new' },
+  { key: 'sky',           name: 'Soft Sky',                    fill: '#60a5fa', source: 'product' },
+  { key: 'amber',         name: 'Amber',                       fill: '#f59e0b', source: 'product' },
+  { key: 'amber-gold',    name: 'Amber–Gold blend',            fill: '#f3aa08', source: 'new' },
+  { key: 'gold',          name: 'Golden Yellow',               fill: '#f2b705', source: 'new' },
+  { key: 'indigo',        name: 'Soft Indigo',                 fill: '#7c83e8', source: 'new' },
+  { key: 'bbt-blue',      name: 'BBT Blue',                    fill: '#3b82f6', source: 'product' },
+  { key: 'lh-green',      name: 'LH green',                    fill: '#16a34a', source: 'product' },
+] as const;
+
+export const PRESET_KEYS: readonly string[] = ACCENT_PRESETS.map((p) => p.key);
