@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
 import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight } from './utils';
+import { chipStyleFor, type SensationValue, type HoverMode } from './sensationRow';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 import { useInterpretation } from './interpretation/hooks/useInterpretation';
@@ -69,7 +70,11 @@ function paletteFor(monthIndex: number) {
 export default function CycleChartPage() {
   const { cycleId } = useParams();
   const navigate = useNavigate();
-  
+
+  // Sensation row trial preset + mode. Replaced by the dev switcher in Task 14.
+  const sensationMode: HoverMode = 'C' as HoverMode;
+  const sensationAccent: string | null = null;
+
   const { data: allCycles } = useQuery(getUserCycles);
   const { data: cycle, isLoading: cycleLoading } = useQuery(getCycleById, { cycleId: cycleId || '' }, { enabled: !!cycleId });
   const { data: settings, isLoading: settingsLoading } = useQuery(getUserSettings);
@@ -546,8 +551,8 @@ export default function CycleChartPage() {
 
   // Create a map of day numbers to cervical sensation (display-only).
   const sensationMap = useMemo(() => {
-    if (!cycle) return new Map<number, 'DRY' | 'DAMP' | 'WET' | 'SLIPPERY' | null>();
-    const map = new Map<number, 'DRY' | 'DAMP' | 'WET' | 'SLIPPERY' | null>();
+    if (!cycle) return new Map<number, SensationValue | null>();
+    const map = new Map<number, SensationValue | null>();
     for (let dayNumber = displayDayRange.minDay; dayNumber <= displayDayRange.maxDay; dayNumber++) {
       const day = allCycleDaysMap.get(dayNumber);
       map.set(dayNumber, day?.cervicalSensation ?? null);
@@ -2471,6 +2476,76 @@ export default function CycleChartPage() {
                         <span className="ml-1 text-slate-400 cursor-help" title="Free-text notes for this day (max 150 characters). Click row label to expand.">ⓘ</span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Sensation Grid Row - positioned below Cervical Fluid (+234px) */}
+                  <div
+                    className="absolute"
+                    style={{
+                      left: 0,
+                      right: 0,
+                      top: `${plotAreaTop + chartHeight + 234}px`,
+                      height: '28px',
+                      zIndex: 1
+                    }}
+                  >
+                    {Array.from({ length: chartData.maxDay - chartData.minDay + 1 }, (_, i) => {
+                      const dayNumber = chartData.minDay + i;
+                      const value = sensationMap.get(dayNumber) as SensationValue | null;
+                      const numDays = chartData.maxDay - chartData.minDay + 1;
+                      const cellWidth = plotAreaWidth / numDays;
+                      const leftEdge = plotAreaOffset + (i * cellWidth);
+                      const isHovered = hoveredDayNumber === dayNumber;
+                      const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
+
+                      // Tile background. Mode B keeps non-peak tiles at resting on hover;
+                      // every other case follows the standard resting/hover/tail pattern.
+                      let tileBg: string;
+                      if (isTail) {
+                        tileBg = '#f1f5f9';
+                      } else if (isHovered) {
+                        const isPeak = value === 'SLIPPERY';
+                        tileBg = (sensationMode === 'B' && !isPeak) ? '#d8f3f0' : '#aee5df';
+                      } else {
+                        tileBg = '#d8f3f0';
+                      }
+
+                      const chip = value
+                        ? chipStyleFor(value, { mode: sensationMode, accent: sensationAccent, hover: isHovered && !isTail })
+                        : null;
+
+                      return (
+                        <div key={dayNumber} className="absolute"
+                          style={{ left: `${leftEdge}px`, width: `${cellWidth}px`, top: 0, height: '28px', pointerEvents: 'none' }}>
+                          <div className="absolute flex items-center justify-center"
+                            style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: tileBg }}>
+                            {!isTail && chip && (
+                              <div
+                                className="font-montserrat"
+                                style={{
+                                  width: '23px',
+                                  height: '17px',
+                                  borderRadius: '5px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  background: chip.background,
+                                  color: chip.color,
+                                  border: chip.border,
+                                  boxShadow: chip.ringColor
+                                    ? `0 0 0 1.5px ${tileBg}, 0 0 0 3px ${chip.ringColor}`
+                                    : undefined,
+                                }}
+                              >
+                                {chip.letter}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Disturbance Grid Row */}
