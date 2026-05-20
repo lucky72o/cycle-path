@@ -114,7 +114,7 @@ Saved as a typed table in code. Modes A and B share the same accent colour set; 
 | `bbt-blue` | BBT Blue | `#3b82f6` | reused (BBT line / LH blue arrow) | Modes A & B |
 | `lh-green` | LH green | `#16a34a` | reused (LH peak rising arrow) | Modes A & B |
 
-For Mode A/B accents, the white letter contrast is checked at build time; pale fills (Gold `#f2b705`) get a small darken nudge if the white letter falls below ~3:1 contrast.
+**Contrast requirement (WCAG AA, normal text):** the white-on-fill contrast for the chip letter must meet **4.5:1**. The chip glyph is 11 px Montserrat 700, which sits below WCAG's "large text" threshold (18 pt or 14 pt bold), so the 3:1 rule does not apply. Spot-checking against the listed accents, white-on-fill at 4.5:1 is met **only** by Dusty Rose · more contrast (`#c75f80`) and bolder; every paler preset (Golden Yellow, Amber, Amber–Gold blend, Soft Sky, Soft Indigo, BBT Blue, LH green, Dusty Rose · medium) fails and is auto-darkened to the smallest factor that crosses 4.5:1. The floating preset switcher (§7) displays the live contrast ratio per preset and shows the post-darken swatch so the user picks with their eyes open — if a preset's auto-darkened shade no longer reads as the intended colour, the preset is dropped before the PR.
 
 ## 7. Preset switcher (dev-only, removed before PR)
 
@@ -130,10 +130,16 @@ The selector and its persistence read are gated behind a single feature flag; be
 All three keep working with **no special wiring**, verified from the source:
 
 - **Crosshair** ([CycleChartPage.tsx:1677](app/src/cycle-tracking/CycleChartPage.tsx:1677)): a single vertical line at `left:crosshairX, top:0, height:100%`. Growing `LOWER_TABLE_PADDING_BOTTOM` by 28 px grows the container; the crosshair's `100%` follows. The Sensation row sits inside that container and is automatically covered.
-- **Hover-highlight**: every lower-table row independently reads the shared `hoveredDayNumber` (set by the chart-canvas mousemove handler near [line 630](app/src/cycle-tracking/CycleChartPage.tsx:630)) and recolours its own column cell. The new row uses the same pattern — hovering any day lights up that day's Sensation cell automatically.
+- **Hover-highlight**: `hoveredDayNumber` is set by the apex-canvas mousemove handler near [line 630](app/src/cycle-tracking/CycleChartPage.tsx:630), which only fires for pointer events **inside the upper plot area**. Lower-table cells (e.g. Disturbance at [line 2486](app/src/cycle-tracking/CycleChartPage.tsx:2486)) use `pointerEvents: 'none'` on their per-cell wrappers, so direct hover over a lower-row cell does **not** fire events. The Sensation row mirrors that pattern (`pointerEvents:'none'` on its cells) and reads the shared `hoveredDayNumber` to recolour its column cell. **Net behaviour:** hovering a day column inside the upper plot lights up the matching Sensation cell automatically — column hover is plot-area-driven and consistent with every other lower-table row. Direct hover over the Sensation row itself is intentionally a no-op.
 - **Tooltip** ([line ~1691](app/src/cycle-tracking/CycleChartPage.tsx:1691)): positioned by `crosshairX`, independent of row count. **Optional enhancement**: add a "Sensation: <value>" line to the tooltip body (gated on `day.cervicalSensation`). Treated as a *separate optional* add — implement only if the user opts in during build.
 
-## 9. Code changes (one file: `app/src/cycle-tracking/CycleChartPage.tsx`)
+## 9. Code changes (one file modified, one new module, one dev-only component)
+
+**Files touched:**
+- `app/src/cycle-tracking/CycleChartPage.tsx` — modified (row insertion, offsets, `LOWER_TABLE_PADDING_BOTTOM`, `sensationMap`, `hasSensation`).
+- `app/src/cycle-tracking/sensationRow.ts` — **new** (resting + 3 hover-mode rules, preset table, auto-darken-to-4.5:1 helper).
+- `app/src/cycle-tracking/SensationPresetSwitcher.tsx` — **new, dev-only** (floating preset selector, gated on `import.meta.env.DEV`, deleted before the PR per §7).
+
 
 1. Add `sensationMap` `useMemo` near [line 548](app/src/cycle-tracking/CycleChartPage.tsx:548), mirroring `disturbanceMap`.
 2. Add `hasSensation` to `daysWithDataMap` (~[line 611](app/src/cycle-tracking/CycleChartPage.tsx:611)) so days with only a sensation count as having data.
