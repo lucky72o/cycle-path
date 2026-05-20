@@ -544,6 +544,17 @@ export default function CycleChartPage() {
   const NOTES_ROW_HEIGHT = notesRowExpanded ? 120 : 28;
   const LOWER_TABLE_PADDING_BOTTOM = 262 + NOTES_ROW_HEIGHT;
 
+  // Create a map of day numbers to cervical sensation (display-only).
+  const sensationMap = useMemo(() => {
+    if (!cycle) return new Map<number, 'DRY' | 'DAMP' | 'WET' | 'SLIPPERY' | null>();
+    const map = new Map<number, 'DRY' | 'DAMP' | 'WET' | 'SLIPPERY' | null>();
+    for (let dayNumber = displayDayRange.minDay; dayNumber <= displayDayRange.maxDay; dayNumber++) {
+      const day = allCycleDaysMap.get(dayNumber);
+      map.set(dayNumber, day?.cervicalSensation ?? null);
+    }
+    return map;
+  }, [cycle, allCycleDaysMap, displayDayRange]);
+
   // Create a map of day numbers to disturbance factors
   const disturbanceMap = useMemo(() => {
     if (!cycle) return new Map<number, { factors: string[]; travelTimeDiff: number | null }>();
