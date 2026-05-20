@@ -2394,6 +2394,24 @@ export default function CycleChartPage() {
                     })}
                   </div>
 
+                  {/* Sensation Row Label - positioned below Cervical Fluid (+234px) */}
+                  <div
+                    className="absolute left-0"
+                    style={{
+                      width: `${plotAreaOffset}px`,
+                      top: `${plotAreaTop + chartHeight + 234}px`,
+                      zIndex: 2
+                    }}
+                  >
+                    <div style={{ position: 'relative', height: '28px' }}>
+                      <div className="absolute flex items-center justify-end px-3 font-montserrat"
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#d8f3f0',
+                          color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
+                        Sensation
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Disturbance Row Label - positioned below Dry (+262px) */}
                   <div
                     className="absolute left-0"
