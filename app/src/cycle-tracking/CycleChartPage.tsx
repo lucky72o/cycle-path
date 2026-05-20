@@ -542,7 +542,7 @@ export default function CycleChartPage() {
 
   // Notes row sizing (cervical-fluid bar helpers now live in ./utils)
   const NOTES_ROW_HEIGHT = notesRowExpanded ? 120 : 28;
-  const LOWER_TABLE_PADDING_BOTTOM = 262 + NOTES_ROW_HEIGHT;
+  const LOWER_TABLE_PADDING_BOTTOM = 290 + NOTES_ROW_HEIGHT;
 
   // Create a map of day numbers to cervical sensation (display-only).
   const sensationMap = useMemo(() => {
@@ -2394,12 +2394,12 @@ export default function CycleChartPage() {
                     })}
                   </div>
 
-                  {/* Disturbance Row Label - positioned below Dry (+234px) */}
+                  {/* Disturbance Row Label - positioned below Dry (+262px) */}
                   <div
                     className="absolute left-0"
                     style={{
                       width: `${plotAreaOffset}px`,
-                      top: `${plotAreaTop + chartHeight + 234}px`,
+                      top: `${plotAreaTop + chartHeight + 262}px`,
                       zIndex: 2
                     }}
                   >
@@ -2412,12 +2412,12 @@ export default function CycleChartPage() {
                     </div>
                   </div>
 
-                  {/* Notes Row Label - positioned below Disturbance (+262px) */}
+                  {/* Notes Row Label - positioned below Disturbance (+290px) */}
                   <div
                     className="absolute left-0"
                     style={{
                       width: `${plotAreaOffset}px`,
-                      top: `${plotAreaTop + chartHeight + 262}px`,
+                      top: `${plotAreaTop + chartHeight + 290}px`,
                       zIndex: 2
                     }}
                   >
@@ -2461,7 +2461,7 @@ export default function CycleChartPage() {
                     style={{
                       left: 0,
                       right: 0,
-                      top: `${plotAreaTop + chartHeight + 234}px`,
+                      top: `${plotAreaTop + chartHeight + 262}px`,
                       height: '28px',
                       zIndex: 1
                     }}
@@ -2506,13 +2506,13 @@ export default function CycleChartPage() {
                     })}
                   </div>
 
-                  {/* Notes Grid Row - positioned below Disturbance (+262px) */}
+                  {/* Notes Grid Row - positioned below Disturbance (+290px) */}
                   <div
                     className="absolute"
                     style={{
                       left: 0,
                       right: 0,
-                      top: `${plotAreaTop + chartHeight + 262}px`,
+                      top: `${plotAreaTop + chartHeight + 290}px`,
                       height: `${NOTES_ROW_HEIGHT}px`,
                       zIndex: 1
                     }}
