@@ -1551,15 +1551,29 @@ Then notify the user:
 
 > Branch `feat/sensation-row` is up. Run `wasp start` from the project root and open the chart page. The dev-only "Sensation preset" selector is in the top-right. Each option's live contrast ratio is shown in brackets. Pick the winning preset+mode; we'll lock that as the default and strip the switcher before opening the PR.
 
-- [ ] **Step 4: Once the user picks a winner (separate session), lock the choice and remove the trial machinery**
+- [ ] **Step 4: Once the user picks a winner (separate session), enforce the pre-PR gate, then lock the choice and remove the trial machinery**
 
-This step is intentionally not pre-scripted — the user's choice from the in-app trial dictates the final values. The cleanup commit will:
+**Pre-PR gate (hard requirement):** the contrast panel for the chosen preset+mode must show **zero `⚠ violation` rows**. Anything below 4.5:1 must either match one of the three states in the spec's §6 closed exception list, or the spec must be amended to admit the new exception, or the mode must be changed to remove the failure. Resolution paths by winning mode:
+
+- **Mode A wins (any accent):** the auto-darken helper drives every hover chip ≥ 4.5:1 with white text. The only failures will be the resting Dry/Wet §6 exceptions. No design or spec change required.
+- **Mode B wins:** Mode B's non-peak hover preserves the resting chip fill+letter+tile, so it inherits the resting Dry letter contrast (≈ 3.32:1) **and** the resting Wet white contrast (≈ 2.23:1) into hover. Both flag `⚠ violation` (not in the §6 closed list). Before the PR, the engineer chooses **one**:
+  - (i) Amend the spec — extend §6's closed exception list with "Mode B hover Dry letter" and "Mode B hover Wet white" (note these are structural inheritances of the resting exceptions, not new failure modes); re-commit as `docs(spec): admit Mode B inherited hover exceptions`.
+  - (ii) Modify Mode B's hover rule in `sensationRow.ts` so Dry and Wet hover also adjust to pass 4.5:1 — e.g. on hover, run the chosen accent through `autoDarkenFor45` and reuse it as the chip border colour AND swap the letter for `#ffffff` on Wet / a dark ink on Dry. Update Mode B tests accordingly.
+  - (iii) Reject Mode B's win and re-run the trial with Mode A or C as the candidate.
+- **Mode C wins:** Mode C's hover keeps the Dry chip's transparent fill and `#5b8a84` letter, but the tile darkens to `#aee5df` on hover — pushing Dry hover contrast down to **≈ 2.78:1** (worse than the resting Dry exception's 3.32). This is **not** in the §6 closed list. Before the PR, the engineer chooses **one**:
+  - (i) Amend the spec — extend §6 with "Mode C hover Dry letter (≈ 2.78:1)" noting it's an exacerbation of the resting Dry exception caused by the hover tile darkening; re-commit as `docs(spec): admit Mode C hover Dry exception`.
+  - (ii) Modify Mode C's Dry hover rule so the tile stays at the resting `#d8f3f0` for Dry only (hover feedback for Dry then comes from the border colour shift alone — the existing border change `#c0ddd8 → #5d9c93` still reads). Update Mode C tests accordingly and recompute the affected contrast in the panel.
+  - (iii) Reject Mode C's win and re-run the trial with Mode A as the candidate.
+
+After the gate is cleared, the cleanup commit will:
 1. Replace `useState(...)` initial value in `CycleChartPage.tsx` so `sensationSelection` is a constant set to the chosen preset+mode (no localStorage read in production).
 2. Delete the `SensationPresetSwitcher.tsx` file.
 3. Remove the `import.meta.env.DEV` gate and the `SensationPresetSwitcher` import/render from `CycleChartPage.tsx`.
 4. Trim `ACCENT_PRESETS` in `sensationRow.ts` to only the chosen preset (or drop the preset table entirely if Mode C wins).
 5. If Mode A or B with a pale accent won, replace the auto-darken call site with the resolved (literal) hex so `autoDarkenFor45` is no longer called at runtime; if no other site uses `autoDarkenFor45`, delete the helper.
-6. Run tests + lint + visual verify; commit `chore(sensation-row): lock <preset> and strip trial machinery`; open the PR against `main`.
+6. Apply any code/spec adjustment chosen under the pre-PR gate above.
+7. Run tests + lint + visual verify; **re-run the dev build once more and confirm zero `⚠ violation` rows** in the contrast panel of the chosen option (panel still present at this point; deleted in this same commit after the check).
+8. Commit `chore(sensation-row): lock <preset> and strip trial machinery`; open the PR against `main`.
 
 ---
 
