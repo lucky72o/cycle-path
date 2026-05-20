@@ -7,6 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import ReactApexChart from 'react-apexcharts';
 import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight } from './utils';
 import { chipStyleFor, type SensationValue, type HoverMode } from './sensationRow';
+import {
+  SensationPresetSwitcher,
+  readStoredSelection,
+  DEFAULT_SELECTION,
+  type PresetSelection,
+} from './SensationPresetSwitcher';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 import { useInterpretation } from './interpretation/hooks/useInterpretation';
@@ -71,9 +77,11 @@ export default function CycleChartPage() {
   const { cycleId } = useParams();
   const navigate = useNavigate();
 
-  // Sensation row trial preset + mode. Replaced by the dev switcher in Task 14.
-  const sensationMode: HoverMode = 'C' as HoverMode;
-  const sensationAccent: string | null = null;
+  const [sensationSelection, setSensationSelection] = useState<PresetSelection>(
+    () => (import.meta.env.DEV ? readStoredSelection() : DEFAULT_SELECTION),
+  );
+  const sensationMode = sensationSelection.mode;
+  const sensationAccent = sensationSelection.accent;
 
   const { data: allCycles } = useQuery(getUserCycles);
   const { data: cycle, isLoading: cycleLoading } = useQuery(getCycleById, { cycleId: cycleId || '' }, { enabled: !!cycleId });
@@ -2789,6 +2797,12 @@ export default function CycleChartPage() {
         )}
       </div>
       </div>
+      {import.meta.env.DEV && (
+        <SensationPresetSwitcher
+          selection={sensationSelection}
+          onChange={setSensationSelection}
+        />
+      )}
     </div>
   );
 }
