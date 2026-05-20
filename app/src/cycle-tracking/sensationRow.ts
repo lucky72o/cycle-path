@@ -63,3 +63,32 @@ export function contrastRatio(a: string, b: string): number {
   const [light, dark] = La >= Lb ? [La, Lb] : [Lb, La];
   return (light + 0.05) / (dark + 0.05);
 }
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const h = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+  return '#' + h(r) + h(g) + h(b);
+}
+
+/**
+ * Smallest darkening of `fill` such that contrast with `text` reaches 4.5:1.
+ * Bisects on a uniform RGB scaling factor in [0, 1]. If already passing, returns fill unchanged.
+ */
+export function autoDarkenFor45(fill: string, text: string = '#ffffff'): string {
+  if (contrastRatio(text, fill) >= 4.5) return fill;
+  const [r0, g0, b0] = hexToRgb(fill);
+  let lo = 0;   // f=0 → black, definitely passes vs white (21:1)
+  let hi = 1;   // f=1 → fill, fails (we just checked)
+  // Bisect: keep the largest factor whose rounded RGB still passes.
+  let best = '#000000';
+  for (let i = 0; i < 28; i++) {
+    const mid = (lo + hi) / 2;
+    const hex = rgbToHex(r0 * mid, g0 * mid, b0 * mid);
+    if (contrastRatio(text, hex) >= 4.5) {
+      best = hex;
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return best;
+}

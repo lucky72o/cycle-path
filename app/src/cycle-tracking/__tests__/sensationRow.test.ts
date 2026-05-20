@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { letterFor, restingChip, contrastRatio, relativeLuminance } from '../sensationRow';
+import { letterFor, restingChip, contrastRatio, relativeLuminance, autoDarkenFor45 } from '../sensationRow';
 
 describe('letterFor', () => {
   it('maps each enum value to its single-letter chart glyph', () => {
@@ -76,5 +76,36 @@ describe('contrastRatio (verified WCAG ratios for chip-letter audit)', () => {
   it('symmetric (order independent)', () => {
     expect(contrastRatio('#ffffff', '#000000')).toBeCloseTo(21, 1);
     expect(contrastRatio('#000000', '#ffffff')).toBeCloseTo(21, 1);
+  });
+});
+
+describe('autoDarkenFor45', () => {
+  it('returns the input unchanged when it already passes 4.5:1 with white text', () => {
+    // Rose bold passes (≈4.81), so darken should return it as-is.
+    expect(autoDarkenFor45('#bd4a6e')).toBe('#bd4a6e');
+  });
+
+  it('darkens Wet #62bdb1 (2.23:1) to a value that crosses 4.5:1', () => {
+    const out = autoDarkenFor45('#62bdb1');
+    expect(out).not.toBe('#62bdb1');
+    expect(contrastRatio('#ffffff', out)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('darkens Golden Yellow #f2b705 to cross 4.5:1', () => {
+    const out = autoDarkenFor45('#f2b705');
+    expect(out).not.toBe('#f2b705');
+    expect(contrastRatio('#ffffff', out)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('returns the smallest darken — output is just above 4.5:1, not far above', () => {
+    const out = autoDarkenFor45('#62bdb1');
+    const ratio = contrastRatio('#ffffff', out);
+    // "smallest darken that passes" — should land close to 4.5:1, not e.g. 8:1.
+    expect(ratio).toBeLessThan(5.5);
+  });
+
+  it('respects a custom text colour', () => {
+    // Dark text on a light fill — should not darken since contrast is already high.
+    expect(autoDarkenFor45('#ffe9d6', '#002142')).toBe('#ffe9d6');
   });
 });
