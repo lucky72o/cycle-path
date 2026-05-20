@@ -89,14 +89,19 @@ On hover:
 
 ### Mode C · "deepen teal" (colour-agnostic, closer to original)
 
-Resting deviates from §4 only for Slippery: chip background changes from `#0f766e` to **`#1f9485`** (lighter mid-teal), so a darker hover step is visible.
+Resting deviates from §4 for Slippery (peak):
+- Chip background: **`#62bdb1`** (held fixed — visually tied to the Wet target hex, *not* to Wet's auto-darkened shipped value).
+- Outer ring: **`#62bdb1`** (same as chip; ring still reads because of the 1.5 px tile-coloured gap between chip and ring).
+- Letter: inky teal **`#062a26`** (≈ **6.89:1** on `#62bdb1`, passes 4.5:1 cleanly).
+
+This sidesteps the original Mode C "squeeze" — instead of a barely-lighter peak that darkens slightly on hover, the resting sits in Wet's lighter teal with a dark letter, and the hover transitions to the deep peak with a white letter. The hover signal is a dramatic two-axis change: chip darkens AND letter inverts.
 
 On hover:
 - Tile: `#d8f3f0` → `#aee5df`
 - Dry: border `#c0ddd8` → `#5d9c93`
 - Damp: fill `#c4e8e2` → `#9bd3c9`, border `#9ccfc7` → `#4a8f82`
 - Wet: fill `#62bdb1` → `#3f9d90`, adds 1.5 px border `#1e7d72`
-- Slippery: fill `#1f9485` → `#0f766e`; ring `#0f766e` → `#054a44`
+- Slippery: chip `#62bdb1` → `#0f766e`, ring `#62bdb1` → `#054a44`, letter `#062a26` → `#ffffff`
 
 ## 6. Colour presets (for in-app trial)
 
@@ -126,10 +131,8 @@ Saved as a typed table in code. Modes A and B share the same accent colour set; 
 - Resting Dry `d` letter `#5b8a84` on tile `#d8f3f0` ≈ **3.32:1** — letter is darkened.
 - Resting Wet white on `#62bdb1` ≈ **2.23:1** — fill is darkened (a meaningful visible shift; the user previews the post-darken shade in §7 before locking).
 - Mode C Wet hover white on `#3f9d90` ≈ **3.26:1** — fill is darkened.
-- Mode C Slippery resting white on `#1f9485` ≈ **3.74:1** — fill is darkened.
+- Mode C Slippery resting inky letter `#062a26` on `#62bdb1` ≈ **6.89:1** — passes as-is (revised design replaces the earlier lighter-peak/white-letter combo).
 - Mode C Slippery hover white on `#0f766e` ≈ **5.48:1** — passes as-is.
-
-**Mode C squeeze:** the original peak `#0f766e` already passes (≈5.48:1), so the *lighter* Slippery resting can only move into the narrow window between roughly `#128175` (≈4.7:1) and `#0f766e` while still passing 4.5:1. Mode C's "clearly lighter resting" premise is partly constrained by accessibility; the in-app trial will reveal whether the squeezed window still reads as visibly lighter — if not, Mode C is either dropped or shipped with the original peak `#0f766e` plus a different hover signal.
 
 The floating preset switcher (§7) displays the live contrast ratio per state and shows the post-darken swatch so the user picks with their eyes open — if any post-darken result no longer reads as the intended colour, that preset/mode is dropped before the PR.
 
