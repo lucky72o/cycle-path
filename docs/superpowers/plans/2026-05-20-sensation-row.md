@@ -1297,7 +1297,7 @@ git commit -m "feat(sensation-row): render row grid with per-cell chips (Mode C 
 Create `app/src/cycle-tracking/SensationPresetSwitcher.tsx`:
 
 ```tsx
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import {
   ACCENT_PRESETS,
   chipStyleFor,
@@ -1351,6 +1351,43 @@ function describeContrast(sel: PresetSelection): string {
   return `${r}:1${note}`;
 }
 
+// Per-state contrast detail — exposes the exact letter-on-background ratios
+// for every chip state of the currently selected preset+mode, including the
+// three product-approved §6 exceptions, so the user can judge in-app.
+const STATES: { value: SensationValue; hover: boolean; label: string }[] = [
+  { value: 'DRY',      hover: false, label: 'Dry · resting' },
+  { value: 'DAMP',     hover: false, label: 'Moist · resting' },
+  { value: 'WET',      hover: false, label: 'Wet · resting' },
+  { value: 'SLIPPERY', hover: false, label: 'Slip · resting' },
+  { value: 'DRY',      hover: true,  label: 'Dry · hover' },
+  { value: 'DAMP',     hover: true,  label: 'Moist · hover' },
+  { value: 'WET',      hover: true,  label: 'Wet · hover' },
+  { value: 'SLIPPERY', hover: true,  label: 'Slip · hover' },
+];
+
+// Tile-bg the letter actually sits on when the chip background is transparent.
+function effectiveTileBg(mode: HoverMode, value: SensationValue, hover: boolean): string {
+  if (!hover) return '#d8f3f0';
+  if (mode === 'B' && value !== 'SLIPPERY') return '#d8f3f0';
+  return '#aee5df';
+}
+
+function letterRatio(mode: HoverMode, accent: string | null, value: SensationValue, hover: boolean): number {
+  const chip = chipStyleFor(value, { mode, accent, hover });
+  const bg = chip.background === 'transparent'
+    ? effectiveTileBg(mode, value, hover)
+    : chip.background;
+  return contrastRatio(chip.color, bg);
+}
+
+// The three product-approved exceptions per spec §6 (closed list).
+function isException(mode: HoverMode, value: SensationValue, hover: boolean): boolean {
+  if (!hover && value === 'DRY') return true;                 // resting Dry letter
+  if (!hover && value === 'WET') return true;                 // resting Wet white
+  if (hover && mode === 'C' && value === 'WET') return true;  // Mode C Wet hover
+  return false;
+}
+
 interface Props {
   selection: PresetSelection;
   onChange: (sel: PresetSelection) => void;
@@ -1377,7 +1414,7 @@ export function SensationPresetSwitcher({ selection, onChange }: Props) {
       fontFamily: 'Montserrat, system-ui, sans-serif',
       fontSize: 11,
       boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-      maxWidth: 260,
+      maxWidth: 320,
     }}>
       <div style={{ fontWeight: 700, color: '#002142', marginBottom: 6 }}>Sensation preset (dev)</div>
       <select
@@ -1394,6 +1431,28 @@ export function SensationPresetSwitcher({ selection, onChange }: Props) {
           </option>
         ))}
       </select>
+      <div style={{ marginTop: 8, fontSize: 10, lineHeight: 1.45 }}>
+        <div style={{ fontWeight: 700, color: '#002142', marginBottom: 4 }}>Per-state letter contrast</div>
+        {STATES.map((s) => {
+          const r = letterRatio(selection.mode, selection.accent, s.value, s.hover);
+          const passes = r >= 4.5;
+          const exception = isException(selection.mode, s.value, s.hover);
+          const status = passes ? '✓' : (exception ? '§6 exception' : '⚠ violation');
+          const color = passes ? '#0f766e' : (exception ? '#9a6700' : '#9d2b53');
+          return (
+            <div
+              key={s.value + '/' + (s.hover ? 'h' : 'r')}
+              style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}
+            >
+              <span style={{ color: '#5b6b7a', flex: 1 }}>{s.label}</span>
+              <span style={{ fontVariantNumeric: 'tabular-nums', color: '#002142', minWidth: 40, textAlign: 'right' }}>
+                {r.toFixed(2)}:1
+              </span>
+              <span style={{ color, fontWeight: 600, minWidth: 86, textAlign: 'right' }}>{status}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1449,6 +1508,7 @@ Expected: clean.
 - Each accent option shows the post-auto-darken contrast ratio in brackets, e.g. `Golden Yellow · v1 (fill)  [4.52:1 (auto-darkened)]`.
 - Picking an option instantly recolours the Sensation row; refreshing the page keeps the same option (localStorage).
 - Picking "Mode C · Deepen teal" shows the locked Mode C design including the inky-S peak chip.
+- Below the dropdown, a "Per-state letter contrast" panel lists all 8 chip states (Dry/Damp/Wet/Slippery × resting/hover) with their live ratios. States ≥ 4.5:1 are marked `✓`; the three §6 product-approved exceptions are flagged `§6 exception`; any state that fails 4.5:1 outside the closed exception list is flagged `⚠ violation` — useful for spotting when Mode B inherits the resting Wet/Dry letter contrast into hover.
 
 Stop the dev server.
 
