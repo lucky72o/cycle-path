@@ -159,7 +159,33 @@ function modeBChip(value: SensationValue, accentRaw: string, hover: boolean): Ch
   };
 }
 
+const MODE_C_RESTING_SLIPPERY: ChipStyle = {
+  letter: 'S',
+  background: '#62bdb1',
+  color: '#062a26',
+  border: '1px solid transparent',
+  ringColor: '#62bdb1',
+};
+
+export function modeCResting(value: SensationValue): ChipStyle {
+  if (value === 'SLIPPERY') return MODE_C_RESTING_SLIPPERY;
+  return restingChip(value);
+}
+
+const MODE_C_HOVER: Record<SensationValue, ChipStyle> = {
+  DRY:      { letter: 'd', background: 'transparent', color: '#5b8a84', border: '1px solid #5d9c93', ringColor: null },
+  DAMP:     { letter: 'm', background: '#9bd3c9',     color: '#0f5c54', border: '1px solid #4a8f82', ringColor: null },
+  WET:      { letter: 'w', background: '#3f9d90',     color: '#ffffff', border: '1.5px solid #1e7d72', ringColor: null },
+  SLIPPERY: { letter: 'S', background: '#0f766e',     color: '#ffffff', border: '1px solid transparent', ringColor: '#054a44' },
+};
+
+function modeCChip(value: SensationValue, hover: boolean): ChipStyle {
+  return hover ? MODE_C_HOVER[value] : modeCResting(value);
+}
+
 export function chipStyleFor(value: SensationValue, args: ChipStyleArgs): ChipStyle {
+  // Mode C overrides resting for Slippery (and is its own hover).
+  if (args.mode === 'C') return modeCChip(value, args.hover);
   if (!args.hover) return restingChip(value);
   if (args.mode === 'A') {
     if (!args.accent) return restingChip(value);
@@ -169,6 +195,5 @@ export function chipStyleFor(value: SensationValue, args: ChipStyleArgs): ChipSt
     if (!args.accent) return restingChip(value);
     return modeBChip(value, args.accent, args.hover);
   }
-  // Mode C in next task.
   return restingChip(value);
 }

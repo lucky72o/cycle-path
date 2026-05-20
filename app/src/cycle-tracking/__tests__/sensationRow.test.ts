@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { letterFor, restingChip, contrastRatio, relativeLuminance, autoDarkenFor45, ACCENT_PRESETS, PRESET_KEYS, chipStyleFor, HoverMode } from '../sensationRow';
+import { letterFor, restingChip, contrastRatio, relativeLuminance, autoDarkenFor45, ACCENT_PRESETS, PRESET_KEYS, chipStyleFor, HoverMode, modeCResting } from '../sensationRow';
 
 describe('letterFor', () => {
   it('maps each enum value to its single-letter chart glyph', () => {
@@ -211,5 +211,67 @@ describe('chipStyleFor — Mode B', () => {
     const used = s.border.replace('1.5px solid ', '');
     expect(used).not.toBe('#f2b705');
     expect(contrastRatio('#ffffff', used)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('Mode C — resting (override only Slippery)', () => {
+  it('Dry/Damp/Wet match the locked resting design', () => {
+    expect(modeCResting('DRY')).toEqual(restingChip('DRY'));
+    expect(modeCResting('DAMP')).toEqual(restingChip('DAMP'));
+    expect(modeCResting('WET')).toEqual(restingChip('WET'));
+  });
+
+  it('Slippery uses #62bdb1 chip + #62bdb1 ring + inky #062a26 letter', () => {
+    expect(modeCResting('SLIPPERY')).toEqual({
+      letter: 'S',
+      background: '#62bdb1',
+      color: '#062a26',
+      border: '1px solid transparent',
+      ringColor: '#62bdb1',
+    });
+  });
+});
+
+describe('chipStyleFor — Mode C hover', () => {
+  it('Dry: border #c0ddd8 → #5d9c93', () => {
+    const s = chipStyleFor('DRY', { mode: 'C', accent: null, hover: true });
+    expect(s.background).toBe('transparent');
+    expect(s.color).toBe('#5b8a84');
+    expect(s.border).toBe('1px solid #5d9c93');
+  });
+
+  it('Damp: fill #9bd3c9, border #4a8f82', () => {
+    const s = chipStyleFor('DAMP', { mode: 'C', accent: null, hover: true });
+    expect(s.background).toBe('#9bd3c9');
+    expect(s.color).toBe('#0f5c54');
+    expect(s.border).toBe('1px solid #4a8f82');
+  });
+
+  it('Wet: fill #3f9d90, 1.5px border #1e7d72', () => {
+    const s = chipStyleFor('WET', { mode: 'C', accent: null, hover: true });
+    expect(s.background).toBe('#3f9d90');
+    expect(s.color).toBe('#ffffff');
+    expect(s.border).toBe('1.5px solid #1e7d72');
+  });
+
+  it('Slippery: chip #0f766e, ring #054a44, letter white', () => {
+    const s = chipStyleFor('SLIPPERY', { mode: 'C', accent: null, hover: true });
+    expect(s.background).toBe('#0f766e');
+    expect(s.color).toBe('#ffffff');
+    expect(s.border).toBe('1px solid transparent');
+    expect(s.ringColor).toBe('#054a44');
+  });
+
+  it('Mode C ignores the accent argument', () => {
+    const a = chipStyleFor('DAMP', { mode: 'C', accent: null, hover: true });
+    const b = chipStyleFor('DAMP', { mode: 'C', accent: '#bd4a6e', hover: true });
+    expect(a).toEqual(b);
+  });
+});
+
+describe('chipStyleFor — Mode C resting via main dispatcher', () => {
+  it('returns the Mode C resting chip (Slippery overridden)', () => {
+    expect(chipStyleFor('SLIPPERY', { mode: 'C', accent: null, hover: false }))
+      .toEqual(modeCResting('SLIPPERY'));
   });
 });
