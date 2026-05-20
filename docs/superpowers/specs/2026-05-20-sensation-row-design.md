@@ -52,7 +52,7 @@ The Sensation cell tile follows the existing per-cell pattern (1.5 px inset, 3 p
 | `SLIPPERY` | Slippery (peak) | `S` |
 | `null` | — | (no chip; plain tile) |
 
-All chip letter combinations below should meet WCAG AA 4.5:1 — see §6 for the audit. Combinations that don't pass at these hexes ship as-is as **documented exceptions** (user decision 2026-05-20: try the visual targets first, reassess in-app).
+Chip letter contrast targets 4.5:1 per §6. Three resting/Mode-C combinations below ship as **product-approved exceptions** under that policy.
 
 **Resting chip spec** (unchanged across all hover modes; the only resting deviation is Mode C — see §5):
 
@@ -71,7 +71,7 @@ Cell tile resting: `#d8f3f0`. Tail days: `#f1f5f9` (no chip).
 
 ## 5. Visual: hover state (3 candidate modes to trial in-app)
 
-Hover background visibility was the central design problem (chip covers most of the 34 × 28 cell, so a plain tile re-tint reads weakly). We implement **three hover modes** behind a runtime preset selector; the user trials them in the running app and locks one before the PR. All hover chip letter combinations should meet WCAG AA 4.5:1 per §6. Mode A/B accent presets auto-darken to pass; Mode C ships its target hexes (Wet hover is a documented exception).
+Hover background visibility was the central design problem (chip covers most of the 34 × 28 cell, so a plain tile re-tint reads weakly). We implement **three hover modes** behind a runtime preset selector; the user trials them in the running app and locks one before the PR. Hover chip letter contrast targets 4.5:1 per §6. Mode A/B accent presets are auto-darkened to pass; Mode C ships its target hexes (Wet hover is a product-approved exception, see §6).
 
 ### Mode A · v1 — accent fill (warm/cool accent)
 
@@ -121,18 +121,26 @@ Saved as a typed table in code. Modes A and B share the same accent colour set; 
 | `bbt-blue` | BBT Blue | `#3b82f6` | reused (BBT line / LH blue arrow) | Modes A & B |
 | `lh-green` | LH green | `#16a34a` | reused (LH peak rising arrow) | Modes A & B |
 
-**Contrast requirement (WCAG AA, normal text):** every chip letter state should meet **4.5:1** against its background. The chip glyph is 11 px Montserrat 700, which sits below WCAG's "large text" threshold (18 pt or 14 pt bold), so the 3:1 rule does not apply.
+**Contrast policy (WCAG AA, normal text):** target is **4.5:1** for every chip letter state. The chip glyph is 11 px Montserrat 700, which sits below WCAG's "large text" threshold (18 pt or 14 pt bold), so the 3:1 rule does not apply.
 
-**Trial accents (Mode A/B) — auto-darken policy:** for filled chips with a white letter, the **fill** is darkened by the smallest factor that crosses 4.5:1; for the transparent-fill Dry chip the **letter** is darkened. White-on-fill at 4.5:1 is met **only** by Dusty Rose · bold (`#bd4a6e` ≈ 4.81:1) and darker; every paler preset (Golden Yellow, Amber, Amber–Gold blend, Soft Sky, Soft Indigo, BBT Blue, LH green, Dusty Rose · medium, and Dusty Rose · more contrast `#c75f80` ≈ 3.91:1) fails and is auto-darkened.
+**Where 4.5:1 is a hard pre-PR requirement — Mode A/B trial accent presets.** The chosen accent must pass 4.5:1 with white text on the chip fill before the PR is opened. Failing accents are auto-darkened to the smallest factor that crosses 4.5:1. White-on-fill at 4.5:1 is met **only** by Dusty Rose · bold (`#bd4a6e` ≈ 4.81:1) and darker; every paler preset (Golden Yellow, Amber, Amber–Gold blend, Soft Sky, Soft Indigo, BBT Blue, LH green, Dusty Rose · medium, and Dusty Rose · more contrast `#c75f80` ≈ 3.91:1) fails and is auto-darkened.
 
-**Resting + Mode C audit** (verified ratios — these are the **shipped values**, not visual targets):
-- Resting Dry `d` letter `#5b8a84` on tile `#d8f3f0` ≈ **3.32:1** — **documented exception**, ships as-is; reassess in-app.
-- Resting Wet white on `#62bdb1` ≈ **2.23:1** — **documented exception** (user choice 2026-05-20: try the visual target first); reassess in-app. Side-effect: Wet and Mode C Slippery resting share the same chip colour, distinguished only by the letter (`w` white vs `S` inky teal).
-- Mode C Wet hover white on `#3f9d90` ≈ **3.26:1** — **documented exception**, consistent with the Wet resting choice; reassess in-app.
-- Mode C Slippery resting inky letter `#062a26` on `#62bdb1` ≈ **6.89:1** — passes.
-- Mode C Slippery hover white on `#0f766e` ≈ **5.48:1** — passes.
+**Product-approved exceptions to 4.5:1** — these three states ship at the listed hexes per user decision 2026-05-20 (try the visual target first, judge readability in the in-app trial):
+- Resting Dry letter `#5b8a84` on tile `#d8f3f0` ≈ **3.32:1**
+- Resting Wet white on `#62bdb1` ≈ **2.23:1**
+- Mode C Wet hover white on `#3f9d90` ≈ **3.26:1**
 
-The floating preset switcher (§7) displays the live contrast ratio per state and per preset. The documented exceptions are evaluated in-app during the trial; if any reads as visually inadequate we adjust before the PR (e.g. darken Wet to roughly `#438176`–`#357d72`).
+If the in-app trial surfaces a specific state the user judges unreadable, that exception is dropped and the state is darkened before the PR (suggested Wet darken: `#438176`–`#357d72`). Absent that explicit user judgment, the exception hexes ship.
+
+**Side-effect of the Wet exception:** Wet and Mode C Slippery resting both use `#62bdb1`, distinguished only by the letter (`w` white vs `S` inky teal `#062a26`).
+
+**Other states (for completeness — all pass):**
+- Mode C Slippery resting `#062a26` on `#62bdb1` ≈ **6.89:1**
+- Mode C Slippery hover white on `#0f766e` ≈ **5.48:1**
+
+**Closed exception list:** the three states above are the only product-approved deviations from 4.5:1. No other chip letter state may ship below 4.5:1.
+
+The floating preset switcher (§7) displays the live contrast ratio per state and per preset so the user can verify on the chart.
 
 ## 7. Preset switcher (dev-only, removed before PR)
 
@@ -155,7 +163,7 @@ All three keep working with **no special wiring**, verified from the source:
 
 **Files touched:**
 - `app/src/cycle-tracking/CycleChartPage.tsx` — modified (row insertion, offsets, `LOWER_TABLE_PADDING_BOTTOM`, `sensationMap`, `hasSensation`).
-- `app/src/cycle-tracking/sensationRow.ts` — **new** (resting + 3 hover-mode rules, preset table, auto-darken-to-4.5:1 helper).
+- `app/src/cycle-tracking/sensationRow.ts` — **new** (resting + 3 hover-mode rules, preset table, **Mode A/B accent auto-darken helper** — resting + Mode C ship per §6 exceptions, no auto-darken applied).
 - `app/src/cycle-tracking/SensationPresetSwitcher.tsx` — **new, dev-only** (floating preset selector, gated on `import.meta.env.DEV`, deleted before the PR per §7).
 
 
