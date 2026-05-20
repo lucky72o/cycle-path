@@ -145,12 +145,30 @@ function modeAChip(value: SensationValue, accentRaw: string, hover: boolean): Ch
   };
 }
 
+function modeBChip(value: SensationValue, accentRaw: string, hover: boolean): ChipStyle {
+  if (!hover) return restingChip(value);
+  if (value === 'SLIPPERY') return modeAChip(value, accentRaw, hover);
+  const accent = autoDarkenFor45(accentRaw);
+  const base = restingChip(value);
+  return {
+    letter: base.letter,
+    background: base.background,
+    color: base.color,
+    border: '1.5px solid ' + accent,
+    ringColor: null,
+  };
+}
+
 export function chipStyleFor(value: SensationValue, args: ChipStyleArgs): ChipStyle {
   if (!args.hover) return restingChip(value);
   if (args.mode === 'A') {
     if (!args.accent) return restingChip(value);
     return modeAChip(value, args.accent, args.hover);
   }
-  // Modes B and C arrive in later tasks.
+  if (args.mode === 'B') {
+    if (!args.accent) return restingChip(value);
+    return modeBChip(value, args.accent, args.hover);
+  }
+  // Mode C in next task.
   return restingChip(value);
 }

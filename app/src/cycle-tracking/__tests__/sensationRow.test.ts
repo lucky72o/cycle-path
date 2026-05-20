@@ -174,3 +174,42 @@ describe('chipStyleFor — Mode A', () => {
     expect(contrastRatio('#ffffff', s.background)).toBeGreaterThanOrEqual(4.5);
   });
 });
+
+describe('chipStyleFor — Mode B', () => {
+  const accent = '#bd4a6e';
+
+  it('hover Dry: resting fill+letter, accent 1.5px outline', () => {
+    const s = chipStyleFor('DRY', { mode: 'B', accent, hover: true });
+    expect(s.background).toBe('transparent');      // unchanged
+    expect(s.color).toBe('#5b8a84');               // unchanged
+    expect(s.border).toBe('1.5px solid ' + accent);
+    expect(s.ringColor).toBeNull();
+  });
+
+  it('hover Damp: resting fill kept, only border switches to accent', () => {
+    const s = chipStyleFor('DAMP', { mode: 'B', accent, hover: true });
+    expect(s.background).toBe('#c4e8e2');          // unchanged
+    expect(s.color).toBe('#0f5c54');               // unchanged
+    expect(s.border).toBe('1.5px solid ' + accent);
+  });
+
+  it('hover Wet: resting fill kept, accent border replaces transparent', () => {
+    const s = chipStyleFor('WET', { mode: 'B', accent, hover: true });
+    expect(s.background).toBe('#62bdb1');
+    expect(s.color).toBe('#ffffff');
+    expect(s.border).toBe('1.5px solid ' + accent);
+  });
+
+  it('hover Slippery (peak): identical to Mode A', () => {
+    const a = chipStyleFor('SLIPPERY', { mode: 'A', accent, hover: true });
+    const b = chipStyleFor('SLIPPERY', { mode: 'B', accent, hover: true });
+    expect(b).toEqual(a);
+  });
+
+  it('pale accent is auto-darkened (used in the outline)', () => {
+    const s = chipStyleFor('WET', { mode: 'B', accent: '#f2b705', hover: true });
+    const used = s.border.replace('1.5px solid ', '');
+    expect(used).not.toBe('#f2b705');
+    expect(contrastRatio('#ffffff', used)).toBeGreaterThanOrEqual(4.5);
+  });
+});
