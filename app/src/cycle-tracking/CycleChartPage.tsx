@@ -620,7 +620,8 @@ export default function CycleChartPage() {
       const hasCF = !!cfData?.cervicalAppearance;
       const hasMenstrual = !!cfData?.menstrualFlow;
       const hasDisturbance = (day?.disturbanceFactors?.length ?? 0) > 0;
-      map.set(dayNumber, hasBBT || hasTime || hasOPK || hasIntercourse || hasCF || hasMenstrual || hasDisturbance);
+      const hasSensation = day?.cervicalSensation != null;
+      map.set(dayNumber, hasBBT || hasTime || hasOPK || hasIntercourse || hasCF || hasMenstrual || hasDisturbance || hasSensation);
     }
     return map;
   }, [cycle, chartData, allCycleDaysMap, timeStampsMap, opkStatusMap, cervicalMenstrualMap, displayDayRange]);
