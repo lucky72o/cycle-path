@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { letterFor, restingChip } from '../sensationRow';
+import { letterFor, restingChip, contrastRatio, relativeLuminance } from '../sensationRow';
 
 describe('letterFor', () => {
   it('maps each enum value to its single-letter chart glyph', () => {
@@ -49,5 +49,32 @@ describe('restingChip', () => {
       border: '1px solid transparent',
       ringColor: '#0f766e',
     });
+  });
+});
+
+describe('relativeLuminance', () => {
+  it('returns 0 for black and 1 for white', () => {
+    expect(relativeLuminance('#000000')).toBeCloseTo(0, 4);
+    expect(relativeLuminance('#ffffff')).toBeCloseTo(1, 4);
+  });
+});
+
+describe('contrastRatio (verified WCAG ratios for chip-letter audit)', () => {
+  // Use ±0.05 tolerance — sRGB conversion + rounding within audit precision.
+  function near(actual: number, expected: number) {
+    expect(Math.abs(actual - expected)).toBeLessThan(0.05);
+  }
+
+  it('white vs deep teal #0f766e ≈ 5.48', () => near(contrastRatio('#ffffff', '#0f766e'), 5.48));
+  it('white vs Wet #62bdb1 ≈ 2.23', () => near(contrastRatio('#ffffff', '#62bdb1'), 2.23));
+  it('white vs lighter teal #1f9485 ≈ 3.74', () => near(contrastRatio('#ffffff', '#1f9485'), 3.74));
+  it('white vs Mode C Wet-hover #3f9d90 ≈ 3.26', () => near(contrastRatio('#ffffff', '#3f9d90'), 3.26));
+  it('white vs Rose bold #bd4a6e ≈ 4.81', () => near(contrastRatio('#ffffff', '#bd4a6e'), 4.81));
+  it('white vs Rose more-contrast #c75f80 ≈ 3.91', () => near(contrastRatio('#ffffff', '#c75f80'), 3.91));
+  it('inky teal #062a26 on #62bdb1 ≈ 6.89', () => near(contrastRatio('#062a26', '#62bdb1'), 6.89));
+  it('soft teal #5b8a84 on tile #d8f3f0 ≈ 3.32', () => near(contrastRatio('#5b8a84', '#d8f3f0'), 3.32));
+  it('symmetric (order independent)', () => {
+    expect(contrastRatio('#ffffff', '#000000')).toBeCloseTo(21, 1);
+    expect(contrastRatio('#000000', '#ffffff')).toBeCloseTo(21, 1);
   });
 });
