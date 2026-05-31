@@ -83,6 +83,17 @@ export default function CycleChartPage() {
   const sensationMode = sensationSelection.mode;
   const sensationAccent = sensationSelection.accent;
 
+  // TRIAL — Wet/Slippery resting variant. Dev-only, removed in cleanup commit.
+  const [wetVariant, setWetVariant] = useState<'baseline' | 'wet-only' | 'paired'>(() => {
+    if (typeof window === 'undefined' || !import.meta.env.DEV) return 'baseline';
+    const v = window.localStorage.getItem('cp.sensation.wetVariant');
+    return v === 'wet-only' || v === 'paired' ? v : 'baseline';
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined' || !import.meta.env.DEV) return;
+    window.localStorage.setItem('cp.sensation.wetVariant', wetVariant);
+  }, [wetVariant]);
+
   const { data: allCycles } = useQuery(getUserCycles);
   const { data: cycle, isLoading: cycleLoading } = useQuery(getCycleById, { cycleId: cycleId || '' }, { enabled: !!cycleId });
   const { data: settings, isLoading: settingsLoading } = useQuery(getUserSettings);
@@ -2518,9 +2529,19 @@ export default function CycleChartPage() {
                         tileBg = '#d8f3f0';
                       }
 
-                      const chip = value
+                      let chip = value
                         ? chipStyleFor(value, { mode: sensationMode, accent: sensationAccent, hover: isHovered && !isTail })
                         : null;
+
+                      // TRIAL — Wet/Slippery resting variant override (dev-only).
+                      if (chip && !isHovered && wetVariant !== 'baseline') {
+                        if (value === 'WET') {
+                          chip = { ...chip, background: '#357d72' };
+                        }
+                        if (wetVariant === 'paired' && value === 'SLIPPERY' && sensationMode === 'C') {
+                          chip = { ...chip, background: '#357d72', color: '#ffffff', ringColor: '#357d72' };
+                        }
+                      }
 
                       return (
                         <div key={dayNumber} className="absolute"
@@ -2801,6 +2822,8 @@ export default function CycleChartPage() {
         <SensationPresetSwitcher
           selection={sensationSelection}
           onChange={setSensationSelection}
+          wetVariant={wetVariant}
+          onWetVariantChange={setWetVariant}
         />
       )}
     </div>

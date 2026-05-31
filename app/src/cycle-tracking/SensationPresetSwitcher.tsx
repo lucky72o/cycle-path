@@ -89,9 +89,14 @@ function isException(mode: HoverMode, value: SensationValue, hover: boolean): bo
   return false;
 }
 
+export type WetVariant = 'baseline' | 'wet-only' | 'paired';
+
 interface Props {
   selection: PresetSelection;
   onChange: (sel: PresetSelection) => void;
+  // TRIAL — Wet/Slippery resting variant. Removed in cleanup commit.
+  wetVariant?: WetVariant;
+  onWetVariantChange?: (v: WetVariant) => void;
 }
 
 /**
@@ -99,7 +104,7 @@ interface Props {
  * Caller must gate on `import.meta.env.DEV`. Deleted before opening the PR
  * (spec §7 cleanup).
  */
-export function SensationPresetSwitcher({ selection, onChange }: Props) {
+export function SensationPresetSwitcher({ selection, onChange, wetVariant, onWetVariantChange }: Props) {
   useEffect(() => { writeStoredSelection(selection); }, [selection]);
 
   return (
@@ -132,6 +137,22 @@ export function SensationPresetSwitcher({ selection, onChange }: Props) {
           </option>
         ))}
       </select>
+      {wetVariant !== undefined && onWetVariantChange && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#002142', marginBottom: 4 }}>
+            Wet resting variant (TRIAL)
+          </div>
+          <select
+            value={wetVariant}
+            onChange={(e) => onWetVariantChange(e.target.value as WetVariant)}
+            style={{ width: '100%', fontSize: 11, padding: '4px 6px' }}
+          >
+            <option value="baseline">baseline — Wet #62bdb1 (current)</option>
+            <option value="wet-only">wet-only — Wet #357d72, Slip resting unchanged</option>
+            <option value="paired">paired — Wet #357d72, Mode C Slip = #357d72 + white S</option>
+          </select>
+        </div>
+      )}
       <div style={{ marginTop: 8, fontSize: 10, lineHeight: 1.45 }}>
         <div style={{ fontWeight: 700, color: '#002142', marginBottom: 4 }}>Per-state letter contrast</div>
         {STATES.map((s) => {
