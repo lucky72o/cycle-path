@@ -198,3 +198,26 @@ No new dependencies. No schema migration. No new operations/queries.
 ## 12. Sensiplan alignment
 
 Sensation (Empfindung) is one of the two cervical-mucus observation dimensions Sensiplan teaches; pairing it visually with the existing Cervical Fluid (appearance) row directly reflects the method's teaching. The notation `d / m / w / S` mirrors short-letter charting used in Sensiplan paper charts and Read-Your-Body-style coloured codes; `DAMP` is rendered as **"moist"** because the user confirmed that wording matches their teaching materials. The row is faithful to the observation; no Sensiplan interpretation rule is added or altered.
+
+## 13. Post-trial locked decisions (2026-05-31) — supersedes §4–§7 where they conflict
+
+The in-app preset trial concluded with the following picks. **This section is the source of truth post-trial; earlier sections describe the trial-time design.**
+
+### Winning hover mode
+**Mode C — "deepen teal."** Modes A and B are dropped in cleanup. The accent preset table, `autoDarkenFor45`, and Mode A/B chip-style functions are removed from `sensationRow.ts`.
+
+### Wet resting variant
+**wet-only.** `RESTING.WET.background` shifts from `#62bdb1` to **`#357d72`**. White-on-`#357d72` ≈ **4.86:1** — no longer a WCAG exception. Mode C Slippery resting stays at `#62bdb1` + inky `#062a26` letter (the Slippery–Wet "visually tied" link from §5 is intentionally broken — Slippery resting stays the lighter teal so its peak-distinguishing design remains visible).
+
+### Updated closed exception list
+- Resting Dry letter `#5b8a84` on tile `#d8f3f0` ≈ **3.32:1** — kept as documented exception.
+- Mode C Dry hover letter on hover tile `#aee5df` ≈ **2.78:1** — **OPEN gate** (Open #2 in the handover doc); recommended resolution path (ii): switch letter to `#062a26` inky teal on hover, yielding ~11:1 — clears the gate, removes from list.
+- Wet resting — removed (now passes 4.86:1).
+- Mode C Wet hover — removed in spirit pending Open #1 (a deeper hex than the new resting; all candidates pass 4.5:1).
+
+### Open items (must resolve before PR)
+See `docs/superpowers/handovers/2026-05-31-sensation-row-resume.md` for the full open-item list and the cleanup checklist. Summary:
+
+1. **Open #1** — pick Mode C Wet hover hex from `#1f7065` / `#1a6358` / `#155a50` (all darker than the new resting `#357d72`; all pass 4.5:1).
+2. **Open #2** — resolve Mode C Dry hover via path (ii): letter `#062a26` on hover.
+3. **Open #3** — cleanup commit: lock the locked values into `sensationRow.ts`, strip the dev switcher + wet-variant trial machinery, drop Mode A/B + presets + auto-darken, update tests, run tests + lint, then push (with explicit user OK) and open the PR.
