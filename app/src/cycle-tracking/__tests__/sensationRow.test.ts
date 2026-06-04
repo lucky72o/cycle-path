@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { letterFor, restingChip, contrastRatio, relativeLuminance, autoDarkenFor45, ACCENT_PRESETS, PRESET_KEYS, chipStyleFor, HoverMode, modeCResting } from '../sensationRow';
+import { letterFor, restingChip, contrastRatio, relativeLuminance, chipStyleFor, modeCResting } from '../sensationRow';
 
 describe('letterFor', () => {
   it('maps each enum value to its single-letter chart glyph', () => {
@@ -67,150 +67,13 @@ describe('contrastRatio (verified WCAG ratios for chip-letter audit)', () => {
 
   it('white vs deep teal #0f766e ≈ 5.48', () => near(contrastRatio('#ffffff', '#0f766e'), 5.48));
   it('white vs Wet #62bdb1 ≈ 2.23', () => near(contrastRatio('#ffffff', '#62bdb1'), 2.23));
-  it('white vs lighter teal #1f9485 ≈ 3.74', () => near(contrastRatio('#ffffff', '#1f9485'), 3.74));
   it('white vs Mode C Wet-hover #3f9d90 ≈ 3.26', () => near(contrastRatio('#ffffff', '#3f9d90'), 3.26));
-  it('white vs Rose bold #bd4a6e ≈ 4.81', () => near(contrastRatio('#ffffff', '#bd4a6e'), 4.81));
-  it('white vs Rose more-contrast #c75f80 ≈ 3.91', () => near(contrastRatio('#ffffff', '#c75f80'), 3.91));
+  it('white vs conservative-darken #357d72 ≈ 4.86', () => near(contrastRatio('#ffffff', '#357d72'), 4.86));
   it('inky teal #062a26 on #62bdb1 ≈ 6.89', () => near(contrastRatio('#062a26', '#62bdb1'), 6.89));
   it('soft teal #5b8a84 on tile #d8f3f0 ≈ 3.32', () => near(contrastRatio('#5b8a84', '#d8f3f0'), 3.32));
   it('symmetric (order independent)', () => {
     expect(contrastRatio('#ffffff', '#000000')).toBeCloseTo(21, 1);
     expect(contrastRatio('#000000', '#ffffff')).toBeCloseTo(21, 1);
-  });
-});
-
-describe('autoDarkenFor45', () => {
-  it('returns the input unchanged when it already passes 4.5:1 with white text', () => {
-    // Rose bold passes (≈4.81), so darken should return it as-is.
-    expect(autoDarkenFor45('#bd4a6e')).toBe('#bd4a6e');
-  });
-
-  it('darkens Wet #62bdb1 (2.23:1) to a value that crosses 4.5:1', () => {
-    const out = autoDarkenFor45('#62bdb1');
-    expect(out).not.toBe('#62bdb1');
-    expect(contrastRatio('#ffffff', out)).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it('darkens Golden Yellow #f2b705 to cross 4.5:1', () => {
-    const out = autoDarkenFor45('#f2b705');
-    expect(out).not.toBe('#f2b705');
-    expect(contrastRatio('#ffffff', out)).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it('returns the smallest darken — output is just above 4.5:1, not far above', () => {
-    const out = autoDarkenFor45('#62bdb1');
-    const ratio = contrastRatio('#ffffff', out);
-    // "smallest darken that passes" — should land close to 4.5:1, not e.g. 8:1.
-    expect(ratio).toBeLessThan(5.5);
-  });
-
-  it('respects a custom text colour', () => {
-    // Dark text on a light fill — should not darken since contrast is already high.
-    expect(autoDarkenFor45('#ffe9d6', '#002142')).toBe('#ffe9d6');
-  });
-});
-
-describe('ACCENT_PRESETS table', () => {
-  it('lists exactly the 10 accent presets from the spec, in spec order', () => {
-    expect(PRESET_KEYS).toEqual([
-      'rose-medium',
-      'rose-contrast',
-      'rose-bold',
-      'sky',
-      'amber',
-      'amber-gold',
-      'gold',
-      'indigo',
-      'bbt-blue',
-      'lh-green',
-    ]);
-  });
-
-  it('every preset has the correct accent hex', () => {
-    const byKey = Object.fromEntries(ACCENT_PRESETS.map((p) => [p.key, p.fill]));
-    expect(byKey['rose-medium']).toBe('#cf7591');
-    expect(byKey['rose-contrast']).toBe('#c75f80');
-    expect(byKey['rose-bold']).toBe('#bd4a6e');
-    expect(byKey['sky']).toBe('#60a5fa');
-    expect(byKey['amber']).toBe('#f59e0b');
-    expect(byKey['amber-gold']).toBe('#f3aa08');
-    expect(byKey['gold']).toBe('#f2b705');
-    expect(byKey['indigo']).toBe('#7c83e8');
-    expect(byKey['bbt-blue']).toBe('#3b82f6');
-    expect(byKey['lh-green']).toBe('#16a34a');
-  });
-});
-
-describe('chipStyleFor — Mode A', () => {
-  const A: HoverMode = 'A';
-  const accent = '#bd4a6e'; // Rose bold — passes 4.5:1, so used unchanged
-
-  it('resting returns the locked resting chip regardless of preset/mode', () => {
-    expect(chipStyleFor('WET', { mode: A, accent, hover: false })).toEqual(restingChip('WET'));
-  });
-
-  it('hover Dry: accent fill, white letter, accent border', () => {
-    const s = chipStyleFor('DRY', { mode: A, accent, hover: true });
-    expect(s.letter).toBe('d');
-    expect(s.background).toBe(accent);
-    expect(s.color).toBe('#ffffff');
-    expect(s.border).toBe('1px solid ' + accent);
-    expect(s.ringColor).toBeNull();
-  });
-
-  it('hover Slippery: accent fill + darker-shade ring for peak', () => {
-    const s = chipStyleFor('SLIPPERY', { mode: A, accent, hover: true });
-    expect(s.background).toBe(accent);
-    expect(s.color).toBe('#ffffff');
-    expect(s.ringColor).toBeTruthy();
-    // ring is a darker shade of the accent
-    expect(relativeLuminance(s.ringColor!)).toBeLessThan(relativeLuminance(accent));
-  });
-
-  it('a pale accent is auto-darkened before being applied (Mode A only)', () => {
-    // Golden Yellow fails 4.5:1 with white text; Mode A must darken before painting.
-    const s = chipStyleFor('WET', { mode: A, accent: '#f2b705', hover: true });
-    expect(s.background).not.toBe('#f2b705');
-    expect(contrastRatio('#ffffff', s.background)).toBeGreaterThanOrEqual(4.5);
-  });
-});
-
-describe('chipStyleFor — Mode B', () => {
-  const accent = '#bd4a6e';
-
-  it('hover Dry: resting fill+letter, accent 1.5px outline', () => {
-    const s = chipStyleFor('DRY', { mode: 'B', accent, hover: true });
-    expect(s.background).toBe('transparent');      // unchanged
-    expect(s.color).toBe('#5b8a84');               // unchanged
-    expect(s.border).toBe('1.5px solid ' + accent);
-    expect(s.ringColor).toBeNull();
-  });
-
-  it('hover Damp: resting fill kept, only border switches to accent', () => {
-    const s = chipStyleFor('DAMP', { mode: 'B', accent, hover: true });
-    expect(s.background).toBe('#c4e8e2');          // unchanged
-    expect(s.color).toBe('#0f5c54');               // unchanged
-    expect(s.border).toBe('1.5px solid ' + accent);
-  });
-
-  it('hover Wet: resting fill kept, accent border replaces transparent', () => {
-    const s = chipStyleFor('WET', { mode: 'B', accent, hover: true });
-    expect(s.background).toBe('#62bdb1');
-    expect(s.color).toBe('#ffffff');
-    expect(s.border).toBe('1.5px solid ' + accent);
-  });
-
-  it('hover Slippery (peak): identical to Mode A', () => {
-    const a = chipStyleFor('SLIPPERY', { mode: 'A', accent, hover: true });
-    const b = chipStyleFor('SLIPPERY', { mode: 'B', accent, hover: true });
-    expect(b).toEqual(a);
-  });
-
-  it('pale accent is auto-darkened (used in the outline)', () => {
-    const s = chipStyleFor('WET', { mode: 'B', accent: '#f2b705', hover: true });
-    const used = s.border.replace('1.5px solid ', '');
-    expect(used).not.toBe('#f2b705');
-    expect(contrastRatio('#ffffff', used)).toBeGreaterThanOrEqual(4.5);
   });
 });
 
@@ -260,12 +123,6 @@ describe('chipStyleFor — Mode C hover', () => {
     expect(s.color).toBe('#ffffff');
     expect(s.border).toBe('1px solid transparent');
     expect(s.ringColor).toBe('#054a44');
-  });
-
-  it('Mode C ignores the accent argument', () => {
-    const a = chipStyleFor('DAMP', { mode: 'C', accent: null, hover: true });
-    const b = chipStyleFor('DAMP', { mode: 'C', accent: '#bd4a6e', hover: true });
-    expect(a).toEqual(b);
   });
 });
 

@@ -201,10 +201,12 @@ Sensation (Empfindung) is one of the two cervical-mucus observation dimensions S
 
 ## 13. Post-trial locked decisions (2026-05-31) — supersedes §4–§7 where they conflict
 
-The in-app preset trial concluded with the following picks. **This section is the source of truth post-trial; earlier sections describe the trial-time design.**
+The in-app preset trial concluded with the following picks. **This section is the source of truth post-trial; earlier sections describe the trial-time design and are retained for historical context.**
+
+**Status: Mode C locked, iteration on Mode C continues.** Mode A/B and the accent preset infrastructure have been stripped from `sensationRow.ts`. The dev switcher and the wet-variant toggle remain active for continued Mode C refinement. See `docs/superpowers/handovers/2026-05-31-sensation-row-resume.md` for the iteration knobs available and the eventual final cleanup checklist.
 
 ### Winning hover mode
-**Mode C — "deepen teal."** Modes A and B are dropped in cleanup. The accent preset table, `autoDarkenFor45`, and Mode A/B chip-style functions are removed from `sensationRow.ts`.
+**Mode C — "deepen teal."** Modes A and B are **dropped** (already stripped from code, tests, and the switcher dropdown). The `ACCENT_PRESETS` table, `PRESET_KEYS`, `autoDarkenFor45`, `darkenShade`, `modeAChip`, and `modeBChip` are removed from `sensationRow.ts`. `HoverMode` is narrowed to `'C'`. The dispatcher `chipStyleFor` is simplified to route only to Mode C.
 
 ### Wet resting variant
 **wet-only.** `RESTING.WET.background` shifts from `#62bdb1` to **`#357d72`**. White-on-`#357d72` ≈ **4.86:1** — no longer a WCAG exception. Mode C Slippery resting stays at `#62bdb1` + inky `#062a26` letter (the Slippery–Wet "visually tied" link from §5 is intentionally broken — Slippery resting stays the lighter teal so its peak-distinguishing design remains visible).

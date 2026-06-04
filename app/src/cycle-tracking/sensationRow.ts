@@ -1,5 +1,9 @@
 // Sensation row — design & rendering helpers.
 // See: docs/superpowers/specs/2026-05-20-sensation-row-design.md
+//
+// Post-trial state: Mode C ("deepen teal") is the locked hover mode.
+// Modes A and B were dropped after the in-app trial; the accent preset
+// table and `autoDarkenFor45` helper went with them.
 
 export type SensationValue = 'DRY' | 'DAMP' | 'WET' | 'SLIPPERY';
 
@@ -34,6 +38,7 @@ export function restingChip(value: SensationValue): ChipStyle {
 }
 
 // --- WCAG sRGB contrast helpers ---
+// Retained because the dev switcher's per-state contrast panel uses them.
 
 function hexToRgb(hex: string): [number, number, number] {
   const clean = hex.replace('#', '');
@@ -64,99 +69,17 @@ export function contrastRatio(a: string, b: string): number {
   return (light + 0.05) / (dark + 0.05);
 }
 
-function rgbToHex(r: number, g: number, b: number): string {
-  const h = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
-  return '#' + h(r) + h(g) + h(b);
-}
+// --- Mode C dispatcher ---
+// Modes A and B were stripped after the in-app trial; only Mode C ships.
+// The `HoverMode` type / `mode` arg remain to keep `ChipStyleArgs`'s shape
+// stable for the switcher and any future re-introduction of additional modes.
 
-/**
- * Smallest darkening of `fill` such that contrast with `text` reaches 4.5:1.
- * Bisects on a uniform RGB scaling factor in [0, 1]. If already passing, returns fill unchanged.
- */
-export function autoDarkenFor45(fill: string, text: string = '#ffffff'): string {
-  if (contrastRatio(text, fill) >= 4.5) return fill;
-  const [r0, g0, b0] = hexToRgb(fill);
-  let lo = 0;   // f=0 → black, definitely passes vs white (21:1)
-  let hi = 1;   // f=1 → fill, fails (we just checked)
-  // Bisect: keep the largest factor whose rounded RGB still passes.
-  let best = '#000000';
-  for (let i = 0; i < 28; i++) {
-    const mid = (lo + hi) / 2;
-    const hex = rgbToHex(r0 * mid, g0 * mid, b0 * mid);
-    if (contrastRatio(text, hex) >= 4.5) {
-      best = hex;
-      lo = mid;
-    } else {
-      hi = mid;
-    }
-  }
-  return best;
-}
-
-// --- Accent colour presets ---
-
-export interface AccentPreset {
-  key: string;
-  name: string;
-  fill: string;                 // visual-target hex (pre-auto-darken)
-  source: 'product' | 'new';
-}
-
-export const ACCENT_PRESETS: readonly AccentPreset[] = [
-  { key: 'rose-medium',   name: 'Dusty Rose · medium',         fill: '#cf7591', source: 'new' },
-  { key: 'rose-contrast', name: 'Dusty Rose · more contrast',  fill: '#c75f80', source: 'new' },
-  { key: 'rose-bold',     name: 'Dusty Rose · bold',           fill: '#bd4a6e', source: 'new' },
-  { key: 'sky',           name: 'Soft Sky',                    fill: '#60a5fa', source: 'product' },
-  { key: 'amber',         name: 'Amber',                       fill: '#f59e0b', source: 'product' },
-  { key: 'amber-gold',    name: 'Amber–Gold blend',            fill: '#f3aa08', source: 'new' },
-  { key: 'gold',          name: 'Golden Yellow',               fill: '#f2b705', source: 'new' },
-  { key: 'indigo',        name: 'Soft Indigo',                 fill: '#7c83e8', source: 'new' },
-  { key: 'bbt-blue',      name: 'BBT Blue',                    fill: '#3b82f6', source: 'product' },
-  { key: 'lh-green',      name: 'LH green',                    fill: '#16a34a', source: 'product' },
-] as const;
-
-export const PRESET_KEYS: readonly string[] = ACCENT_PRESETS.map((p) => p.key);
-
-// --- Mode A and dispatcher ---
-
-export type HoverMode = 'A' | 'B' | 'C';
+export type HoverMode = 'C';
 
 export interface ChipStyleArgs {
   mode: HoverMode;
-  accent: string | null;   // accent hex (visual target) for A/B; ignored for C; null when no preset (resting only)
+  accent: string | null;   // unused in Mode C; retained for switcher compatibility
   hover: boolean;
-}
-
-function darkenShade(hex: string, factor = 0.7): string {
-  const [r, g, b] = hexToRgb(hex);
-  return rgbToHex(r * factor, g * factor, b * factor);
-}
-
-function modeAChip(value: SensationValue, accentRaw: string, hover: boolean): ChipStyle {
-  if (!hover) return restingChip(value);
-  const accent = autoDarkenFor45(accentRaw);
-  const base = restingChip(value);
-  return {
-    letter: base.letter,
-    background: accent,
-    color: '#ffffff',
-    border: '1px solid ' + accent,
-    ringColor: value === 'SLIPPERY' ? darkenShade(accent) : null,
-  };
-}
-
-function modeBChip(value: SensationValue, accentRaw: string, hover: boolean): ChipStyle {
-  if (!hover) return restingChip(value);
-  if (value === 'SLIPPERY') return modeAChip(value, accentRaw, hover);
-  const accent = autoDarkenFor45(accentRaw);
-  const base = restingChip(value);
-  return {
-    letter: base.letter,
-    background: base.background,
-    color: base.color,
-    border: '1.5px solid ' + accent,
-    ringColor: null,
-  };
 }
 
 const MODE_C_RESTING_SLIPPERY: ChipStyle = {
@@ -184,16 +107,7 @@ function modeCChip(value: SensationValue, hover: boolean): ChipStyle {
 }
 
 export function chipStyleFor(value: SensationValue, args: ChipStyleArgs): ChipStyle {
-  // Mode C overrides resting for Slippery (and is its own hover).
-  if (args.mode === 'C') return modeCChip(value, args.hover);
-  if (!args.hover) return restingChip(value);
-  if (args.mode === 'A') {
-    if (!args.accent) return restingChip(value);
-    return modeAChip(value, args.accent, args.hover);
-  }
-  if (args.mode === 'B') {
-    if (!args.accent) return restingChip(value);
-    return modeBChip(value, args.accent, args.hover);
-  }
-  return restingChip(value);
+  // Only Mode C ships. The dispatcher keeps its 3-arg shape so the dev
+  // switcher's `letterRatio` call site doesn't need to change during iteration.
+  return modeCChip(value, args.hover);
 }

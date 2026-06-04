@@ -2517,28 +2517,23 @@ export default function CycleChartPage() {
                       const isHovered = hoveredDayNumber === dayNumber;
                       const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
 
-                      // Tile background. Mode B keeps non-peak tiles at resting on hover;
-                      // every other case follows the standard resting/hover/tail pattern.
+                      // Tile background — standard tail / hover / resting pattern (Mode C only).
                       let tileBg: string;
-                      if (isTail) {
-                        tileBg = '#f1f5f9';
-                      } else if (isHovered) {
-                        const isPeak = value === 'SLIPPERY';
-                        tileBg = (sensationMode === 'B' && !isPeak) ? '#d8f3f0' : '#aee5df';
-                      } else {
-                        tileBg = '#d8f3f0';
-                      }
+                      if (isTail) tileBg = '#f1f5f9';
+                      else if (isHovered) tileBg = '#aee5df';
+                      else tileBg = '#d8f3f0';
 
                       let chip = value
                         ? chipStyleFor(value, { mode: sensationMode, accent: sensationAccent, hover: isHovered && !isTail })
                         : null;
 
                       // TRIAL — Wet/Slippery resting variant override (dev-only).
+                      // Kept for continued Mode C iteration; baked in or removed during final cleanup.
                       if (chip && !isHovered && wetVariant !== 'baseline') {
                         if (value === 'WET') {
                           chip = { ...chip, background: '#357d72' };
                         }
-                        if (wetVariant === 'paired' && value === 'SLIPPERY' && sensationMode === 'C') {
+                        if (wetVariant === 'paired' && value === 'SLIPPERY') {
                           chip = { ...chip, background: '#357d72', color: '#ffffff', ringColor: '#357d72' };
                         }
                       }
