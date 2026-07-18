@@ -27,7 +27,7 @@ export interface ChipStyle {
 }
 
 const RESTING: Record<SensationValue, ChipStyle> = {
-  DRY:      { letter: 'd', background: 'transparent', color: '#5b8a84', border: '1px solid #c0ddd8', ringColor: null },
+  DRY:      { letter: 'd', background: 'transparent', color: '#596b68', border: '1px solid #596b68', ringColor: null },
   DAMP:     { letter: 'm', background: '#c4e8e2',     color: '#0f5c54', border: '1px solid #9ccfc7', ringColor: null },
   WET:      { letter: 'w', background: '#62bdb1',     color: '#ffffff', border: '1px solid transparent', ringColor: null },
   SLIPPERY: { letter: 'S', background: '#0f766e',     color: '#ffffff', border: '1px solid transparent', ringColor: '#0f766e' },
@@ -96,7 +96,7 @@ export function modeCResting(value: SensationValue): ChipStyle {
 }
 
 const MODE_C_HOVER: Record<SensationValue, ChipStyle> = {
-  DRY:      { letter: 'd', background: 'transparent', color: '#5b8a84', border: '1px solid #5d9c93', ringColor: null },
+  DRY:      { letter: 'd', background: 'transparent', color: '#4d5f5c', border: '1px solid #4d5f5c', ringColor: null },
   DAMP:     { letter: 'm', background: '#9bd3c9',     color: '#0f5c54', border: '1px solid #4a8f82', ringColor: null },
   WET:      { letter: 'w', background: '#3f9d90',     color: '#ffffff', border: '1.5px solid #1e7d72', ringColor: null },
   SLIPPERY: { letter: 'S', background: '#0f766e',     color: '#ffffff', border: '1px solid transparent', ringColor: '#054a44' },

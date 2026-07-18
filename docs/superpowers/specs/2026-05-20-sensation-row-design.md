@@ -211,15 +211,23 @@ The in-app preset trial concluded with the following picks. **This section is th
 ### Wet resting variant
 **wet-only.** `RESTING.WET.background` shifts from `#62bdb1` to **`#357d72`**. White-on-`#357d72` ≈ **4.86:1** — no longer a WCAG exception. Mode C Slippery resting stays at `#62bdb1` + inky `#062a26` letter (the Slippery–Wet "visually tied" link from §5 is intentionally broken — Slippery resting stays the lighter teal so its peak-distinguishing design remains visible).
 
+### Dry letter (resolved 2026-07-18)
+Dry moved to a **muted teal-grey** whose letter and frame share one hex per state (variant D — "two teal-grey"), replacing the soft-teal letter + faint separate border:
+- Resting: letter + border `#596b68` on tile `#d8f3f0` ≈ **4.83:1**.
+- Mode C hover: letter + border deepen to `#4d5f5c` on hover tile `#aee5df` ≈ **4.85:1** (honours the deepen-on-hover theme).
+
+Rationale: a desaturated teal-grey reads as the deliberately "quiet"/low-signal dry day while staying in the teal palette family; reusing the letter hex for the frame clears the 3:1 non-text bar (SC 1.4.11) at the same time. Both states now clear 4.5:1 with cushion, so **Dry leaves the exception list entirely** and **Open #2 is closed** (the earlier `#062a26` inky-hover path was not taken).
+
 ### Updated closed exception list
-- Resting Dry letter `#5b8a84` on tile `#d8f3f0` ≈ **3.32:1** — kept as documented exception.
-- Mode C Dry hover letter on hover tile `#aee5df` ≈ **2.78:1** — **OPEN gate** (Open #2 in the handover doc); recommended resolution path (ii): switch letter to `#062a26` inky teal on hover, yielding ~11:1 — clears the gate, removes from list.
+- Resting Dry / Mode C Dry hover — **removed** (now pass at `#596b68` ≈ 4.83:1 / `#4d5f5c` ≈ 4.85:1; see above).
 - Wet resting — removed (now passes 4.86:1).
 - Mode C Wet hover — removed in spirit pending Open #1 (a deeper hex than the new resting; all candidates pass 4.5:1).
+
+No documented chip-letter exceptions remain.
 
 ### Open items (must resolve before PR)
 See `docs/superpowers/handovers/2026-05-31-sensation-row-resume.md` for the full open-item list and the cleanup checklist. Summary:
 
 1. **Open #1** — pick Mode C Wet hover hex from `#1f7065` / `#1a6358` / `#155a50` (all darker than the new resting `#357d72`; all pass 4.5:1).
-2. **Open #2** — resolve Mode C Dry hover via path (ii): letter `#062a26` on hover.
+2. ~~**Open #2** — resolve Mode C Dry hover.~~ **Resolved 2026-07-18** via variant D (teal-grey `#596b68` resting / `#4d5f5c` hover, letter + frame). See "Dry letter" above.
 3. **Open #3** — cleanup commit: lock the locked values into `sensationRow.ts`, strip the dev switcher + wet-variant trial machinery, drop Mode A/B + presets + auto-darken, update tests, run tests + lint, then push (with explicit user OK) and open the PR.

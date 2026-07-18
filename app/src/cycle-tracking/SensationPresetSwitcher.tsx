@@ -68,13 +68,12 @@ function letterRatio(mode: HoverMode, accent: string | null, value: SensationVal
   return contrastRatio(chip.color, bg);
 }
 
-// §6 exception list, narrowed after the in-app trial. Resting Wet at #357d72
-// (when wet-only / paired variant active) and a future Mode C Wet hover fix
-// (Open #1) move out of this list as they pass 4.5:1; the only remaining
-// trial-time exception is resting Dry. Mode C Dry hover (~2.78) stays as a
-// known open gate (Open #2) until resolved.
-function isException(_mode: HoverMode, value: SensationValue, hover: boolean): boolean {
-  if (!hover && value === 'DRY') return true;  // resting Dry letter ~3.32:1
+// §6 exception list, narrowed after the in-app trial. Dry (resting + hover) was
+// resolved by switching to the muted teal-grey #596b68 / #4d5f5c (both clear
+// 4.5:1), so it left this list. Resting Wet at #357d72 (when wet-only / paired
+// variant active) and a future Mode C Wet hover fix (Open #1) still move out as
+// they pass 4.5:1. No documented exceptions remain.
+function isException(): boolean {
   return false;
 }
 
@@ -145,7 +144,7 @@ export function SensationPresetSwitcher({ selection, onChange, wetVariant, onWet
         {STATES.map((s) => {
           const r = letterRatio(selection.mode, selection.accent, s.value, s.hover);
           const passes = r >= 4.5;
-          const exception = isException(selection.mode, s.value, s.hover);
+          const exception = isException();
           const status = passes ? '✓' : (exception ? '§6 exception' : '⚠ violation');
           const color = passes ? '#0f766e' : (exception ? '#9a6700' : '#9d2b53');
           return (

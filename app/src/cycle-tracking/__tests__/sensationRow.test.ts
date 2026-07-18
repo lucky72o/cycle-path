@@ -11,12 +11,12 @@ describe('letterFor', () => {
 });
 
 describe('restingChip', () => {
-  it('Dry: transparent fill, soft teal letter, faint border, "d" glyph', () => {
+  it('Dry: transparent fill, muted teal-grey letter, matching border, "d" glyph', () => {
     expect(restingChip('DRY')).toEqual({
       letter: 'd',
       background: 'transparent',
-      color: '#5b8a84',
-      border: '1px solid #c0ddd8',
+      color: '#596b68',
+      border: '1px solid #596b68',
       ringColor: null,
     });
   });
@@ -70,7 +70,8 @@ describe('contrastRatio (verified WCAG ratios for chip-letter audit)', () => {
   it('white vs Mode C Wet-hover #3f9d90 ≈ 3.26', () => near(contrastRatio('#ffffff', '#3f9d90'), 3.26));
   it('white vs conservative-darken #357d72 ≈ 4.86', () => near(contrastRatio('#ffffff', '#357d72'), 4.86));
   it('inky teal #062a26 on #62bdb1 ≈ 6.89', () => near(contrastRatio('#062a26', '#62bdb1'), 6.89));
-  it('soft teal #5b8a84 on tile #d8f3f0 ≈ 3.32', () => near(contrastRatio('#5b8a84', '#d8f3f0'), 3.32));
+  it('Dry resting #596b68 on tile #d8f3f0 ≈ 4.83 (clears 4.5)', () => near(contrastRatio('#596b68', '#d8f3f0'), 4.83));
+  it('Dry hover #4d5f5c on hover tile #aee5df ≈ 4.85 (clears 4.5)', () => near(contrastRatio('#4d5f5c', '#aee5df'), 4.85));
   it('symmetric (order independent)', () => {
     expect(contrastRatio('#ffffff', '#000000')).toBeCloseTo(21, 1);
     expect(contrastRatio('#000000', '#ffffff')).toBeCloseTo(21, 1);
@@ -96,11 +97,11 @@ describe('Mode C — resting (override only Slippery)', () => {
 });
 
 describe('chipStyleFor — Mode C hover', () => {
-  it('Dry: border #c0ddd8 → #5d9c93', () => {
+  it('Dry: muted teal-grey deepens #596b68 → #4d5f5c (letter + matching border)', () => {
     const s = chipStyleFor('DRY', { mode: 'C', accent: null, hover: true });
     expect(s.background).toBe('transparent');
-    expect(s.color).toBe('#5b8a84');
-    expect(s.border).toBe('1px solid #5d9c93');
+    expect(s.color).toBe('#4d5f5c');
+    expect(s.border).toBe('1px solid #4d5f5c');
   });
 
   it('Damp: fill #9bd3c9, border #4a8f82', () => {
