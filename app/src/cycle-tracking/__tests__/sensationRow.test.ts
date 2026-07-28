@@ -6,7 +6,7 @@ describe('letterFor', () => {
     expect(letterFor('DRY')).toBe('d');
     expect(letterFor('DAMP')).toBe('m');     // displayed term: "moist"
     expect(letterFor('WET')).toBe('w');
-    expect(letterFor('SLIPPERY')).toBe('S'); // peak — uppercase to stand out
+    expect(letterFor('SLIPPERY')).toBe('S'); // highest category — uppercase to stand out
   });
 });
 
@@ -31,17 +31,17 @@ describe('restingChip', () => {
     });
   });
 
-  it('Wet: mid-teal fill, white letter, no border, "w"', () => {
+  it('Wet: Moist-style pale fill + dark letter, deep 1.5px frame, "w"', () => {
     expect(restingChip('WET')).toEqual({
       letter: 'w',
-      background: '#62bdb1',
-      color: '#ffffff',
-      border: '1px solid transparent',
+      background: '#c4e8e2',
+      color: '#0f5c54',
+      border: '1.5px solid #1e7d72',
       ringColor: null,
     });
   });
 
-  it('Slippery (peak): deep-teal fill, white letter, no border, teal ring', () => {
+  it('Slippery (highest category): deep-teal fill, white letter, no border, teal ring', () => {
     expect(restingChip('SLIPPERY')).toEqual({
       letter: 'S',
       background: '#0f766e',
@@ -66,9 +66,10 @@ describe('contrastRatio (verified WCAG ratios for chip-letter audit)', () => {
   }
 
   it('white vs deep teal #0f766e ≈ 5.48', () => near(contrastRatio('#ffffff', '#0f766e'), 5.48));
-  it('white vs Wet #62bdb1 ≈ 2.23', () => near(contrastRatio('#ffffff', '#62bdb1'), 2.23));
-  it('white vs Mode C Wet-hover #3f9d90 ≈ 3.26', () => near(contrastRatio('#ffffff', '#3f9d90'), 3.26));
-  it('white vs conservative-darken #357d72 ≈ 4.86', () => near(contrastRatio('#ffffff', '#357d72'), 4.86));
+  it('Wet resting letter #0f5c54 on fill #c4e8e2 ≈ 5.97', () => near(contrastRatio('#0f5c54', '#c4e8e2'), 5.97));
+  it('Wet resting frame #1e7d72 on fill #c4e8e2 ≈ 3.78 (clears 3:1 non-text)', () => near(contrastRatio('#1e7d72', '#c4e8e2'), 3.78));
+  it('Wet hover letter #0f5c54 on fill #9bd3c9 ≈ 4.69', () => near(contrastRatio('#0f5c54', '#9bd3c9'), 4.69));
+  it('Wet hover frame #135e55 on fill #9bd3c9 ≈ 4.55 (clears 3:1 non-text)', () => near(contrastRatio('#135e55', '#9bd3c9'), 4.55));
   it('inky teal #062a26 on #62bdb1 ≈ 6.89', () => near(contrastRatio('#062a26', '#62bdb1'), 6.89));
   it('Dry resting #596b68 on tile #d8f3f0 ≈ 4.83 (clears 4.5)', () => near(contrastRatio('#596b68', '#d8f3f0'), 4.83));
   it('Dry hover #4d5f5c on hover tile #aee5df ≈ 4.85 (clears 4.5)', () => near(contrastRatio('#4d5f5c', '#aee5df'), 4.85));
@@ -111,11 +112,11 @@ describe('chipStyleFor — Mode C hover', () => {
     expect(s.border).toBe('1px solid #4a8f82');
   });
 
-  it('Wet: fill #3f9d90, 1.5px border #1e7d72', () => {
+  it('Wet: fill deepens to #9bd3c9, frame deepens to #135e55', () => {
     const s = chipStyleFor('WET', { mode: 'C', accent: null, hover: true });
-    expect(s.background).toBe('#3f9d90');
-    expect(s.color).toBe('#ffffff');
-    expect(s.border).toBe('1.5px solid #1e7d72');
+    expect(s.background).toBe('#9bd3c9');
+    expect(s.color).toBe('#0f5c54');
+    expect(s.border).toBe('1.5px solid #135e55');
   });
 
   it('Slippery: chip #0f766e, ring #054a44, letter white', () => {

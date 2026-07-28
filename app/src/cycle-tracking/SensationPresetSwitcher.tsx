@@ -68,23 +68,18 @@ function letterRatio(mode: HoverMode, accent: string | null, value: SensationVal
   return contrastRatio(chip.color, bg);
 }
 
-// §6 exception list, narrowed after the in-app trial. Dry (resting + hover) was
-// resolved by switching to the muted teal-grey #596b68 / #4d5f5c (both clear
-// 4.5:1), so it left this list. Resting Wet at #357d72 (when wet-only / paired
-// variant active) and a future Mode C Wet hover fix (Open #1) still move out as
-// they pass 4.5:1. No documented exceptions remain.
+// §6 exception list — now empty. Dry moved to the muted teal-grey
+// (#596b68 / #4d5f5c) and Wet moved to the Moist-style pale fill + deep frame
+// (#c4e8e2 / #9bd3c9); all eight letter states now clear 4.5:1 on their own.
+// Retained as a hook so a future Mode C tweak that dips below can be labelled
+// rather than silently shipped.
 function isException(): boolean {
   return false;
 }
 
-export type WetVariant = 'baseline' | 'wet-only' | 'paired';
-
 interface Props {
   selection: PresetSelection;
   onChange: (sel: PresetSelection) => void;
-  // TRIAL — Wet/Slippery resting variant. Kept for continued Mode C iteration.
-  wetVariant?: WetVariant;
-  onWetVariantChange?: (v: WetVariant) => void;
 }
 
 /**
@@ -92,7 +87,7 @@ interface Props {
  * Caller must gate on `import.meta.env.DEV`. Removed in final cleanup
  * commit (when Mode C iteration is fully locked).
  */
-export function SensationPresetSwitcher({ selection, onChange, wetVariant, onWetVariantChange }: Props) {
+export function SensationPresetSwitcher({ selection, onChange }: Props) {
   useEffect(() => { writeStoredSelection(selection); }, [selection]);
 
   return (
@@ -123,22 +118,6 @@ export function SensationPresetSwitcher({ selection, onChange, wetVariant, onWet
           <option key={o.key} value={o.key}>{o.label}</option>
         ))}
       </select>
-      {wetVariant !== undefined && onWetVariantChange && (
-        <div style={{ marginTop: 8 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#002142', marginBottom: 4 }}>
-            Wet resting variant
-          </div>
-          <select
-            value={wetVariant}
-            onChange={(e) => onWetVariantChange(e.target.value as WetVariant)}
-            style={{ width: '100%', fontSize: 11, padding: '4px 6px' }}
-          >
-            <option value="baseline">baseline — Wet #62bdb1 (trial-time default)</option>
-            <option value="wet-only">wet-only — Wet #357d72, Slip resting unchanged</option>
-            <option value="paired">paired — Wet #357d72, Mode C Slip = #357d72 + white S</option>
-          </select>
-        </div>
-      )}
       <div style={{ marginTop: 8, fontSize: 10, lineHeight: 1.45 }}>
         <div style={{ fontWeight: 700, color: '#002142', marginBottom: 4 }}>Per-state letter contrast</div>
         {STATES.map((s) => {

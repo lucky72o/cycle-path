@@ -23,13 +23,16 @@ export interface ChipStyle {
   background: string;       // CSS background
   color: string;            // CSS color (letter)
   border: string;           // CSS border shorthand
-  ringColor: string | null; // outer peak ring colour; null = no ring
+  // Outer ring colour; null = no ring. Marks the highest sensation category
+  // (Slippery) per-observation. NOT a Sensiplan mucus Peak Day marker — the peak
+  // is the *last* best-quality day and is only identifiable retrospectively.
+  ringColor: string | null;
 }
 
 const RESTING: Record<SensationValue, ChipStyle> = {
   DRY:      { letter: 'd', background: 'transparent', color: '#596b68', border: '1px solid #596b68', ringColor: null },
   DAMP:     { letter: 'm', background: '#c4e8e2',     color: '#0f5c54', border: '1px solid #9ccfc7', ringColor: null },
-  WET:      { letter: 'w', background: '#62bdb1',     color: '#ffffff', border: '1px solid transparent', ringColor: null },
+  WET:      { letter: 'w', background: '#c4e8e2',     color: '#0f5c54', border: '1.5px solid #1e7d72', ringColor: null },
   SLIPPERY: { letter: 'S', background: '#0f766e',     color: '#ffffff', border: '1px solid transparent', ringColor: '#0f766e' },
 };
 
@@ -98,7 +101,7 @@ export function modeCResting(value: SensationValue): ChipStyle {
 const MODE_C_HOVER: Record<SensationValue, ChipStyle> = {
   DRY:      { letter: 'd', background: 'transparent', color: '#4d5f5c', border: '1px solid #4d5f5c', ringColor: null },
   DAMP:     { letter: 'm', background: '#9bd3c9',     color: '#0f5c54', border: '1px solid #4a8f82', ringColor: null },
-  WET:      { letter: 'w', background: '#3f9d90',     color: '#ffffff', border: '1.5px solid #1e7d72', ringColor: null },
+  WET:      { letter: 'w', background: '#9bd3c9',     color: '#0f5c54', border: '1.5px solid #135e55', ringColor: null },
   SLIPPERY: { letter: 'S', background: '#0f766e',     color: '#ffffff', border: '1px solid transparent', ringColor: '#054a44' },
 };
 

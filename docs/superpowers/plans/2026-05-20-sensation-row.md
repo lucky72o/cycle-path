@@ -1,5 +1,16 @@
 # Sensation Row Implementation Plan
 
+> # ✅ COMPLETED — HISTORICAL RECORD (as of 2026-07-28)
+>
+> **Do not execute this plan.** Tasks 1–14 are implemented and the design has since moved on. Colour values, the "peak" wording, and the lint commands below are all **out of date**:
+>
+> - **Colours** — Dry and Wet were redesigned after this plan was written. See spec §13 for shipped values.
+> - **"Peak"** — this document calls the Slippery chip/ring a "peak" marker. That is **wrong**: it marks the *highest sensation category*, not the Sensiplan mucus Peak Day (which is the last best-quality day, identified retrospectively). No Peak Day calculation exists in this codebase.
+> - **Lint** — `npm run lint -- <paths>` does not scope a run (the script already globs `src/**/*`), and the repo is not lint-clean. See the handover's "Useful commands" for the correct method and recorded baselines.
+>
+> **Source of truth: `docs/superpowers/specs/2026-05-20-sensation-row-design.md` §13.**
+> Remaining work is tracked there, not here.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a "Sensation" row to the cycle chart's lower table (between Cervical Fluid and Disturbance) that displays the per-day `cervicalSensation` enum (Dry/Damp/Wet/Slippery) as a small colour+letter stamp, with a dev-only floating switcher that lets the user trial colour presets in the running app and pick the final palette before opening the PR.

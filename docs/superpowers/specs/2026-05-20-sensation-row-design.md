@@ -40,6 +40,8 @@ This row is **display-only** — editing remains in `AddCycleDayPage` / `NewCycl
 
 ## 4. Visual: resting state (locked)
 
+> ⚠️ **Chip colours below are trial-time and partly superseded — see §13 for the shipped values.** The letter map in this section is still current; the Dry and Wet chip hexes are not.
+
 The Sensation cell tile follows the existing per-cell pattern (1.5 px inset, 3 px radius, white gap between tiles). Each day's tile contains a small centred "stamp" chip carrying a single letter that maps to the enum.
 
 **Enum → display term → letter**
@@ -49,7 +51,7 @@ The Sensation cell tile follows the existing per-cell pattern (1.5 px inset, 3 p
 | `DRY` | Dry | `d` |
 | `DAMP` | **moist** (per FAM/Sensiplan convention, user-confirmed) | `m` |
 | `WET` | Wet | `w` |
-| `SLIPPERY` | Slippery (peak) | `S` |
+| `SLIPPERY` | Slippery (highest sensation category — **not** a Peak Day marker, see §13) | `S` |
 | `null` | — | (no chip; plain tile) |
 
 Chip letter contrast targets 4.5:1 per §6. Three resting/Mode-C combinations below ship as **product-approved exceptions** under that policy.
@@ -61,7 +63,7 @@ Chip letter contrast targets 4.5:1 per §6. Three resting/Mode-C combinations be
 | `d` | transparent | `#5b8a84` | `1px #c0ddd8` | — |
 | `m` | `#c4e8e2` | `#0f5c54` | `1px #9ccfc7` | — |
 | `w` | `#62bdb1` | `#ffffff` | `1px transparent` | — |
-| `S` | `#0f766e` | `#ffffff` | `1px transparent` | peak ring: `box-shadow: 0 0 0 1.5px <tileBg>, 0 0 0 3px #0f766e` |
+| `S` | `#0f766e` | `#ffffff` | `1px transparent` | category ring: `box-shadow: 0 0 0 1.5px <tileBg>, 0 0 0 3px #0f766e` |
 
 Chip dimensions: 23 × 17 px, border-radius 5 px, Montserrat 700 11 px.
 
@@ -71,6 +73,8 @@ Cell tile resting: `#d8f3f0`. Tail days: `#f1f5f9` (no chip).
 
 ## 5. Visual: hover state (3 candidate modes to trial in-app)
 
+> ⚠️ **Historical.** Modes A and B were dropped after the trial and removed from the code; only Mode C ships, and its Dry/Wet hover hexes below have since been superseded. **See §13 for the shipped design.**
+
 Hover background visibility was the central design problem (chip covers most of the 34 × 28 cell, so a plain tile re-tint reads weakly). We implement **three hover modes** behind a runtime preset selector; the user trials them in the running app and locks one before the PR. Hover chip letter contrast targets 4.5:1 per §6. Mode A/B accent presets are auto-darkened to pass; Mode C ships its target hexes (Wet hover is a product-approved exception, see §6).
 
 ### Mode A · v1 — accent fill (warm/cool accent)
@@ -78,18 +82,18 @@ Hover background visibility was the central design problem (chip covers most of 
 On hover:
 - Tile: `#d8f3f0` → **`#aee5df`**
 - Every chip's background **fills with the preset accent colour**; border = `1 px solid <accent>`; letter switches to white for legibility.
-- Slippery's peak ring uses a darker shade of the accent (algorithmic darken).
+- Slippery's ring uses a darker shade of the accent (algorithmic darken).
 
 ### Mode B · v2 — accent outline (warm/cool accent)
 
 On hover:
 - Tile: stays `#d8f3f0` (resting) for non-peak cells; peak cell tile goes to `#aee5df`.
 - For Dry / Damp / Wet: only the chip's **outline** takes the accent colour (1.5 px). Inner fill, letter colour, and outside tile remain resting.
-- For Slippery (peak): identical to Mode A (accent fill, white S, darker-shade ring, tile `#aee5df`).
+- For Slippery (highest category): identical to Mode A (accent fill, white S, darker-shade ring, tile `#aee5df`).
 
 ### Mode C · "deepen teal" (colour-agnostic, closer to original)
 
-Resting deviates from §4 for Slippery (peak):
+Resting deviates from §4 for Slippery (highest category):
 - Chip background: **`#62bdb1`** (held fixed — visually tied to the Wet target hex, *not* to Wet's auto-darkened shipped value).
 - Outer ring: **`#62bdb1`** (same as chip; ring still reads because of the 1.5 px tile-coloured gap between chip and ring).
 - Letter: inky teal **`#062a26`** (≈ **6.89:1** on `#62bdb1`, passes 4.5:1 cleanly).
@@ -199,17 +203,29 @@ No new dependencies. No schema migration. No new operations/queries.
 
 Sensation (Empfindung) is one of the two cervical-mucus observation dimensions Sensiplan teaches; pairing it visually with the existing Cervical Fluid (appearance) row directly reflects the method's teaching. The notation `d / m / w / S` mirrors short-letter charting used in Sensiplan paper charts and Read-Your-Body-style coloured codes; `DAMP` is rendered as **"moist"** because the user confirmed that wording matches their teaching materials. The row is faithful to the observation; no Sensiplan interpretation rule is added or altered.
 
-## 13. Post-trial locked decisions (2026-05-31) — supersedes §4–§7 where they conflict
+## 13. Post-trial locked decisions (2026-05-31, amended 2026-07-18 & 2026-07-28) — supersedes §4–§7 where they conflict
 
-The in-app preset trial concluded with the following picks. **This section is the source of truth post-trial; earlier sections describe the trial-time design and are retained for historical context.**
+The in-app preset trial concluded with the following picks, since amended by the Dry and Wet iterations. **This section is the source of truth; earlier sections describe the trial-time design and are retained for historical context — where a hex in §4–§7 disagrees with one here, this section wins.**
 
-**Status: Mode C locked, iteration on Mode C continues.** Mode A/B and the accent preset infrastructure have been stripped from `sensationRow.ts`. The dev switcher and the wet-variant toggle remain active for continued Mode C refinement. See `docs/superpowers/handovers/2026-05-31-sensation-row-resume.md` for the iteration knobs available and the eventual final cleanup checklist.
+**Status: Mode C locked; Dry and Wet resolved; all eight letter states pass 4.5:1.** Mode A/B and the accent preset infrastructure have been stripped from `sensationRow.ts`. The wet-variant trial machinery is also removed (2026-07-28). The dev switcher itself remains (for its per-state contrast panel) and is deleted in the final cleanup commit. See `docs/superpowers/handovers/2026-05-31-sensation-row-resume.md` for background.
 
 ### Winning hover mode
 **Mode C — "deepen teal."** Modes A and B are **dropped** (already stripped from code, tests, and the switcher dropdown). The `ACCENT_PRESETS` table, `PRESET_KEYS`, `autoDarkenFor45`, `darkenShade`, `modeAChip`, and `modeBChip` are removed from `sensationRow.ts`. `HoverMode` is narrowed to `'C'`. The dispatcher `chipStyleFor` is simplified to route only to Mode C.
 
-### Wet resting variant
-**wet-only.** `RESTING.WET.background` shifts from `#62bdb1` to **`#357d72`**. White-on-`#357d72` ≈ **4.86:1** — no longer a WCAG exception. Mode C Slippery resting stays at `#62bdb1` + inky `#062a26` letter (the Slippery–Wet "visually tied" link from §5 is intentionally broken — Slippery resting stays the lighter teal so its peak-distinguishing design remains visible).
+### Wet — Moist-style pale chip + deep frame (resolved 2026-07-28, supersedes the wet-variant trial)
+Wet now mirrors Moist's construction (pale fill + dark letter) and is distinguished from it by a **deeper, thicker frame** rather than by fill darkness:
+
+| State | Fill | Letter | Frame | Letter ratio | Frame vs fill |
+|---|---|---|---|---|---|
+| Resting | `#c4e8e2` | `#0f5c54` | 1.5 px `#1e7d72` | 5.97:1 | 3.78:1 |
+| Mode C hover | `#9bd3c9` | `#0f5c54` | 1.5 px `#135e55` | 4.69:1 | 4.55:1 |
+
+Notes:
+- The frame is a **meaningful** graphic here (it is what separates Wet from Moist), so it is held to the 3:1 non-text bar of SC 1.4.11 — both states clear it. Moist's own frame stays decorative/faint by contrast, which is what makes the two readable apart.
+- The frame **must** deepen on hover: keeping `#1e7d72` against the deepened `#9bd3c9` fill drops to 2.97:1, under the bar. The fill cannot deepen past `#9bd3c9` without failing the `#0f5c54` letter, so the frame carries the hover deepening.
+- **Side benefit:** Wet is now clearly lighter than Slippery, restoring the Dry → Moist → Wet → Slippery visual-weight order (the previous `#357d72` direction made Wet out-weigh the Slippery chip).
+
+**The `baseline` / `wet-only` / `paired` variant trial is retired.** `RESTING.WET` is now the shipped design; the dev-only render-time override in `CycleChartPage.tsx`, the `WetVariant` type, the switcher dropdown, and the `cp.sensation.wetVariant` localStorage key are all removed. Mode C Slippery resting is unaffected — it stays `#62bdb1` + inky `#062a26` letter + ring, exactly as under `baseline`/`wet-only`.
 
 ### Dry letter (resolved 2026-07-18)
 Dry moved to a **muted teal-grey** whose letter and frame share one hex per state (variant D — "two teal-grey"), replacing the soft-teal letter + faint separate border:
@@ -219,15 +235,41 @@ Dry moved to a **muted teal-grey** whose letter and frame share one hex per stat
 Rationale: a desaturated teal-grey reads as the deliberately "quiet"/low-signal dry day while staying in the teal palette family; reusing the letter hex for the frame clears the 3:1 non-text bar (SC 1.4.11) at the same time. Both states now clear 4.5:1 with cushion, so **Dry leaves the exception list entirely** and **Open #2 is closed** (the earlier `#062a26` inky-hover path was not taken).
 
 ### Updated closed exception list
-- Resting Dry / Mode C Dry hover — **removed** (now pass at `#596b68` ≈ 4.83:1 / `#4d5f5c` ≈ 4.85:1; see above).
-- Wet resting — removed (now passes 4.86:1).
-- Mode C Wet hover — removed in spirit pending Open #1 (a deeper hex than the new resting; all candidates pass 4.5:1).
+- Resting Dry / Mode C Dry hover — **removed** (now pass at `#596b68` ≈ 4.83:1 / `#4d5f5c` ≈ 4.85:1).
+- Wet resting / Mode C Wet hover — **removed** (now pass at 5.97:1 / 4.69:1 via the pale-fill + dark-letter design).
 
-No documented chip-letter exceptions remain.
+**No documented chip-letter exceptions remain — all eight letter states clear 4.5:1 on their own.**
+
+### Full audit — all eight states (as shipped)
+| State | Letter (need 4.5) | Frame (need 3.0) | Ring (need 3.0) |
+|---|---|---|---|
+| Dry resting / hover | 4.83 ✓ / 4.85 ✓ | 4.83 ✓ / 4.85 ✓ | — |
+| Moist resting / hover | 5.97 ✓ / 4.69 ✓ | 1.31 / 2.27 — decorative, exempt | — |
+| Wet resting / hover | 5.97 ✓ / 4.69 ✓ | 3.78 ✓ / 4.55 ✓ | — |
+| Slippery resting / hover | 6.90 ✓ / 5.47 ✓ | — (transparent) | **1.91 (low)** / 7.28 ✓ |
+
+Two sub-4.5/3.0 items remain, both deliberate:
+- **Moist's frame** is decorative — its letter and pale fill carry the meaning, so SC 1.4.11 does not apply.
+- **Slippery's resting ring at 1.91:1** is an open question, tracked separately in `docs/superpowers/notes/2026-07-28-slippery-ring-contrast.md`. Deliberately left unchanged here to avoid redesigning an approved visual while fixing Wet.
+
+### Terminology correction (2026-07-28): the Slippery ring is not a Peak Day marker
+Earlier drafts of this spec and the handover described the `S` chip and its ring as marking "the peak day." **That is incorrect and has been reworded throughout.**
+
+- In Sensiplan, the **mucus peak** is the *last* day showing the individually best mucus quality, and it can only be identified **retrospectively**, after the quality declines. ([Sensiplan workbook](https://www.sensiplan.de/storage/media/documents/46/sensiplan-loesungsheft-web.pdf))
+- This row rings **every** day recorded as `SLIPPERY`, independently. Record Slippery on days 13 and 14 and both are ringed, though only day 14 could be the peak.
+- Therefore the ring means **"highest sensation category observed on this day"** — nothing more. **No mucus Peak Day calculation exists anywhere in this codebase.** (`risingPeakDays` in `CycleChartPage.tsx` concerns the *temperature* shift and is unrelated.)
+
+Per §12, this row is a faithful display of a recorded observation and adds no interpretation rule. A genuine Peak Day marker would be a separate feature requiring sensation + appearance together, best-quality determination, and a retrospective confirmation step.
+
+### Caveat: the in-app contrast panel measures letters only
+The dev switcher's per-state panel reads chip **letter** ratios. After this change it shows ✓ for all eight states, which is accurate — but it does not measure frames or rings, so the two items above are invisible to it.
 
 ### Open items (must resolve before PR)
-See `docs/superpowers/handovers/2026-05-31-sensation-row-resume.md` for the full open-item list and the cleanup checklist. Summary:
+The list below is authoritative. (`docs/superpowers/handovers/2026-05-31-sensation-row-resume.md` carries branch context and the cleanup checklist, but its colour values and "iteration knobs" are **superseded** — it is banner-marked accordingly.)
 
-1. **Open #1** — pick Mode C Wet hover hex from `#1f7065` / `#1a6358` / `#155a50` (all darker than the new resting `#357d72`; all pass 4.5:1).
+1. ~~**Open #1** — pick Mode C Wet hover hex.~~ **Resolved 2026-07-28.** Superseded entirely: Wet moved to the pale-fill + deep-frame design, so the "pick a deeper teal fill" question no longer applies. See "Wet" above.
 2. ~~**Open #2** — resolve Mode C Dry hover.~~ **Resolved 2026-07-18** via variant D (teal-grey `#596b68` resting / `#4d5f5c` hover, letter + frame). See "Dry letter" above.
-3. **Open #3** — cleanup commit: lock the locked values into `sensationRow.ts`, strip the dev switcher + wet-variant trial machinery, drop Mode A/B + presets + auto-darken, update tests, run tests + lint, then push (with explicit user OK) and open the PR.
+3. **Open #3** — final cleanup commit: delete `SensationPresetSwitcher.tsx` entirely, remove its import/render + `PresetSelection` state from `CycleChartPage.tsx`, drop the `cp.sensation.preset` key, simplify `chipStyleFor`/`HoverMode`/`accent`, drop `contrastRatio`/`relativeLuminance` if no caller remains, then push (with explicit user OK) and open the PR.
+4. **Deferred (not a PR blocker)** — Slippery resting ring contrast (1.91:1). See `docs/superpowers/notes/2026-07-28-slippery-ring-contrast.md`.
+
+(The wet-variant trial machinery listed in the earlier cleanup checklist is already removed as of 2026-07-28.)
