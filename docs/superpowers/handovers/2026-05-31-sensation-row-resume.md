@@ -240,7 +240,9 @@ The new chat should:
 
   Line/column are deliberately **excluded**: unrelated edits shift line numbers and would produce constant false alarms. The message carries the identity (it names the symbol). The trade-off: two diagnostics with an identical message at different locations collapse together — rare, and a change in quantity still shows up as an added or removed line.
 
-  Machine-readable comparison. `gsub` normalises whitespace because some rule messages (e.g. `react-hooks/refs`) span multiple lines, which would otherwise break the one-line-per-diagnostic invariant that `sort` and `diff` depend on:
+  Messages are compared **in full — never truncated**. Four baseline messages exceed 120 characters, and two `exhaustive-deps` entries both open with "React Hook useMemo has…" — so any prefix cut risks collapsing two distinct diagnostics into one and false-passing.
+
+  But full messages need one normalisation first. The `react-hooks/*` rules **append the absolute file path, `line:col`, and a source code-frame to the message body**, so an identical diagnostic that merely moved down the file reads as one removal plus one addition. (Observed for real: a change that shifted lines 1728 → 1717 produced two bogus "new" diagnostics.) The `sub(...)` below cuts everything from the `path.tsx:line:col` marker onward, which restores line-independence without truncating the descriptive text — messages stay up to 687 characters here.
 
   ```bash
   diagnostics() {  # $1 = path relative to app/ ; one line per diagnostic, sorted
@@ -251,10 +253,32 @@ The new chat should:
       return 1
     }
     jq -r '.[0].messages[]
-           | "\(.severity|if .==2 then "error" else "warn" end)\t\(.ruleId // "‹no ruleId›")\t\(.message | gsub("\\s+"; " ") | .[0:120])"' \
-      <<<"$json" | sort
+           | "\(.severity|if .==2 then "error" else "warn" end)\t\(.ruleId // "‹no ruleId›")\t\(.message | gsub("\\s+"; " ") | sub(" ?[^ ]*\\.tsx?:[0-9]+:[0-9]+.*$"; ""))"' \
+      <<<"$json" | LC_ALL=C sort
   }
   ```
+
+  Compare with `comm`, **not `diff`** — `diff` fails on *any* difference, so it would reject a legitimate fix that removes a diagnostic, contradicting the "lower is fine" rule above. Only additions may fail the check; removals are reported and pass:
+
+  ```bash
+  compare() {  # $1 = before.txt  $2 = after.txt   (both sorted by diagnostics())
+    local added removed
+    removed="$(LC_ALL=C comm -23 "$1" "$2")"   # in before, not after → fixed
+    added="$(LC_ALL=C comm -13 "$1" "$2")"     # in after, not before → introduced
+    if [ -n "$removed" ]; then
+      echo "Removed (fine — a genuine fix; update the baseline):"
+      printf '%s\n' "$removed" | sed 's/^/  - /'
+    fi
+    if [ -n "$added" ]; then
+      echo "NEW DIAGNOSTICS INTRODUCED:" >&2
+      printf '%s\n' "$added" | sed 's/^/  + /' >&2
+      return 1
+    fi
+    echo "No new diagnostics."
+  }
+  ```
+
+  `LC_ALL=C` on both `sort` and `comm` keeps their collation consistent — otherwise `comm` can silently misreport on locale-sorted input.
 
   Usage — **check the return status**, and let a failure stop the run:
 
@@ -263,8 +287,18 @@ The new chat should:
   diagnostics src/cycle-tracking/CycleChartPage.tsx > after.txt || exit 1
   # ...restore the baseline version of the file...
   diagnostics src/cycle-tracking/CycleChartPage.tsx > before.txt || exit 1
-  diff before.txt after.txt || { echo "NEW DIAGNOSTICS INTRODUCED" >&2; exit 1; }
+  compare before.txt after.txt || exit 1
   ```
+
+  Verified behaviour (probe file, same rule throughout):
+
+  | Change | Result |
+  |---|---|
+  | Swap `alpha` → `beta` (same rule) | reports both removal and addition, **status 1** ✓ |
+  | Remove `alpha`, add nothing | reports removal, **status 0** ✓ |
+  | No change | "No new diagnostics", status 0 ✓ |
+  | Real file across an 11-line shift | "No new diagnostics", status 0 ✓ (no location false alarm) |
+  | Run from repo root | `FATAL`, status 1 ✓ |
 
   `CycleChartPage.tsx` must yield exactly **19 lines**; the three sensation-owned files must yield **0 lines** while still returning status 0.
 
