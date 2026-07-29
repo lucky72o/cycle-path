@@ -231,40 +231,47 @@ The new chat should:
 
   That last one has `ruleId: null`, so it prints as `null` under a naive `.ruleId` query — the command below labels it from its message instead. It is **not** a parser or fatal error (a fatal would carry `fatal: true`); it is ESLint reporting a `disable` comment that no longer suppresses anything.
 
-  **How to judge the result — totals alone are not sufficient:**
+  **How to judge the result — counts are never sufficient:**
 
   - **Lower than baseline is fine, and good.** If your change legitimately removes a diagnostic, the count drops. That is a pass, not a discrepancy to explain away. Update the table when it happens.
-  - **Equal totals are only a sanity check, never proof.** One pre-existing diagnostic disappearing while a new one appears leaves the total unchanged — a real regression that a count comparison cannot see.
-  - **The actual criterion: no diagnostic appears that was not there before.** Compare the *rules, messages, and locations*, not the number. Any rule ID absent from the table above, or a higher count against a rule already listed, is a new problem you introduced — even if the total looks fine.
+  - **Equal counts are only a sanity check, never proof.** One pre-existing diagnostic disappearing while a new one appears leaves the total unchanged.
+  - **Per-rule counts are not enough either.** 11 of the 19 baseline diagnostics are the *same rule* (`no-unused-vars`), differing only by which identifier is unused. Swapping one for another leaves a per-rule histogram byte-identical. Demonstrated: an unused `alpha` and an unused `beta` produce the same histogram, and differ only once the message is included.
+  - **The criterion: compare full diagnostic identity** — severity + ruleId + message — not counts at any granularity.
 
-  Machine-readable comparison (no worktree mutation). Note the `// ...` fallback — without it, diagnostics with no `ruleId` (like the `eslint-disable` one above) print as a bare `null` and cannot be matched to the table:
+  Line/column are deliberately **excluded**: unrelated edits shift line numbers and would produce constant false alarms. The message carries the identity (it names the symbol). The trade-off: two diagnostics with an identical message at different locations collapse together — rare, and a change in quantity still shows up as an added or removed line.
 
+  Machine-readable comparison. `gsub` normalises whitespace because some rule messages (e.g. `react-hooks/refs`) span multiple lines, which would otherwise break the one-line-per-diagnostic invariant that `sort` and `diff` depend on:
+
+  ```bash
+  diagnostics() {  # $1 = path relative to app/ ; one line per diagnostic, sorted
+    local json
+    json="$(npx eslint "$1" -f json 2>/dev/null)" || true   # eslint exits 1 when problems exist
+    jq -e '.[0].filePath' >/dev/null 2>&1 <<<"$json" || {
+      echo "FATAL: eslint did not analyse '$1' (wrong cwd or bad path)" >&2
+      return 1
+    }
+    jq -r '.[0].messages[]
+           | "\(.severity|if .==2 then "error" else "warn" end)\t\(.ruleId // "‹no ruleId›")\t\(.message | gsub("\\s+"; " ") | .[0:120])"' \
+      <<<"$json" | sort
+  }
   ```
+
+  Usage — **check the return status**, and let a failure stop the run:
+
+  ```bash
   cd app
-  npx eslint <file> -f json \
-    | jq -r '.[0].messages[]
-             | "\(.severity | if . == 2 then "error" else "warn" end)\t\(.ruleId // "‹no ruleId› " + (.message | split("(")[0] | rtrimstr(" ")))"' \
-    | sort | uniq -c | sort -rn
+  diagnostics src/cycle-tracking/CycleChartPage.tsx > after.txt || exit 1
+  # ...restore the baseline version of the file...
+  diagnostics src/cycle-tracking/CycleChartPage.tsx > before.txt || exit 1
+  diff before.txt after.txt || { echo "NEW DIAGNOSTICS INTRODUCED" >&2; exit 1; }
   ```
 
-  Verified output for `CycleChartPage.tsx` at baseline:
+  `CycleChartPage.tsx` must yield exactly **19 lines**; the three sensation-owned files must yield **0 lines** while still returning status 0.
 
-  ```
-   11 error	@typescript-eslint/no-unused-vars
-    3 warn	react-hooks/exhaustive-deps
-    2 error	no-undef
-    1 warn	‹no ruleId› Unused eslint-disable directive
-    1 error	react-hooks/set-state-in-effect
-    1 error	react-hooks/refs
-  ```
+  **⚠️ How the guard avoids the false pass it replaces.** An earlier version tested `[ -s file ]` and merely `echo`ed a warning — but `echo` exits 0, so a script sailed on and `diff`ed two empty files, which also succeeds. That is exactly the false pass the guard was meant to stop. Two fixes:
 
-  Diff that histogram against this block. The three sensation-owned files must produce **no output at all**.
-
-  **⚠️ Guard against a false pass.** If the path does not resolve (e.g. you ran from the repo root instead of `app/`), eslint emits nothing, `jq` yields nothing, and a `diff` of two empty results reports "identical" — a pass that proves nothing. Always confirm both sides are non-empty for `CycleChartPage.tsx` before trusting the comparison:
-
-  ```
-  [ -s before.txt ] && [ -s after.txt ] || echo "EMPTY — comparison is invalid"
-  ```
+  1. **Validate the run, not the output.** `jq -e '.[0].filePath'` confirms eslint actually analysed the file. Emptiness is the wrong signal — a genuinely clean file *should* produce no lines, and treating that as an error would flag the three sensation files forever.
+  2. **`return 1` on failure**, so `|| exit 1` at the call site aborts. Verified: run from `app/` → status 0 with 19 lines; run on a clean file → status 0 with 0 lines; run from the repo root → prints `FATAL` and returns **1**.
 
   **⚠️ Do not baseline by stashing.** `git stash --include-untracked` is unsafe in this repo: root `node_modules/` is **not** gitignored (only `app/node_modules` is), so it gets swept along with screenshots and logs — slow, and it can conflict on `stash pop`. If you must re-derive a baseline live, stash only the specific tracked files and never touch untracked ones:
 
