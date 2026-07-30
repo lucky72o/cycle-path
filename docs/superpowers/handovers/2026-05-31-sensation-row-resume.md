@@ -238,45 +238,52 @@ The new chat should:
   - **Per-rule counts are not enough either.** 11 of the 19 baseline diagnostics are the *same rule* (`no-unused-vars`), differing only by which identifier is unused. Swapping one for another leaves a per-rule histogram byte-identical. Demonstrated: an unused `alpha` and an unused `beta` produce the same histogram, and differ only once the message is included.
   - **The criterion: compare full diagnostic identity** — severity + ruleId + message — not counts at any granularity.
 
-  Line/column are deliberately **excluded**: unrelated edits shift line numbers and would produce constant false alarms. The message carries the identity (it names the symbol). The trade-off: two diagnostics with an identical message at different locations collapse together — rare, and a change in quantity still shows up as an added or removed line.
+  **Identity = severity + ruleId + message + normalized source snippet.** Getting this right needs two opposing corrections:
 
-  Messages are compared **in full — never truncated**. Four baseline messages exceed 120 characters, and two `exhaustive-deps` entries both open with "React Hook useMemo has…" — so any prefix cut risks collapsing two distinct diagnostics into one and false-passing.
+  - **Numeric coordinates must be excluded.** Some rules (`react-hooks/refs`, `set-state-in-effect`) embed the absolute path, `line:col`, *and* a code frame directly in the message text. Keeping those means any unrelated edit that shifts line numbers reports every one of them as removed-and-re-added. Observed live: deleting 24 lines from `CycleChartPage.tsx` produced exactly that false failure.
+  - **But the message alone is too weak.** Those same rules have generic text — every `set-state-in-effect` violation reads identically. Strip the coordinates and a violation removed in one place while an identical-rule violation appears elsewhere becomes indistinguishable, which false-passes.
 
-  But full messages need one normalisation first. The `react-hooks/*` rules **append the absolute file path, `line:col`, and a source code-frame to the message body**, so an identical diagnostic that merely moved down the file reads as one removal plus one addition. (Observed for real: a change that shifted lines 1728 → 1717 produced two bogus "new" diagnostics.) The `sub(...)` below cuts everything from the `path.tsx:line:col` marker onward, which restores line-independence without truncating the descriptive text — messages stay up to 687 characters here.
+  The fix is to append the **source line at the diagnostic's location, whitespace-normalized** — stable identity without line-number fragility. Verified both ways: the 24-line shift now compares identical, while two `set-state-in-effect` violations at different sites are correctly distinguished by their snippets (`setA(v)` vs `setB(v)`).
+
+  Messages are compared **in full — never truncated**. Four baseline messages exceed 120 characters (`react-hooks/refs` runs to 1113), and two `exhaustive-deps` entries both open with "React Hook useMemo has…", so any prefix cut risks collapsing distinct diagnostics.
+
+  Building the snippet requires reading the source file, which `jq` cannot do, so that step lives in **`app/scripts/lint-identity.js`** (committed alongside this doc — read its header comment for the full rationale).
 
   ```bash
   diagnostics() {  # $1 = path relative to app/ ; one line per diagnostic, sorted
-    local json
-    json="$(npx eslint "$1" -f json 2>/dev/null)" || true   # eslint exits 1 when problems exist
-    jq -e '.[0].filePath' >/dev/null 2>&1 <<<"$json" || {
-      echo "FATAL: eslint did not analyse '$1' (wrong cwd or bad path)" >&2
-      return 1
-    }
-    jq -r '.[0].messages[]
-           | "\(.severity|if .==2 then "error" else "warn" end)\t\(.ruleId // "‹no ruleId›")\t\(.message | gsub("\\s+"; " ") | sub(" ?[^ ]*\\.tsx?:[0-9]+:[0-9]+.*$"; ""))"' \
-      <<<"$json" | LC_ALL=C sort
+    npx eslint "$1" -f json 2>/dev/null | node scripts/lint-identity.js
   }
   ```
+
+  **Do not add `set -o pipefail` here.** ESLint exits **1 whenever it finds any problem**, which is the normal case for `CycleChartPage.tsx` — with `pipefail` the function would return 1 on a perfectly good run and `|| exit 1` would abort every time. Without it, the pipeline's status is the *last* command's, i.e. the identity script's, which is exactly the signal wanted: `0` on a real run (however many diagnostics), `1` only when ESLint never analysed the file. Verified: real file → 19 lines, status 0; clean file → 0 lines, status 0; wrong directory → `FATAL`, status 1.
 
   Compare with `comm`, **not `diff`** — `diff` fails on *any* difference, so it would reject a legitimate fix that removes a diagnostic, contradicting the "lower is fine" rule above. Only additions may fail the check; removals are reported and pass:
 
   ```bash
   compare() {  # $1 = before.txt  $2 = after.txt   (both sorted by diagnostics())
-    local added removed
-    removed="$(LC_ALL=C comm -23 "$1" "$2")"   # in before, not after → fixed
-    added="$(LC_ALL=C comm -13 "$1" "$2")"     # in after, not before → introduced
+    local added removed                      # declare separately: `local x="$(...)"` masks the exit status
+    [ -r "$1" ] && [ -r "$2" ] || { echo "FATAL: cannot read '$1' or '$2'" >&2; return 1; }
+    removed="$(LC_ALL=C comm -23 "$1" "$2")" || { echo "FATAL: comm failed on '$1' / '$2'" >&2; return 1; }
+    added="$(LC_ALL=C comm -13 "$1" "$2")"   || { echo "FATAL: comm failed on '$1' / '$2'" >&2; return 1; }
     if [ -n "$removed" ]; then
       echo "Removed (fine — a genuine fix; update the baseline):"
-      printf '%s\n' "$removed" | sed 's/^/  - /'
+      printf '%s\n' "$removed" | cut -c1-100 | sed 's/^/  - /'
     fi
     if [ -n "$added" ]; then
       echo "NEW DIAGNOSTICS INTRODUCED:" >&2
-      printf '%s\n' "$added" | sed 's/^/  + /' >&2
+      printf '%s\n' "$added" | cut -c1-100 | sed 's/^/  + /' >&2
       return 1
     fi
     echo "No new diagnostics."
   }
   ```
+
+  Two things that silently defeat this if omitted:
+
+  - **`comm`'s exit status must be checked.** Without it, two unreadable or missing files make `comm` print an error to stderr while both variables come back empty — so the function announces "No new diagnostics" and returns 0. Confirmed by running it against two nonexistent paths.
+  - **`local` must be declared on its own line.** `local x="$(cmd)"` always returns 0 (it is `local`'s status, not the command's), so a `||` guard attached to that form never fires.
+
+  The `cut -c1-100` affects only what is *printed*; the comparison itself always uses full untruncated lines.
 
   `LC_ALL=C` on both `sort` and `comm` keeps their collation consistent — otherwise `comm` can silently misreport on locale-sorted input.
 
