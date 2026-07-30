@@ -336,7 +336,8 @@ The new chat should:
 ## Project conventions worth knowing
 
 - Tests: `vitest` 1.6.1. Tests live in `app/src/cycle-tracking/__tests__/`.
-- Conventional commits: `feat(scope): ...`, `fix(scope): ...`, `docs(scope): ...`, `chore(scope): ...`. Include a `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>` trailer.
+- Conventional commits: `feat(scope): ...`, `fix(scope): ...`, `docs(scope): ...`, `chore(scope): ...`. Include a `Co-Authored-By: Claude <model> <noreply@anthropic.com>` trailer.
+  - **Use the model actually doing the work** — do not copy the version from this line or from earlier commits. Older commits on this branch legitimately read `Claude Opus 4.7 (1M context)` because that session used it; a later session copied `Claude Opus 4.8` from convention text while actually running Opus 5, and eight commits had to be rewritten (2026-07-30) to correct the attribution. Check, don't inherit.
 - **Never push** without explicit user authorization (per CLAUDE.md).
 - **Plain-language responses** preferred — explain technical choices with examples, pros/cons, and a clear recommendation. (User memory: `feedback_explanation_style.md`.)
 - **Verify exact values from code** — don't guess hexes / line numbers / enum values. (User memory: `feedback_verify_exact_values.md`.)
