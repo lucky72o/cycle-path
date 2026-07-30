@@ -2,7 +2,18 @@
 
 **Date:** 2026-07-28
 **Branch it came from:** `feat/sensation-row`
-**Status:** Open. Not urgent, not a bug. Nothing is broken.
+**Status: ✅ RESOLVED 2026-07-30.** The ring was deepened from `#62bdb1` to
+**`#33857a`**, taking it from 1.91:1 to **3.77:1** against the tile — clear of the 3:1
+bar. This was "option 1" below: darken the ring only, leaving the chip, letter, and
+geometry untouched.
+
+Kept as the reasoning record — it explains what the problem was, why the ring is held to
+3:1 rather than 4.5:1, and which alternatives were rejected. **Everything below describes
+the problem as it stood before the fix**; read it as history, not as an open task.
+
+Two candidates were rejected: `#2c7c71` (4.26:1) because the darker band began to outweigh
+the chip it surrounds, and `#257368` (4.82:1) because its luminance falls within 0.005 of
+the Slippery *hover* chip `#0f766e`, which would have made resting and hover read alike.
 
 This note is written in plain language so you can read it cold months from now, or paste
 the whole thing into a new Claude session as the starting brief.
@@ -136,7 +147,8 @@ like each other.
 
 | | Colour | Sits on | Measures | Target |
 |---|---|---|---|---|
-| Slippery ring — resting | `#62bdb1` | tile `#d8f3f0` | **1.91:1** | 3:1 |
+| Slippery ring — resting *(was)* | `#62bdb1` | tile `#d8f3f0` | **1.91:1** ✗ | 3:1 |
+| Slippery ring — resting *(now)* | `#33857a` | tile `#d8f3f0` | **3.77:1** ✓ | 3:1 |
 | Slippery ring — hover | `#054a44` | hover tile `#aee5df` | 7.28:1 | 3:1 ✓ |
 | Slippery letter — resting | `#062a26` | chip `#62bdb1` | 6.90:1 | 4.5:1 ✓ |
 

@@ -71,6 +71,15 @@ describe('contrastRatio (verified WCAG ratios for chip-letter audit)', () => {
   it('Wet hover letter #0f5c54 on fill #9bd3c9 ≈ 4.69', () => near(contrastRatio('#0f5c54', '#9bd3c9'), 4.69));
   it('Wet hover frame #135e55 on fill #9bd3c9 ≈ 4.55 (clears 3:1 non-text)', () => near(contrastRatio('#135e55', '#9bd3c9'), 4.55));
   it('inky teal #062a26 on #62bdb1 ≈ 6.89', () => near(contrastRatio('#062a26', '#62bdb1'), 6.89));
+  // Slippery ring is a meaningful graphic → WCAG SC 1.4.11 non-text bar of 3:1.
+  it('Slippery resting ring #33857a on tile #d8f3f0 ≈ 3.77 (clears 3:1)', () => {
+    const r = contrastRatio('#33857a', '#d8f3f0');
+    near(r, 3.77);
+    expect(r).toBeGreaterThanOrEqual(3);
+  });
+  it('old ring #62bdb1 on tile #d8f3f0 ≈ 1.91 — why it was replaced', () => {
+    expect(contrastRatio('#62bdb1', '#d8f3f0')).toBeLessThan(3);
+  });
   it('Dry resting #596b68 on tile #d8f3f0 ≈ 4.83 (clears 4.5)', () => near(contrastRatio('#596b68', '#d8f3f0'), 4.83));
   it('Dry hover #4d5f5c on hover tile #aee5df ≈ 4.85 (clears 4.5)', () => near(contrastRatio('#4d5f5c', '#aee5df'), 4.85));
   it('symmetric (order independent)', () => {
@@ -86,13 +95,13 @@ describe('Mode C — resting (override only Slippery)', () => {
     expect(modeCResting('WET')).toEqual(restingChip('WET'));
   });
 
-  it('Slippery uses #62bdb1 chip + #62bdb1 ring + inky #062a26 letter', () => {
+  it('Slippery uses #62bdb1 chip + deeper #33857a ring + inky #062a26 letter', () => {
     expect(modeCResting('SLIPPERY')).toEqual({
       letter: 'S',
       background: '#62bdb1',
       color: '#062a26',
       border: '1px solid transparent',
-      ringColor: '#62bdb1',
+      ringColor: '#33857a',
     });
   });
 });

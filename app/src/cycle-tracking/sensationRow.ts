@@ -90,7 +90,10 @@ const MODE_C_RESTING_SLIPPERY: ChipStyle = {
   background: '#62bdb1',
   color: '#062a26',
   border: '1px solid transparent',
-  ringColor: '#62bdb1',
+  // Deeper than the chip so the ring clears the 3:1 non-text bar (SC 1.4.11)
+  // against the resting tile #d8f3f0 — ≈3.77:1. It was previously #62bdb1
+  // (matching the chip) at ≈1.91:1, which faded into the tile.
+  ringColor: '#33857a',
 };
 
 export function modeCResting(value: SensationValue): ChipStyle {

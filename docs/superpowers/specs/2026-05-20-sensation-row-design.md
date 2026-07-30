@@ -246,11 +246,21 @@ Rationale: a desaturated teal-grey reads as the deliberately "quiet"/low-signal 
 | Dry resting / hover | 4.83 ✓ / 4.85 ✓ | 4.83 ✓ / 4.85 ✓ | — |
 | Moist resting / hover | 5.97 ✓ / 4.69 ✓ | 1.31 / 2.27 — decorative, exempt | — |
 | Wet resting / hover | 5.97 ✓ / 4.69 ✓ | 3.78 ✓ / 4.55 ✓ | — |
-| Slippery resting / hover | 6.90 ✓ / 5.47 ✓ | — (transparent) | **1.91 (low)** / 7.28 ✓ |
+| Slippery resting / hover | 6.90 ✓ / 5.47 ✓ | — (transparent) | 3.77 ✓ / 7.28 ✓ |
 
-Two sub-4.5/3.0 items remain, both deliberate:
-- **Moist's frame** is decorative — its letter and pale fill carry the meaning, so SC 1.4.11 does not apply.
-- **Slippery's resting ring at 1.91:1** is an open question, tracked separately in `docs/superpowers/notes/2026-07-28-slippery-ring-contrast.md`. Deliberately left unchanged here to avoid redesigning an approved visual while fixing Wet.
+One sub-threshold item remains, deliberately:
+- **Moist's frame** (1.31 resting / 2.27 hover) is decorative — its letter and pale fill carry the meaning, so the SC 1.4.11 non-text bar does not apply. Its faintness is also what makes Wet's deliberate 1.5 px frame read as different.
+
+**Everything else passes: all eight letter states clear 4.5:1, and every meaningful frame and ring clears 3:1.**
+
+### Slippery resting ring (resolved 2026-07-30)
+The resting ring was `#62bdb1` — the same hex as the chip it surrounds — giving only **1.91:1** against the tile `#d8f3f0`, well under the 3:1 non-text bar. Because the ring is the row's category-emphasis device it counts as a meaningful graphic, so it was deepened to **`#33857a` ≈ 3.77:1**.
+
+- Chip, letter, and ring geometry are **unchanged**: `#62bdb1` fill, inky `#062a26` letter, 1.5 px tile-coloured gap, 3 px outer band. Only `ringColor` moved.
+- Deliberately *not* pushed darker. Candidates were compared live at 3.35 / 3.77 / 4.26:1; the deepest began to outweigh the chip it surrounds, inverting the intended hierarchy. `#257368` (4.82:1) was rejected outright — its luminance sits within 0.005 of the Slippery **hover** ring `#054a44`'s companion chip `#0f766e`, so resting and hover would have started reading alike.
+- Hover is untouched (`#054a44`, 7.28:1) and remains clearly deeper, so the resting → hover transition still reads.
+
+Note this is a *category* emphasis, not a Peak Day marker — see the terminology correction below.
 
 ### Terminology correction (2026-07-28): the Slippery ring is not a Peak Day marker
 Earlier drafts of this spec and the handover described the `S` chip and its ring as marking "the peak day." **That is incorrect and has been reworded throughout.**
@@ -270,6 +280,6 @@ The list below is authoritative. (`docs/superpowers/handovers/2026-05-31-sensati
 1. ~~**Open #1** — pick Mode C Wet hover hex.~~ **Resolved 2026-07-28.** Superseded entirely: Wet moved to the pale-fill + deep-frame design, so the "pick a deeper teal fill" question no longer applies. See "Wet" above.
 2. ~~**Open #2** — resolve Mode C Dry hover.~~ **Resolved 2026-07-18** via variant D (teal-grey `#596b68` resting / `#4d5f5c` hover, letter + frame). See "Dry letter" above.
 3. **Open #3** — final cleanup commit: delete `SensationPresetSwitcher.tsx` entirely, remove its import/render + `PresetSelection` state from `CycleChartPage.tsx`, drop the `cp.sensation.preset` key, simplify `chipStyleFor`/`HoverMode`/`accent`, drop `contrastRatio`/`relativeLuminance` if no caller remains, then push (with explicit user OK) and open the PR.
-4. **Deferred (not a PR blocker)** — Slippery resting ring contrast (1.91:1). See `docs/superpowers/notes/2026-07-28-slippery-ring-contrast.md`.
+4. ~~**Deferred** — Slippery resting ring contrast (1.91:1).~~ **Resolved 2026-07-30** — ring deepened to `#33857a` (3.77:1). See "Slippery resting ring" above; the note at `docs/superpowers/notes/2026-07-28-slippery-ring-contrast.md` is retained as the reasoning record.
 
 (The wet-variant trial machinery listed in the earlier cleanup checklist is already removed as of 2026-07-28.)

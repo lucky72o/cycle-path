@@ -22,7 +22,7 @@ Purpose: This document captured what a new session needed to continue iterating 
 >
 > Still accurate below: the branch/file map (minus the wet-variant items), the row geometry, the project conventions, and the recap. Sections that are stale are flagged inline.
 >
-> One genuinely open item remains, and it is *not* in this document: the **Slippery resting ring at 1.91:1**. See `docs/superpowers/notes/2026-07-28-slippery-ring-contrast.md`.
+> ~~One genuinely open item remains: the Slippery resting ring at 1.91:1.~~ **Resolved 2026-07-30** — ring deepened to `#33857a` (3.77:1). No contrast items remain open; see spec §13.
 
 ---
 
@@ -31,7 +31,7 @@ Purpose: This document captured what a new session needed to continue iterating 
 - The Sensation row was added to the cycle chart's lower table, displaying the user's recorded `cervicalSensation` per day (Dry / Damp shown as "moist" / Wet / Slippery → letters `d / m / w / S`).
 - 14 implementation tasks landed on branch `feat/sensation-row` via subagent-driven TDD. Then an in-app preset trial concluded with the user picking **Mode C ("deepen teal")** as the locked hover mode. ~~and **wet-only** as the preferred Wet resting variant~~ — *superseded: the wet-only/`#357d72` direction was later abandoned in favour of a pale Wet chip with a deep frame (spec §13).*
 - Modes A and B (and their accent preset table + auto-darken helper) were **stripped** after the lock. ~~The dev switcher now shows only Mode C; the wet-variant sub-dropdown (baseline / wet-only / paired) is preserved for continued iteration.~~ *Superseded: the wet-variant sub-dropdown was removed 2026-07-28. The switcher now shows only the Mode C option + the contrast panel.*
-- ~~**Mode C is the locked direction but the design is NOT final.**~~ *Superseded: Mode C's Dry and Wet states are now resolved and all eight letter states pass 4.5:1. What remains is the final cleanup (delete the dev switcher, open the PR) plus the deferred Slippery ring item.*
+- ~~**Mode C is the locked direction but the design is NOT final.**~~ *Superseded: Mode C's Dry and Wet states are now resolved and all eight letter states pass 4.5:1. What remains is the final cleanup only (delete the dev switcher, simplify the module, open the PR) — the Slippery ring was resolved 2026-07-30.*
 
 ---
 
@@ -49,7 +49,7 @@ Purpose: This document captured what a new session needed to continue iterating 
 ### Production code (will ship)
 - `app/src/cycle-tracking/sensationRow.ts` — pure-logic module. Now contains: `SensationValue`, `letterFor`, `ChipStyle`, `restingChip`, contrast helpers (`relativeLuminance`, `contrastRatio`, internal `hexToRgb`/`channelToLinear`), `HoverMode` (= `'C'`), `ChipStyleArgs`, `MODE_C_RESTING_SLIPPERY`, `modeCResting`, `MODE_C_HOVER`, `chipStyleFor` dispatcher. Mode A/B/auto-darken/accent presets have been removed.
 - `app/src/cycle-tracking/CycleChartPage.tsx` — modified: `sensationMap` useMemo, `hasSensation` added to `daysWithDataMap`, offsets shifted (Disturbance `+234→+262`, Notes `+262→+290`, `LOWER_TABLE_PADDING_BOTTOM` `262→290`), Sensation row label at `+234`, Sensation grid block at `+234`, dev switcher import + render. *(The wet-variant trial state was removed 2026-07-28. Line numbers omitted — they drift; grep for the identifiers instead.)*
-- `app/src/cycle-tracking/__tests__/sensationRow.test.ts` — 22 vitest cases covering `letterFor`, `restingChip`, contrast helpers (verified WCAG ratios), `modeCResting`, and the Mode C hover dispatcher.
+- `app/src/cycle-tracking/__tests__/sensationRow.test.ts` — 24 vitest cases covering `letterFor`, `restingChip`, contrast helpers (verified WCAG ratios), `modeCResting`, and the Mode C hover dispatcher.
 
 ### Dev-only (still active for iteration)
 - `app/src/cycle-tracking/SensationPresetSwitcher.tsx` — slimmer floating UI: a single "Mode C · Deepen teal" option in the main dropdown ~~plus the wet-variant sub-dropdown (baseline / wet-only / paired)~~ and the per-state contrast panel. *(Wet-variant sub-dropdown removed 2026-07-28.)* Deleted in the eventual final cleanup commit. **Note:** the contrast panel measures chip **letters only** — it cannot see frame or ring contrast.
@@ -86,14 +86,14 @@ Purpose: This document captured what a new session needed to continue iterating 
 ### Mode C resting Slippery override (in `MODE_C_RESTING_SLIPPERY`)
 - Chip: `#62bdb1` (lighter teal)
 - Letter: `#062a26` (inky teal)
-- Ring: `#62bdb1` (matches chip; tile-coloured 1.5 px gap separates them visually)
+- Ring: ~~`#62bdb1`~~ → **`#33857a`** (deepened 2026-07-30 so the ring clears the 3:1 non-text bar against the tile — was 1.91:1, now ≈3.77:1; tile-coloured 1.5 px gap still separates ring from chip)
 
 ### Mode C hover (in `MODE_C_HOVER`) — updated 2026-07-28
 - Tile: `#d8f3f0` → `#aee5df` (handled by the grid renderer, not the chip)
 - Dry: letter **and** border `#596b68` → **`#4d5f5c`** (≈ 4.85:1 — resolved; was `#5b8a84`/`#5d9c93` at ~2.78:1)
 - Damp: fill `#c4e8e2` → `#9bd3c9`, border `#9ccfc7` → `#4a8f82`
 - Wet: fill `#c4e8e2` → **`#9bd3c9`**, border `#1e7d72` → **`#135e55`** (1.5 px, letter stays `#0f5c54`) — resolved; was fill `#62bdb1` → `#3f9d90` with a white letter
-- Slippery: chip `#62bdb1` → `#0f766e`, ring `#62bdb1` → `#054a44`, letter `#062a26` → `#ffffff`
+- Slippery: chip `#62bdb1` → `#0f766e`, ring `#33857a` → `#054a44`, letter `#062a26` → `#ffffff`
 
 ### ~~Wet variant toggle (live in dev switcher)~~ — REMOVED 2026-07-28
 
@@ -116,7 +116,8 @@ The `#357d72` direction is retired. It survives in git history and in spec §13'
 - ~~Resting Dry `#5b8a84` ≈ 3.32:1 exception~~ — resolved, now `#596b68` ≈ 4.83:1.
 - ~~Mode C Dry hover ≈ 2.78:1 OPEN~~ — resolved, now `#4d5f5c` ≈ 4.85:1.
 - ~~Wet resting / Mode C Wet hover~~ — resolved via the pale-fill design: 5.97:1 / 4.69:1.
-- **Still open (deferred, tracked separately):** Slippery resting ring `#62bdb1` on tile `#d8f3f0` ≈ **1.91:1** vs the 3:1 graphics bar. See `docs/superpowers/notes/2026-07-28-slippery-ring-contrast.md`. Moist's frame is also faint (1.31:1) but is decorative and therefore exempt.
+- ~~Slippery resting ring `#62bdb1` ≈ 1.91:1~~ — **resolved 2026-07-30**, deepened to `#33857a` ≈ **3.77:1**, clear of the 3:1 graphics bar.
+- **Only remaining sub-threshold item:** Moist's frame (1.31:1 resting / 2.27 hover) — decorative, so SC 1.4.11 does not apply. Its faintness is what makes Wet's deliberate frame read as different.
 
 ---
 
@@ -139,7 +140,7 @@ Still genuinely open if you want them:
 
 No longer applicable: ~~resting Dry letter exception~~ (resolved), ~~resting Wet letter colour~~ (now `#0f5c54` on pale fill), ~~border width on Wet hover~~ (settled at 1.5 px in both states).
 
-**Higher priority than any of the above:** the Slippery resting ring at 1.91:1 — see `docs/superpowers/notes/2026-07-28-slippery-ring-contrast.md`.
+~~**Higher priority than any of the above:** the Slippery resting ring at 1.91:1.~~ **Resolved 2026-07-30** — ring is now `#33857a` (3.77:1).
 
 ---
 
@@ -181,9 +182,7 @@ Decide separately whether the Slippery ring item ships in this PR or follows lat
 
 Current starting points:
 
-> **Finish the branch:** "Sensation Row is settled — Dry teal-grey, Wet pale + deep frame, all eight letter states pass. Run the final cleanup per the handover's cleanup section (delete the dev switcher, simplify the module). Do not push without my OK."
-
-> **Pick up the deferred item:** "Fix the Slippery resting ring contrast (1.91:1). Read `docs/superpowers/notes/2026-07-28-slippery-ring-contrast.md` first — show me candidate hexes with ratios before applying."
+> **Finish the branch:** "Sensation Row is settled — Dry, Wet, and the Slippery ring all resolved, all contrast bars met. Run the final cleanup per the cleanup section (delete the dev switcher, simplify the module). Do not push without my OK."
 
 > **Look at the chart again:** "Open cycle 7's chart (test sensation data `d m m w S` on days 13–17) and show me the current Sensation row states."
 
