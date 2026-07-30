@@ -309,10 +309,13 @@ The new chat should:
 
   `CycleChartPage.tsx` must yield exactly **19 lines**; the three sensation-owned files must yield **0 lines** while still returning status 0.
 
-  **⚠️ How the guard avoids the false pass it replaces.** An earlier version tested `[ -s file ]` and merely `echo`ed a warning — but `echo` exits 0, so a script sailed on and `diff`ed two empty files, which also succeeds. That is exactly the false pass the guard was meant to stop. Two fixes:
+  **⚠️ Why the checks are shaped this way.** Each guard exists because an earlier version of this recipe produced a false pass. Kept as a record so they are not "simplified" back out:
 
-  1. **Validate the run, not the output.** `jq -e '.[0].filePath'` confirms eslint actually analysed the file. Emptiness is the wrong signal — a genuinely clean file *should* produce no lines, and treating that as an error would flag the three sensation files forever.
-  2. **`return 1` on failure**, so `|| exit 1` at the call site aborts. Verified: run from `app/` → status 0 with 19 lines; run on a clean file → status 0 with 0 lines; run from the repo root → prints `FATAL` and returns **1**.
+  1. **Validate the run, not the output emptiness.** An early version tested `[ -s file ]` and merely `echo`ed a warning — but `echo` exits 0, so a script continued and `diff`ed two empty files, which also succeeds. Emptiness is the wrong signal anyway: a genuinely clean file *should* produce no lines, so treating that as an error would fail the three sensation-owned files forever. `lint-identity.js` instead checks that ESLint actually returned a result for the file, and exits **1** when it did not.
+  2. **Never emit a weakened identity.** The snippet comes from ESLint's own `source` field rather than a re-read of the file. An earlier version read from disk and swallowed failures, emitting blank snippets — which silently collapses generic same-rule diagnostics and restores the very false pass the snippet was added to prevent. The script now exits **1** if diagnostics exist without source, or if a diagnostic's line falls outside it.
+  3. **Propagate failure to the caller.** Every guard exits non-zero, so `|| exit 1` at the call site aborts. See the pipefail note above for why the pipeline's status is the script's, not ESLint's.
+
+  Verified statuses: real file → 19 lines / 0 · clean file → 0 lines / 0 · wrong directory → `FATAL` / 1 · diagnostics with unreadable source → `FATAL` / 1 · line outside source → `FATAL` / 1 · malformed JSON → `FATAL` / 1.
 
   **⚠️ Do not baseline by stashing.** `git stash --include-untracked` is unsafe in this repo: root `node_modules/` is **not** gitignored (only `app/node_modules` is), so it gets swept along with screenshots and logs — slow, and it can conflict on `stash pop`. If you must re-derive a baseline live, stash only the specific tracked files and never touch untracked ones:
 

@@ -24,11 +24,20 @@
 // line at the diagnostic's location (whitespace-normalized). That is stable
 // across line shifts while still distinguishing separate sites.
 //
-// Exits non-zero if ESLint did not actually analyse the file (e.g. run from the
-// wrong directory), so callers must use `set -o pipefail` or check PIPESTATUS.
-
-// ESM: app/package.json declares "type": "module", so `require` is unavailable here.
-import fs from 'node:fs';
+// The snippet comes from ESLint's own `source` field, not from re-reading the
+// file: it is guaranteed to be the exact text ESLint analysed, needs no
+// filesystem access, and cannot drift between the lint run and this script.
+// If diagnostics exist but no source is available, this exits non-zero rather
+// than emitting blank snippets — degrading silently would collapse generic
+// same-rule diagnostics and reintroduce the false pass this script prevents.
+//
+// EXIT STATUS: 0 on a successful run (any number of diagnostics, including
+// none); 1 if ESLint did not analyse the file or its source is missing.
+//
+// Callers: do NOT enable `set -o pipefail` around this pipeline. ESLint exits 1
+// whenever it reports any problem, which is the normal case, so pipefail would
+// make a healthy run look like a failure. Without it the pipeline's status is
+// this script's, which is the signal you actually want.
 
 let raw = '';
 process.stdin.on('data', (d) => (raw += d)).on('end', () => {
@@ -40,26 +49,44 @@ process.stdin.on('data', (d) => (raw += d)).on('end', () => {
     process.exit(1);
   }
 
-  const file = data[0];
+  const file = Array.isArray(data) ? data[0] : undefined;
   if (!file || !file.filePath) {
     console.error('FATAL: eslint did not analyse the file (wrong cwd or bad path)');
     process.exit(1);
   }
 
-  let src = [];
-  try {
-    src = fs.readFileSync(file.filePath, 'utf8').split('\n');
-  } catch {
-    // Snippets degrade to empty; ruleId + message still carry partial identity.
+  const messages = file.messages || [];
+  if (messages.length === 0) {
+    // Nothing to identify. ESLint omits `source` for clean files, which is fine.
+    process.exit(0);
   }
 
+  if (typeof file.source !== 'string') {
+    console.error(
+      `FATAL: eslint reported ${messages.length} diagnostic(s) for ${file.filePath} ` +
+        'but included no source, so snippets cannot be built. Refusing to emit ' +
+        'weakened identities that could hide a same-rule swap.'
+    );
+    process.exit(1);
+  }
+
+  const src = file.source.split('\n');
   const lines = [];
-  for (const m of file.messages) {
+
+  for (const m of messages) {
     let msg = (m.message || '').replace(/\s+/g, ' ').trim();
     const embedded = msg.indexOf(file.filePath);
     if (embedded >= 0) msg = msg.slice(0, embedded).trim();
 
-    const snippet = (src[(m.line || 1) - 1] || '').replace(/\s+/g, ' ').trim();
+    const lineNo = m.line || 1;
+    if (lineNo < 1 || lineNo > src.length) {
+      console.error(
+        `FATAL: diagnostic at line ${lineNo} is outside ${file.filePath} ` +
+          `(${src.length} lines); cannot build a reliable snippet.`
+      );
+      process.exit(1);
+    }
+    const snippet = src[lineNo - 1].replace(/\s+/g, ' ').trim();
 
     lines.push(
       [m.severity === 2 ? 'error' : 'warn', m.ruleId || '‹no ruleId›', msg, snippet].join('\t')
@@ -67,5 +94,5 @@ process.stdin.on('data', (d) => (raw += d)).on('end', () => {
   }
 
   lines.sort();
-  if (lines.length) console.log(lines.join('\n'));
+  console.log(lines.join('\n'));
 });
