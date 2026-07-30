@@ -72,18 +72,10 @@ export function contrastRatio(a: string, b: string): number {
   return (light + 0.05) / (dark + 0.05);
 }
 
-// --- Mode C dispatcher ---
-// Modes A and B were stripped after the in-app trial; only Mode C ships.
-// The `HoverMode` type / `mode` arg remain to keep `ChipStyleArgs`'s shape
-// stable for the switcher and any future re-introduction of additional modes.
-
-export type HoverMode = 'C';
-
-export interface ChipStyleArgs {
-  mode: HoverMode;
-  accent: string | null;   // unused in Mode C; retained for switcher compatibility
-  hover: boolean;
-}
+// --- Chip style dispatcher ---
+// The design trialled three hover modes (A: accent fill, B: accent outline,
+// C: "deepen teal"). Mode C won and the others were removed, so what remains
+// is simply "resting or hover" — no mode or accent parameter is meaningful.
 
 const MODE_C_RESTING_SLIPPERY: ChipStyle = {
   letter: 'S',
@@ -108,12 +100,6 @@ const MODE_C_HOVER: Record<SensationValue, ChipStyle> = {
   SLIPPERY: { letter: 'S', background: '#0f766e',     color: '#ffffff', border: '1px solid transparent', ringColor: '#054a44' },
 };
 
-function modeCChip(value: SensationValue, hover: boolean): ChipStyle {
+export function chipStyleFor(value: SensationValue, hover: boolean): ChipStyle {
   return hover ? MODE_C_HOVER[value] : modeCResting(value);
-}
-
-export function chipStyleFor(value: SensationValue, args: ChipStyleArgs): ChipStyle {
-  // Only Mode C ships. The dispatcher keeps its 3-arg shape so the dev
-  // switcher's `letterRatio` call site doesn't need to change during iteration.
-  return modeCChip(value, args.hover);
 }

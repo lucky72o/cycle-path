@@ -30,7 +30,7 @@ Purpose: This document captured what a new session needed to continue iterating 
 
 - The Sensation row was added to the cycle chart's lower table, displaying the user's recorded `cervicalSensation` per day (Dry / Damp shown as "moist" / Wet / Slippery → letters `d / m / w / S`).
 - 14 implementation tasks landed on branch `feat/sensation-row` via subagent-driven TDD. Then an in-app preset trial concluded with the user picking **Mode C ("deepen teal")** as the locked hover mode. ~~and **wet-only** as the preferred Wet resting variant~~ — *superseded: the wet-only/`#357d72` direction was later abandoned in favour of a pale Wet chip with a deep frame (spec §13).*
-- Modes A and B (and their accent preset table + auto-darken helper) were **stripped** after the lock. ~~The dev switcher now shows only Mode C; the wet-variant sub-dropdown (baseline / wet-only / paired) is preserved for continued iteration.~~ *Superseded: the wet-variant sub-dropdown was removed 2026-07-28. The switcher now shows only the Mode C option + the contrast panel.*
+- Modes A and B (and their accent preset table + auto-darken helper) were **stripped** after the lock. ~~The dev switcher now shows only Mode C; the wet-variant sub-dropdown (baseline / wet-only / paired) is preserved for continued iteration.~~ *Superseded: the wet-variant sub-dropdown was removed 2026-07-28, and the entire switcher was deleted 2026-07-30.*
 - ~~**Mode C is the locked direction but the design is NOT final.**~~ *Superseded: Mode C's Dry and Wet states are now resolved and all eight letter states pass 4.5:1. What remains is the final cleanup only (delete the dev switcher, simplify the module, open the PR) — the Slippery ring was resolved 2026-07-30.*
 
 ---
@@ -47,12 +47,14 @@ Purpose: This document captured what a new session needed to continue iterating 
 ## File map
 
 ### Production code (will ship)
-- `app/src/cycle-tracking/sensationRow.ts` — pure-logic module. Now contains: `SensationValue`, `letterFor`, `ChipStyle`, `restingChip`, contrast helpers (`relativeLuminance`, `contrastRatio`, internal `hexToRgb`/`channelToLinear`), `HoverMode` (= `'C'`), `ChipStyleArgs`, `MODE_C_RESTING_SLIPPERY`, `modeCResting`, `MODE_C_HOVER`, `chipStyleFor` dispatcher. Mode A/B/auto-darken/accent presets have been removed.
-- `app/src/cycle-tracking/CycleChartPage.tsx` — modified: `sensationMap` useMemo, `hasSensation` added to `daysWithDataMap`, offsets shifted (Disturbance `+234→+262`, Notes `+262→+290`, `LOWER_TABLE_PADDING_BOTTOM` `262→290`), Sensation row label at `+234`, Sensation grid block at `+234`, dev switcher import + render. *(The wet-variant trial state was removed 2026-07-28. Line numbers omitted — they drift; grep for the identifiers instead.)*
+- `app/src/cycle-tracking/sensationRow.ts` — pure-logic module. Now contains: `SensationValue`, `letterFor`, `ChipStyle`, `restingChip`, contrast helpers (`relativeLuminance`, `contrastRatio`, internal `hexToRgb`/`channelToLinear`), `MODE_C_RESTING_SLIPPERY`, `modeCResting`, `MODE_C_HOVER`, and `chipStyleFor(value, hover)`. Mode A/B, auto-darken, accent presets, `HoverMode`, and `ChipStyleArgs` have all been removed.
+- `app/src/cycle-tracking/CycleChartPage.tsx` — modified: `sensationMap` useMemo, `hasSensation` added to `daysWithDataMap`, offsets shifted (Disturbance `+234→+262`, Notes `+262→+290`, `LOWER_TABLE_PADDING_BOTTOM` `262→290`), Sensation row label at `+234`, Sensation grid block at `+234`. *(The wet-variant trial state was removed 2026-07-28; the dev switcher import, render, and selection state on 2026-07-30.)* *(Line numbers omitted — they drift; grep for the identifiers instead.)*
 - `app/src/cycle-tracking/__tests__/sensationRow.test.ts` — 24 vitest cases covering `letterFor`, `restingChip`, contrast helpers (verified WCAG ratios), `modeCResting`, and the Mode C hover dispatcher.
 
-### Dev-only (still active for iteration)
-- `app/src/cycle-tracking/SensationPresetSwitcher.tsx` — slimmer floating UI: a single "Mode C · Deepen teal" option in the main dropdown ~~plus the wet-variant sub-dropdown (baseline / wet-only / paired)~~ and the per-state contrast panel. *(Wet-variant sub-dropdown removed 2026-07-28.)* Deleted in the eventual final cleanup commit. **Note:** the contrast panel measures chip **letters only** — it cannot see frame or ring contrast.
+### ~~Dev-only~~ — DELETED 2026-07-30
+- ~~`app/src/cycle-tracking/SensationPresetSwitcher.tsx`~~ — **deleted in the final cleanup.** The floating dev switcher, its mode dropdown, and its per-state contrast panel are gone, along with the `PresetSelection` state and `HoverMode`/`ChipStyleArgs`/`accent` plumbing. `chipStyleFor` is now simply `(value, hover)`.
+- The `cp.sensation.preset` / `cp.sensation.wetVariant` localStorage keys are no longer read by any code. Stale values may linger in a browser profile; they are inert and need no migration.
+- `contrastRatio` / `relativeLuminance` were **kept** in `sensationRow.ts` — 14 test assertions pin the shipped contrast values through them, so removing them would delete the contrast regression suite.
 
 ### Reference docs
 - Spec: `docs/superpowers/specs/2026-05-20-sensation-row-design.md` (with post-trial §13).

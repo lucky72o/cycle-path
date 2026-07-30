@@ -6,13 +6,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
 import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight } from './utils';
-import { chipStyleFor, type SensationValue, type HoverMode } from './sensationRow';
-import {
-  SensationPresetSwitcher,
-  readStoredSelection,
-  DEFAULT_SELECTION,
-  type PresetSelection,
-} from './SensationPresetSwitcher';
+import { chipStyleFor, type SensationValue } from './sensationRow';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 import { useInterpretation } from './interpretation/hooks/useInterpretation';
@@ -76,12 +70,6 @@ function paletteFor(monthIndex: number) {
 export default function CycleChartPage() {
   const { cycleId } = useParams();
   const navigate = useNavigate();
-
-  const [sensationSelection, setSensationSelection] = useState<PresetSelection>(
-    () => (import.meta.env.DEV ? readStoredSelection() : DEFAULT_SELECTION),
-  );
-  const sensationMode = sensationSelection.mode;
-  const sensationAccent = sensationSelection.accent;
 
   const { data: allCycles } = useQuery(getUserCycles);
   const { data: cycle, isLoading: cycleLoading } = useQuery(getCycleById, { cycleId: cycleId || '' }, { enabled: !!cycleId });
@@ -2513,7 +2501,7 @@ export default function CycleChartPage() {
                       else tileBg = '#d8f3f0';
 
                       let chip = value
-                        ? chipStyleFor(value, { mode: sensationMode, accent: sensationAccent, hover: isHovered && !isTail })
+                        ? chipStyleFor(value, isHovered && !isTail)
                         : null;
 
                       return (
@@ -2791,12 +2779,6 @@ export default function CycleChartPage() {
         )}
       </div>
       </div>
-      {import.meta.env.DEV && (
-        <SensationPresetSwitcher
-          selection={sensationSelection}
-          onChange={setSensationSelection}
-        />
-      )}
     </div>
   );
 }

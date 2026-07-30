@@ -108,28 +108,28 @@ describe('Mode C — resting (override only Slippery)', () => {
 
 describe('chipStyleFor — Mode C hover', () => {
   it('Dry: muted teal-grey deepens #596b68 → #4d5f5c (letter + matching border)', () => {
-    const s = chipStyleFor('DRY', { mode: 'C', accent: null, hover: true });
+    const s = chipStyleFor('DRY', true);
     expect(s.background).toBe('transparent');
     expect(s.color).toBe('#4d5f5c');
     expect(s.border).toBe('1px solid #4d5f5c');
   });
 
   it('Damp: fill #9bd3c9, border #4a8f82', () => {
-    const s = chipStyleFor('DAMP', { mode: 'C', accent: null, hover: true });
+    const s = chipStyleFor('DAMP', true);
     expect(s.background).toBe('#9bd3c9');
     expect(s.color).toBe('#0f5c54');
     expect(s.border).toBe('1px solid #4a8f82');
   });
 
   it('Wet: fill deepens to #9bd3c9, frame deepens to #135e55', () => {
-    const s = chipStyleFor('WET', { mode: 'C', accent: null, hover: true });
+    const s = chipStyleFor('WET', true);
     expect(s.background).toBe('#9bd3c9');
     expect(s.color).toBe('#0f5c54');
     expect(s.border).toBe('1.5px solid #135e55');
   });
 
   it('Slippery: chip #0f766e, ring #054a44, letter white', () => {
-    const s = chipStyleFor('SLIPPERY', { mode: 'C', accent: null, hover: true });
+    const s = chipStyleFor('SLIPPERY', true);
     expect(s.background).toBe('#0f766e');
     expect(s.color).toBe('#ffffff');
     expect(s.border).toBe('1px solid transparent');
@@ -139,7 +139,7 @@ describe('chipStyleFor — Mode C hover', () => {
 
 describe('chipStyleFor — Mode C resting via main dispatcher', () => {
   it('returns the Mode C resting chip (Slippery overridden)', () => {
-    expect(chipStyleFor('SLIPPERY', { mode: 'C', accent: null, hover: false }))
+    expect(chipStyleFor('SLIPPERY', false))
       .toEqual(modeCResting('SLIPPERY'));
   });
 });
