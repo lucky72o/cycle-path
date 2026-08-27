@@ -1,7 +1,7 @@
 # Sensation row — design
 
 Date: 2026-05-20
-Status: Approved (design); colour preset to be picked in-app during implementation, before opening the PR.
+Status: **Implemented and locked** (branch `feat/sensation-row`, not yet merged). Mode C is the implemented hover mode; all colours settled (Dry, Wet, and the Slippery ring resolved 2026-07-18 → 07-30); every chip-letter state clears 4.5:1 and every meaningful frame/ring clears 3:1; the dev preset switcher has been deleted. **§13 is the current specification — §4–§7 and §9–§10 describe the trial-era design and are retained as history.** Remaining: push the branch and open the PR.
 
 ## 1. Goal
 
@@ -109,6 +109,8 @@ On hover:
 
 ## 6. Colour presets (for in-app trial)
 
+> ⚠️ **Historical (trial-era).** The Mode A/B accent preset table below was **removed from the code** when Mode C won. The contrast policy in this section still applies, but its exception list is superseded — **see §13**, where no exceptions remain.
+
 Saved as a typed table in code. Modes A and B share the same accent colour set; Mode C is monolithic.
 
 | Preset key | Label | Mode A/B accent | Source | Notes |
@@ -148,6 +150,8 @@ The floating preset switcher (§7) displays the live contrast ratio per state an
 
 ## 7. Preset switcher (dev-only, removed before PR)
 
+> ⚠️ **Historical (trial-era).** **Done — the switcher was deleted 2026-07-30.** This section describes a component that no longer exists.
+
 A small floating selector pinned to the chart page (top-right of the chart area), visible only in dev (`import.meta.env.DEV`). It lists every preset × mode (e.g. "Amber · v1", "Amber · v2", "Option 3 · Deepen teal"). Current selection persists via `localStorage` (key `cp.sensation.preset`). Switching is instant — no reload required.
 
 The selector and its persistence read are gated behind a single feature flag; before opening the PR we:
@@ -164,6 +168,8 @@ All three keep working with **no special wiring**, verified from the source:
 - **Tooltip** ([line ~1691](app/src/cycle-tracking/CycleChartPage.tsx:1691)): positioned by `crosshairX`, independent of row count. **Optional enhancement**: add a "Sensation: <value>" line to the tooltip body (gated on `day.cervicalSensation`). Treated as a *separate optional* add — implement only if the user opts in during build.
 
 ## 9. Code changes (one file modified, one new module, one dev-only component)
+
+> ⚠️ **Historical (trial-era).** Describes the original build. `SensationPresetSwitcher.tsx` has since been deleted and `sensationRow.ts` no longer holds the preset table or auto-darken helper — **see §13**.
 
 **Files touched:**
 - `app/src/cycle-tracking/CycleChartPage.tsx` — modified (row insertion, offsets, `LOWER_TABLE_PADDING_BOTTOM`, `sensationMap`, `hasSensation`).
@@ -184,6 +190,8 @@ All three keep working with **no special wiring**, verified from the source:
 No new dependencies. No schema migration. No new operations/queries.
 
 ## 10. Verification
+
+> ⚠️ **Historical (trial-era).** Steps referring to the preset switcher no longer apply — it is gone. The shipped verification record is in **§13**.
 
 - `wasp start`, open a cycle chart with recorded sensations covering all four values across days.
 - Confirm: Sensation row appears above Disturbance with correct letters per day; empty days show a plain teal tile; tail days `#f1f5f9`; nothing clips at the bottom.
@@ -207,10 +215,10 @@ Sensation (Empfindung) is one of the two cervical-mucus observation dimensions S
 
 The in-app preset trial concluded with the following picks, since amended by the Dry and Wet iterations. **This section is the source of truth; earlier sections describe the trial-time design and are retained for historical context — where a hex in §4–§7 disagrees with one here, this section wins.**
 
-**Status: Mode C locked; Dry and Wet resolved; all eight letter states pass 4.5:1.** Mode A/B and the accent preset infrastructure have been stripped from `sensationRow.ts`. The wet-variant trial machinery is also removed (2026-07-28). The dev switcher itself remains (for its per-state contrast panel) and is deleted in the final cleanup commit. See `docs/superpowers/handovers/2026-05-31-sensation-row-resume.md` for background.
+**Status: Mode C locked; Dry, Wet, and the Slippery ring resolved; all eight letter states pass 4.5:1.** Mode A/B and the accent preset infrastructure have been stripped from `sensationRow.ts`, the wet-variant trial machinery is removed (2026-07-28), and `SensationPresetSwitcher.tsx` — with its dropdown, contrast panel, and `PresetSelection` state — was **deleted in the final cleanup (2026-07-30)**. No trial machinery remains in the codebase. See `docs/superpowers/handovers/2026-05-31-sensation-row-resume.md` for background.
 
 ### Winning hover mode
-**Mode C — "deepen teal."** Modes A and B are **dropped** (already stripped from code, tests, and the switcher dropdown). The `ACCENT_PRESETS` table, `PRESET_KEYS`, `autoDarkenFor45`, `darkenShade`, `modeAChip`, and `modeBChip` are removed from `sensationRow.ts`. `HoverMode` is narrowed to `'C'`. The dispatcher `chipStyleFor` is simplified to route only to Mode C.
+**Mode C — "deepen teal."** Modes A and B are **dropped** (already stripped from code, tests, and the switcher dropdown). The `ACCENT_PRESETS` table, `PRESET_KEYS`, `autoDarkenFor45`, `darkenShade`, `modeAChip`, and `modeBChip` are removed from `sensationRow.ts`. `HoverMode` was first narrowed to `'C'` and then **removed outright** in the 2026-07-30 cleanup, along with `ChipStyleArgs` and the `accent` argument; the dispatcher is now simply `chipStyleFor(value, hover)`.
 
 ### Wet — Moist-style pale chip + deep frame (resolved 2026-07-28, supersedes the wet-variant trial)
 Wet now mirrors Moist's construction (pale fill + dark letter) and is distinguished from it by a **deeper, thicker frame** rather than by fill darkness:
@@ -274,23 +282,33 @@ Per §12, this row is a faithful display of a recorded observation and adds no i
 ### Chip sizing at narrow cell widths (documented 2026-07-30)
 The chip is declared `width: 23px` but is a flex item inside the tile, so **it shrinks to fit and 23 px is an upper bound.** `MIN_CELL_WIDTH` is 22 px (`utils.ts`), and the tile insets 1.5 px per side, so the tile's inner width bottoms out at 19 px — the chip renders that narrow on long cycles. Measured on cycle 7 (40 days): tile 19.81 px, chip 19.8 px. The row keeps its full 23 px only once `cellWidth ≥ 26`.
 
-Geometry across widths (chip = `min(23, cellWidth − 3)`; ring extends 3 px beyond the chip):
+Geometry across widths (chip = `min(23, cellWidth − 3)`; the ring extends **1.5 px** beyond the chip). Two cases must be distinguished — a ring against a plain neighbour uses `cellWidth − chipWidth − 1.5`, while **two adjacent rings** each consume 1.5 px, giving `cellWidth − chipWidth − 3`:
 
-| cellWidth | chip | gap between chips | gap: Slippery ring → neighbour |
-|---:|---:|---:|---:|
-| 22 (floor) | 19.0 | 3.0 | **0.0** |
-| 26 | 23.0 | 3.0 | **0.0** |
-| 28 | 23.0 | 5.0 | 2.0 |
-| 40 | 23.0 | 17.0 | 14.0 |
+| cellWidth | chip | gap between chips | ring → plain neighbour | ring → ring (both Slippery) |
+|---:|---:|---:|---:|---:|
+| 22 (floor) | 19.0 | 3.0 | 1.5 | **0.0** |
+| 26 | 23.0 | 3.0 | 1.5 | **0.0** |
+| 28 | 23.0 | 5.0 | 3.5 | 2.0 |
+| 40 | 23.0 | 17.0 | 15.5 | 14.0 |
 
-**Chips never overlap** — the minimum ring-to-neighbour gap is exactly 0, never negative. Verified empirically at viewports 1456 → 780 px: the chart hits its min-width and scrolls horizontally rather than compressing cells below the floor.
+**Rings never overlap — in either case.** The inter-chip gap is always exactly 3 px (2 × 1.5 px tile inset), so two 1.5 px rings meet precisely and never collide, at any cell width. Verified live: ring-to-ring measured **−0.01 px** on cycle 7, which is sub-pixel rounding on a 2.99 px measured gap, not overlap.
+
+### The ring's 3 px halo was reduced to a 1.5 px outline (2026-08-27)
+The ring was originally `box-shadow: 0 0 0 1.5px <tileBg>, 0 0 0 3px <ring>` — a detached halo with a tile-coloured gap. That extended **3 px** beyond the chip, and since the inter-chip gap is only 3 px, **two adjacent Slippery days overlapped by 3 px** (−3 px at cellWidth 22–26, −1 px at 28; clearing only at ≥29). Consecutive Slippery days are entirely normal in Sensiplan, so this was a common case, not an edge case.
+
+The ring is now a single `box-shadow: 0 0 0 1.5px <ring>` — an outline hugging the chip, with no gap band. Two of them exactly fill the 3 px gap.
+
+Trade-offs accepted with this change:
+- **The halo reads as an outline.** Losing the tile-coloured gap makes the ring hug the chip; it no longer floats as a detached halo.
+- **Ring vs chip is only 1.97:1** (`#33857a` on `#62bdb1`) — the ring's *inner* boundary is low-contrast now that it touches the fill. This is accepted: the boundary that does the work is the **outer** one against the tile at **3.77:1**, which still clears the 3:1 non-text bar and is what makes a Slippery chip read as ringed.
+- Alternatives considered and rejected: shrinking the Slippery chip to reserve room for its own ring (would make `S` visibly smaller than `d`/`m`/`w`, undercutting "highest category = boldest mark"), and drawing the ring inset (structurally immune, but changes the mark to a nested border and eats the fill on an already-small chip).
 
 **The fragile part, and why `maxWidth: 100%` is on the chip.** That no-overlap guarantee rested purely on `flex-shrink` defaulting to `1` — nothing declared it. Adding `flex-shrink: 0` (a plausible "stop my chip squashing" edit) would put a 23 px chip in a 19 px tile and make a Slippery ring bleed ~3 px over each neighbour, obscuring their borders. `maxWidth: '100%'` states the clamp explicitly so the invariant survives that edit. Neither the chip nor the tile clips overflow, so nothing else would catch it.
 
-**Known and accepted:** at `cellWidth ≤ 26` a Slippery ring's outer edge *touches* the adjacent chip with no breathing room. It does not overlap, and the ring stays legible, so the ring was left at its 3 px outer extent rather than reduced.
+**Known and accepted:** at `cellWidth ≤ 26` two adjacent Slippery rings *meet* with no breathing room (gap exactly 0). They do not overlap and each chip keeps its own complete outline, so this is accepted rather than reduced further — any thinner and the ring would fall below a reliably-renderable width.
 
-### Caveat: the in-app contrast panel measures letters only
-The dev switcher's per-state panel reads chip **letter** ratios. After this change it shows ✓ for all eight states, which is accurate — but it does not measure frames or rings, so the two items above are invisible to it.
+### Caveat: the in-app contrast panel measured letters only (panel since deleted)
+While the dev switcher existed, its per-state panel read chip **letter** ratios only — it never measured frames or rings, so it showed ✓ for all eight states while the Slippery ring sat at 1.91:1 and while adjacent rings overlapped. The panel was **deleted with the switcher on 2026-07-30**; this is recorded because it explains why those two issues went unflagged during the trial, and as a caution against treating any letter-only check as full coverage.
 
 ### Open items (must resolve before PR)
 The list below is authoritative. (`docs/superpowers/handovers/2026-05-31-sensation-row-resume.md` carries branch context and the cleanup checklist, but its colour values and "iteration knobs" are **superseded** — it is banner-marked accordingly.)

@@ -41,7 +41,10 @@ export function restingChip(value: SensationValue): ChipStyle {
 }
 
 // --- WCAG sRGB contrast helpers ---
-// Retained because the dev switcher's per-state contrast panel uses them.
+// Originally added for the dev switcher's contrast panel, which was deleted
+// 2026-07-30. Retained because the test suite pins every shipped contrast
+// value through them (letters at 4.5:1, frames and rings at 3:1) — removing
+// them would delete the contrast regression suite, not just dead code.
 
 function hexToRgb(hex: string): [number, number, number] {
   const clean = hex.replace('#', '');

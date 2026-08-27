@@ -2532,8 +2532,15 @@ export default function CycleChartPage() {
                                   background: chip.background,
                                   color: chip.color,
                                   border: chip.border,
+                                  // Category ring: a 1.5px outline hugging the chip. It
+                                  // deliberately has NO tile-coloured gap band — the gap
+                                  // between adjacent chips is only 3px (2 x 1.5px tile
+                                  // inset), so a 3px outer extent made two adjacent
+                                  // Slippery rings overlap by 3px and overpaint each
+                                  // other. At 1.5px, two rings exactly meet and never
+                                  // collide at any cell width. See spec §13.
                                   boxShadow: chip.ringColor
-                                    ? `0 0 0 1.5px ${tileBg}, 0 0 0 3px ${chip.ringColor}`
+                                    ? `0 0 0 1.5px ${chip.ringColor}`
                                     : undefined,
                                 }}
                               >
