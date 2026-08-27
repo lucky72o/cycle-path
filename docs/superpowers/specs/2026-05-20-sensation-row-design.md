@@ -1,7 +1,7 @@
 # Sensation row — design
 
 Date: 2026-05-20
-Status: **Implemented and locked** (branch `feat/sensation-row`, not yet merged). Mode C is the implemented hover mode; all colours settled (Dry, Wet, and the Slippery ring resolved 2026-07-18 → 07-30); every chip-letter state clears 4.5:1 and every meaningful frame/ring clears 3:1; the dev preset switcher has been deleted. **§13 is the current specification — §4–§7 and §9–§10 describe the trial-era design and are retained as history.** Remaining: push the branch and open the PR.
+Status: **Implemented and locked** (branch `feat/sensation-row`, not yet merged). Mode C is the implemented hover mode; all colours settled (Dry, Wet, and the Slippery ring resolved 2026-07-18 → 07-30; ring geometry reduced to a 1.5 px outline 08-27); every chip-letter state clears 4.5:1 and every meaningful frame/ring clears 3:1; the dev preset switcher has been deleted. **§13 is the current specification — §4–§7 and §9–§10 describe the trial-era design and are retained as history.** Remaining: push the branch and open the PR.
 
 ## 1. Goal
 
@@ -40,7 +40,7 @@ This row is **display-only** — editing remains in `AddCycleDayPage` / `NewCycl
 
 ## 4. Visual: resting state (locked)
 
-> ⚠️ **Chip colours below are trial-time and partly superseded — see §13 for the shipped values.** The letter map in this section is still current; the Dry and Wet chip hexes are not.
+> ⚠️ **Chip colours *and the ring geometry* below are trial-time and partly superseded — see §13 for the shipped values.** The letter map and chip dimensions are still current; the Dry and Wet chip hexes are not, and the `S` ring is now a single 1.5 px outline rather than the gap-plus-band `box-shadow` shown here.
 
 The Sensation cell tile follows the existing per-cell pattern (1.5 px inset, 3 px radius, white gap between tiles). Each day's tile contains a small centred "stamp" chip carrying a single letter that maps to the enum.
 
@@ -211,7 +211,7 @@ No new dependencies. No schema migration. No new operations/queries.
 
 Sensation (Empfindung) is one of the two cervical-mucus observation dimensions Sensiplan teaches; pairing it visually with the existing Cervical Fluid (appearance) row directly reflects the method's teaching. The notation `d / m / w / S` mirrors short-letter charting used in Sensiplan paper charts and Read-Your-Body-style coloured codes; `DAMP` is rendered as **"moist"** because the user confirmed that wording matches their teaching materials. The row is faithful to the observation; no Sensiplan interpretation rule is added or altered.
 
-## 13. Post-trial locked decisions (2026-05-31, amended 2026-07-18 & 2026-07-28) — supersedes §4–§7 where they conflict
+## 13. Post-trial locked decisions (2026-05-31, amended 2026-07-18, 07-28, 07-30 & 08-27) — supersedes §4–§7 where they conflict
 
 The in-app preset trial concluded with the following picks, since amended by the Dry and Wet iterations. **This section is the source of truth; earlier sections describe the trial-time design and are retained for historical context — where a hex in §4–§7 disagrees with one here, this section wins.**
 
@@ -264,7 +264,7 @@ One sub-threshold item remains, deliberately:
 ### Slippery resting ring (resolved 2026-07-30)
 The resting ring was `#62bdb1` — the same hex as the chip it surrounds — giving only **1.91:1** against the tile `#d8f3f0`, well under the 3:1 non-text bar. Because the ring is the row's category-emphasis device it counts as a meaningful graphic, so it was deepened to **`#33857a` ≈ 3.77:1**.
 
-- Chip, letter, and ring geometry are **unchanged**: `#62bdb1` fill, inky `#062a26` letter, 1.5 px tile-coloured gap, 3 px outer band. Only `ringColor` moved.
+- Chip, letter, and ring geometry were **unchanged by this step**: `#62bdb1` fill, inky `#062a26` letter, 1.5 px tile-coloured gap, 3 px outer band — only `ringColor` moved. ⚠️ **That geometry is the 2026-07-30 state and was superseded on 2026-08-27**: the gap band was removed and the outer extent halved to a single 1.5 px outline, because two adjacent Slippery rings overlapped. See "The ring's 3 px halo was reduced to a 1.5 px outline" below. The `#33857a` colour decided here still stands.
 - Deliberately *not* pushed darker. Candidates were compared live at 3.35 / 3.77 / 4.26:1; the deepest began to outweigh the chip it surrounds, inverting the intended hierarchy. `#257368` (4.82:1) was rejected outright — its luminance sits within 0.005 of the Slippery **hover** ring `#054a44`'s companion chip `#0f766e`, so resting and hover would have started reading alike.
 - Hover is untouched (`#054a44`, 7.28:1) and remains clearly deeper, so the resting → hover transition still reads.
 
