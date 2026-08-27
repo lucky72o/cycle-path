@@ -2513,7 +2513,15 @@ export default function CycleChartPage() {
                               <div
                                 className="font-montserrat"
                                 style={{
+                                  // 23px is the MAXIMUM chip width, not a fixed one. At
+                                  // MIN_CELL_WIDTH (22px) the tile's inner width is only 19px,
+                                  // so the chip must shrink to fit. maxWidth makes that clamp
+                                  // explicit: without it the chip survives only on the default
+                                  // flex-shrink, and adding `flex-shrink: 0` here would push a
+                                  // 23px chip into a 19px tile — the Slippery ring would then
+                                  // bleed over its neighbours. See spec §4.
                                   width: '23px',
+                                  maxWidth: '100%',
                                   height: '17px',
                                   borderRadius: '5px',
                                   display: 'flex',

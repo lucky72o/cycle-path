@@ -65,7 +65,7 @@ Chip letter contrast targets 4.5:1 per §6. Three resting/Mode-C combinations be
 | `w` | `#62bdb1` | `#ffffff` | `1px transparent` | — |
 | `S` | `#0f766e` | `#ffffff` | `1px transparent` | category ring: `box-shadow: 0 0 0 1.5px <tileBg>, 0 0 0 3px #0f766e` |
 
-Chip dimensions: 23 × 17 px, border-radius 5 px, Montserrat 700 11 px.
+Chip dimensions: **up to** 23 × 17 px, border-radius 5 px, Montserrat 700 11 px. **23 px is a maximum, not a fixed width** — see "Chip sizing at narrow cell widths" in §13.
 
 Cell tile resting: `#d8f3f0`. Tail days: `#f1f5f9` (no chip).
 
@@ -270,6 +270,24 @@ Earlier drafts of this spec and the handover described the `S` chip and its ring
 - Therefore the ring means **"highest sensation category observed on this day"** — nothing more. **No mucus Peak Day calculation exists anywhere in this codebase.** (`risingPeakDays` in `CycleChartPage.tsx` concerns the *temperature* shift and is unrelated.)
 
 Per §12, this row is a faithful display of a recorded observation and adds no interpretation rule. A genuine Peak Day marker would be a separate feature requiring sensation + appearance together, best-quality determination, and a retrospective confirmation step.
+
+### Chip sizing at narrow cell widths (documented 2026-07-30)
+The chip is declared `width: 23px` but is a flex item inside the tile, so **it shrinks to fit and 23 px is an upper bound.** `MIN_CELL_WIDTH` is 22 px (`utils.ts`), and the tile insets 1.5 px per side, so the tile's inner width bottoms out at 19 px — the chip renders that narrow on long cycles. Measured on cycle 7 (40 days): tile 19.81 px, chip 19.8 px. The row keeps its full 23 px only once `cellWidth ≥ 26`.
+
+Geometry across widths (chip = `min(23, cellWidth − 3)`; ring extends 3 px beyond the chip):
+
+| cellWidth | chip | gap between chips | gap: Slippery ring → neighbour |
+|---:|---:|---:|---:|
+| 22 (floor) | 19.0 | 3.0 | **0.0** |
+| 26 | 23.0 | 3.0 | **0.0** |
+| 28 | 23.0 | 5.0 | 2.0 |
+| 40 | 23.0 | 17.0 | 14.0 |
+
+**Chips never overlap** — the minimum ring-to-neighbour gap is exactly 0, never negative. Verified empirically at viewports 1456 → 780 px: the chart hits its min-width and scrolls horizontally rather than compressing cells below the floor.
+
+**The fragile part, and why `maxWidth: 100%` is on the chip.** That no-overlap guarantee rested purely on `flex-shrink` defaulting to `1` — nothing declared it. Adding `flex-shrink: 0` (a plausible "stop my chip squashing" edit) would put a 23 px chip in a 19 px tile and make a Slippery ring bleed ~3 px over each neighbour, obscuring their borders. `maxWidth: '100%'` states the clamp explicitly so the invariant survives that edit. Neither the chip nor the tile clips overflow, so nothing else would catch it.
+
+**Known and accepted:** at `cellWidth ≤ 26` a Slippery ring's outer edge *touches* the adjacent chip with no breathing room. It does not overlap, and the ring stays legible, so the ring was left at its 3 px outer extent rather than reduced.
 
 ### Caveat: the in-app contrast panel measures letters only
 The dev switcher's per-state panel reads chip **letter** ratios. After this change it shows ✓ for all eight states, which is accurate — but it does not measure frames or rings, so the two items above are invisible to it.
