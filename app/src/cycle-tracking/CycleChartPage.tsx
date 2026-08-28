@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
 import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight } from './utils';
+import { chipStyleFor, type SensationValue } from './sensationRow';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
 import { useInterpretation } from './interpretation/hooks/useInterpretation';
@@ -69,7 +70,7 @@ function paletteFor(monthIndex: number) {
 export default function CycleChartPage() {
   const { cycleId } = useParams();
   const navigate = useNavigate();
-  
+
   const { data: allCycles } = useQuery(getUserCycles);
   const { data: cycle, isLoading: cycleLoading } = useQuery(getCycleById, { cycleId: cycleId || '' }, { enabled: !!cycleId });
   const { data: settings, isLoading: settingsLoading } = useQuery(getUserSettings);
@@ -542,7 +543,18 @@ export default function CycleChartPage() {
 
   // Notes row sizing (cervical-fluid bar helpers now live in ./utils)
   const NOTES_ROW_HEIGHT = notesRowExpanded ? 120 : 28;
-  const LOWER_TABLE_PADDING_BOTTOM = 262 + NOTES_ROW_HEIGHT;
+  const LOWER_TABLE_PADDING_BOTTOM = 290 + NOTES_ROW_HEIGHT;
+
+  // Create a map of day numbers to cervical sensation (display-only).
+  const sensationMap = useMemo(() => {
+    if (!cycle) return new Map<number, SensationValue | null>();
+    const map = new Map<number, SensationValue | null>();
+    for (let dayNumber = displayDayRange.minDay; dayNumber <= displayDayRange.maxDay; dayNumber++) {
+      const day = allCycleDaysMap.get(dayNumber);
+      map.set(dayNumber, day?.cervicalSensation ?? null);
+    }
+    return map;
+  }, [cycle, allCycleDaysMap, displayDayRange]);
 
   // Create a map of day numbers to disturbance factors
   const disturbanceMap = useMemo(() => {
@@ -609,7 +621,8 @@ export default function CycleChartPage() {
       const hasCF = !!cfData?.cervicalAppearance;
       const hasMenstrual = !!cfData?.menstrualFlow;
       const hasDisturbance = (day?.disturbanceFactors?.length ?? 0) > 0;
-      map.set(dayNumber, hasBBT || hasTime || hasOPK || hasIntercourse || hasCF || hasMenstrual || hasDisturbance);
+      const hasSensation = day?.cervicalSensation != null;
+      map.set(dayNumber, hasBBT || hasTime || hasOPK || hasIntercourse || hasCF || hasMenstrual || hasDisturbance || hasSensation);
     }
     return map;
   }, [cycle, chartData, allCycleDaysMap, timeStampsMap, opkStatusMap, cervicalMenstrualMap, displayDayRange]);
@@ -2382,12 +2395,30 @@ export default function CycleChartPage() {
                     })}
                   </div>
 
-                  {/* Disturbance Row Label - positioned below Dry (+234px) */}
+                  {/* Sensation Row Label - positioned below Cervical Fluid (+234px) */}
                   <div
                     className="absolute left-0"
                     style={{
                       width: `${plotAreaOffset}px`,
                       top: `${plotAreaTop + chartHeight + 234}px`,
+                      zIndex: 2
+                    }}
+                  >
+                    <div style={{ position: 'relative', height: '28px' }}>
+                      <div className="absolute flex items-center justify-end px-3 font-montserrat"
+                        style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: '#d8f3f0',
+                          color: '#002142', fontWeight: 600, fontSize: '11px', letterSpacing: '0.02em', textAlign: 'right' }}>
+                        Sensation
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Disturbance Row Label - positioned below Dry (+262px) */}
+                  <div
+                    className="absolute left-0"
+                    style={{
+                      width: `${plotAreaOffset}px`,
+                      top: `${plotAreaTop + chartHeight + 262}px`,
                       zIndex: 2
                     }}
                   >
@@ -2400,12 +2431,12 @@ export default function CycleChartPage() {
                     </div>
                   </div>
 
-                  {/* Notes Row Label - positioned below Disturbance (+262px) */}
+                  {/* Notes Row Label - positioned below Disturbance (+290px) */}
                   <div
                     className="absolute left-0"
                     style={{
                       width: `${plotAreaOffset}px`,
-                      top: `${plotAreaTop + chartHeight + 262}px`,
+                      top: `${plotAreaTop + chartHeight + 290}px`,
                       zIndex: 2
                     }}
                   >
@@ -2443,13 +2474,92 @@ export default function CycleChartPage() {
                     </div>
                   </div>
 
-                  {/* Disturbance Grid Row */}
+                  {/* Sensation Grid Row - positioned below Cervical Fluid (+234px) */}
                   <div
                     className="absolute"
                     style={{
                       left: 0,
                       right: 0,
                       top: `${plotAreaTop + chartHeight + 234}px`,
+                      height: '28px',
+                      zIndex: 1
+                    }}
+                  >
+                    {Array.from({ length: chartData.maxDay - chartData.minDay + 1 }, (_, i) => {
+                      const dayNumber = chartData.minDay + i;
+                      const value = sensationMap.get(dayNumber) as SensationValue | null;
+                      const numDays = chartData.maxDay - chartData.minDay + 1;
+                      const cellWidth = plotAreaWidth / numDays;
+                      const leftEdge = plotAreaOffset + (i * cellWidth);
+                      const isHovered = hoveredDayNumber === dayNumber;
+                      const isTail = cycle ? isCycleDayInTail(cycle, dayNumber, recordedMaxDay) : false;
+
+                      // Tile background — standard tail / hover / resting pattern (Mode C only).
+                      let tileBg: string;
+                      if (isTail) tileBg = '#f1f5f9';
+                      else if (isHovered) tileBg = '#aee5df';
+                      else tileBg = '#d8f3f0';
+
+                      let chip = value
+                        ? chipStyleFor(value, isHovered && !isTail)
+                        : null;
+
+                      return (
+                        <div key={dayNumber} className="absolute"
+                          style={{ left: `${leftEdge}px`, width: `${cellWidth}px`, top: 0, height: '28px', pointerEvents: 'none' }}>
+                          <div className="absolute flex items-center justify-center"
+                            style={{ inset: '1.5px', borderRadius: '3px', backgroundColor: tileBg }}>
+                            {!isTail && chip && (
+                              <div
+                                className="font-montserrat"
+                                style={{
+                                  // 23px is the MAXIMUM chip width, not a fixed one. At
+                                  // MIN_CELL_WIDTH (22px) the tile's inner width is only 19px,
+                                  // so the chip must shrink to fit. maxWidth makes that clamp
+                                  // explicit: without it the chip survives only on the default
+                                  // flex-shrink, and adding `flex-shrink: 0` here would push a
+                                  // 23px chip into a 19px tile — the Slippery ring would then
+                                  // bleed over its neighbours. See spec §4.
+                                  width: '23px',
+                                  maxWidth: '100%',
+                                  height: '17px',
+                                  borderRadius: '5px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  background: chip.background,
+                                  color: chip.color,
+                                  border: chip.border,
+                                  // Category ring: a 1.5px outline hugging the chip. It
+                                  // deliberately has NO tile-coloured gap band — the gap
+                                  // between adjacent chips is only 3px (2 x 1.5px tile
+                                  // inset), so a 3px outer extent made two adjacent
+                                  // Slippery rings overlap by 3px and overpaint each
+                                  // other. At 1.5px, two rings exactly meet and never
+                                  // collide at any cell width. See spec §13.
+                                  boxShadow: chip.ringColor
+                                    ? `0 0 0 1.5px ${chip.ringColor}`
+                                    : undefined,
+                                }}
+                              >
+                                {chip.letter}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Disturbance Grid Row */}
+                  <div
+                    className="absolute"
+                    style={{
+                      left: 0,
+                      right: 0,
+                      top: `${plotAreaTop + chartHeight + 262}px`,
                       height: '28px',
                       zIndex: 1
                     }}
@@ -2494,13 +2604,13 @@ export default function CycleChartPage() {
                     })}
                   </div>
 
-                  {/* Notes Grid Row - positioned below Disturbance (+262px) */}
+                  {/* Notes Grid Row - positioned below Disturbance (+290px) */}
                   <div
                     className="absolute"
                     style={{
                       left: 0,
                       right: 0,
-                      top: `${plotAreaTop + chartHeight + 262}px`,
+                      top: `${plotAreaTop + chartHeight + 290}px`,
                       height: `${NOTES_ROW_HEIGHT}px`,
                       zIndex: 1
                     }}
