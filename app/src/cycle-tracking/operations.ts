@@ -20,6 +20,7 @@ import { Prisma } from '@prisma/client';
 import { computeCycleStartDate, convertToCelsiusForStorage, getDayOfWeek } from './utils';
 import { isNoteTooLong, NOTE_MAX_LENGTH } from './notesValidation';
 import {
+  stripEmptyFields,
   buildCycleDayUpdateData,
   buildCycleDayCreateData,
   type CycleDayPartialArgs,
@@ -332,9 +333,12 @@ type CreateOrUpdateCycleDayArgs = CycleDayPartialArgs & {
   cycleId: string;
   dayNumber?: number;
   date: string;
+  /** When true and the day already exists, empty values never overwrite recorded data. */
+  preserveExisting?: boolean;
 };
 
-export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleDayArgs, CycleDay> = async (args, context) => {
+export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleDayArgs, CycleDay> = async (rawArgs, context) => {
+  const { preserveExisting, ...args } = rawArgs;
   if (!context.user) {
     throw new HttpError(401, 'Not authorized');
   }
@@ -386,7 +390,11 @@ export const createOrUpdateCycleDay: CreateOrUpdateCycleDay<CreateOrUpdateCycleD
   if (existingDay) {
     updatedDay = await context.entities.CycleDay.update({
       where: { id: existingDay.id },
-      data: buildCycleDayUpdateData(args, entryDate, dayOfWeek),
+      data: buildCycleDayUpdateData(
+        preserveExisting ? stripEmptyFields(args) : args,
+        entryDate,
+        dayOfWeek
+      ),
     });
   } else {
     updatedDay = await context.entities.CycleDay.create({

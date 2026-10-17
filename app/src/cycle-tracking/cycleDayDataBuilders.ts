@@ -16,6 +16,31 @@ export type CycleDayPartialArgs = {
 };
 
 /**
+ * Return a copy of `args` without empty values (undefined, null, '' / whitespace-only
+ * strings, false, []). Used by `preserveExisting` saves so an empty form field can
+ * never overwrite recorded data. `travelTimeDiff` is only meaningful with the TRAVEL
+ * disturbance ticked: without a factor set it is dropped, and a factor set without TRAVEL
+ * clears it to null (0 is kept when TRAVEL is ticked).
+ */
+export function stripEmptyFields(args: CycleDayPartialArgs): CycleDayPartialArgs {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(args)) {
+    if (value === undefined || value === null || value === false) continue;
+    if (typeof value === 'string' && value.trim() === '') continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+    result[key] = value;
+  }
+  const factors = result.disturbanceFactors;
+  if (!Array.isArray(factors)) {
+    delete result.travelTimeDiff;
+  } else if (!factors.includes('TRAVEL')) {
+    // The factor set is being replaced without TRAVEL: explicitly clear stale hours.
+    result.travelTimeDiff = null;
+  }
+  return result as CycleDayPartialArgs;
+}
+
+/**
  * Build the `data` argument for `CycleDay.update`. Every optional field
  * is included only if its key is present in `args` — this preserves
  * existing values when a caller (e.g. the Notes Sheet) only changes one

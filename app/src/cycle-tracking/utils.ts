@@ -398,3 +398,12 @@ export function getCFBarHeight(appearance: string): number {
   }
 }
 
+
+/**
+ * Format an ISO `YYYY-MM-DD` date as `DD/MM`. String-based on purpose: going
+ * through Date local fields would shift stored UTC-midnight dates a day west of UTC.
+ */
+export function formatDateDDMM(isoDate: string): string {
+  const [, month, day] = isoDate.slice(0, 10).split('-');
+  return `${day}/${month}`;
+}

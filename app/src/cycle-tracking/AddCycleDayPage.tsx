@@ -7,8 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
-import { Info } from 'lucide-react';
-import { formatDateForInput, toDisplayTemperature, formatTemperature } from './utils';
+import { Info, AlertTriangle } from 'lucide-react';
+import { formatDateForInput, toDisplayTemperature, formatTemperature, formatDateDDMM } from './utils';
+import {
+  findSavedDayForDate,
+  compareWithSavedDay,
+  buildDuplicateSavePayload,
+  type DuplicateComparison
+} from './duplicateDay';
+import { DuplicateDayDialog } from './components/DuplicateDayDialog';
 import { computeBbtForStorage } from './computeBbtForStorage';
 import { NOTE_MAX_LENGTH } from './notesValidation';
 import SideNav from './SideNav';
@@ -53,6 +60,7 @@ export default function AddCycleDayPage() {
   const [travelTimeDiff, setTravelTimeDiff] = useState<number>(0);
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingComparison, setPendingComparison] = useState<DuplicateComparison | null>(null);
 
   // Find the existing day if we're editing
   const existingDay = dayId && cycle 
@@ -95,14 +103,85 @@ export default function AddCycleDayPage() {
       ) + 1
     : null;
 
+  // Add mode only: is the selected date already recorded in this cycle?
+  const duplicateDay =
+    !dayId && cycle ? findSavedDayForDate(cycle.days, cycle.startDate, date) : null;
+
+  const afterSave = () => {
+    // Reset form (only if adding, not editing)
+    if (!existingDay) {
+      setBbt('');
+      setBbtTime('');
+      setHadIntercourse(false);
+      setExcludeFromInterpretation(false);
+      setCervicalAppearance('');
+      setCervicalSensation('');
+      setOpkStatus('');
+      setMenstrualFlow('');
+      setDisturbanceFactors([]);
+      setTravelTimeDiff(0);
+      setNotes('');
+    }
+
+    // Redirect back to chart if that's where the edit was initiated, otherwise days page
+    navigate(returnTo === 'chart' ? `/cycles/${cycleId}/chart` : `/cycles/${cycleId}/days`);
+  };
+
+  const saveDay = async (buildArgs: () => Record<string, unknown>) => {
+    if (!cycleId) return;
+    setIsSubmitting(true);
+    try {
+      const { createOrUpdateCycleDay } = await import('wasp/client/operations');
+      await createOrUpdateCycleDay(buildArgs() as any);
+      setPendingComparison(null);
+      afterSave();
+    } catch (err: any) {
+      console.error('Failed to save cycle day:', err);
+      alert(err.message || 'Failed to save cycle day');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const saveDuplicate = (comparison: DuplicateComparison, choice: 'replace' | 'keep') =>
+    saveDay(() => ({
+      cycleId,
+      date,
+      ...buildDuplicateSavePayload(comparison, choice),
+      preserveExisting: true
+    }));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cycleId) return;
 
-    setIsSubmitting(true);
-    try {
-      const { createOrUpdateCycleDay } = await import('wasp/client/operations');
-      
+    if (duplicateDay) {
+      const comparison = compareWithSavedDay(
+        {
+          bbt,
+          bbtTime,
+          hadIntercourse,
+          excludeFromInterpretation,
+          cervicalAppearance,
+          cervicalSensation,
+          opkStatus,
+          menstrualFlow,
+          disturbanceFactors,
+          travelTimeDiff,
+          notes
+        },
+        duplicateDay,
+        settings?.temperatureUnit ?? 'FAHRENHEIT'
+      );
+      if (comparison.conflicts.length === 0) {
+        await saveDuplicate(comparison, 'replace');
+      } else {
+        setPendingComparison(comparison);
+      }
+      return;
+    }
+
+    await saveDay(() => {
       const bbtForStorage = computeBbtForStorage({
         bbt,
         prefilledBbt,
@@ -111,7 +190,7 @@ export default function AddCycleDayPage() {
         inputUnit: settings?.temperatureUnit ?? 'FAHRENHEIT',
       });
 
-      await createOrUpdateCycleDay({
+      return {
         cycleId,
         date,
         // Only include bbt when we have a definite value to send (number) or an
@@ -130,31 +209,10 @@ export default function AddCycleDayPage() {
         disturbanceFactors,
         travelTimeDiff: disturbanceFactors.includes('TRAVEL') ? travelTimeDiff : null,
         notes: notes.trim() || null,
-      });
-
-      // Reset form (only if adding, not editing)
-      if (!existingDay) {
-        setBbt('');
-        setBbtTime('');
-        setHadIntercourse(false);
-        setExcludeFromInterpretation(false);
-        setCervicalAppearance('');
-        setCervicalSensation('');
-        setOpkStatus('');
-        setMenstrualFlow('');
-        setDisturbanceFactors([]);
-        setTravelTimeDiff(0);
-        setNotes('');
-      }
-      
-      // Redirect back to chart if that's where the edit was initiated, otherwise days page
-      navigate(returnTo === 'chart' ? `/cycles/${cycleId}/chart` : `/cycles/${cycleId}/days`);
-    } catch (err: any) {
-      console.error('Failed to save cycle day:', err);
-      alert(err.message || 'Failed to save cycle day');
-    } finally {
-      setIsSubmitting(false);
-    }
+        // Add mode never erases a field that is already saved; Edit mode is unchanged.
+        ...(!dayId && { preserveExisting: true }),
+      };
+    });
   };
 
   if (cycleLoading || settingsLoading) {
@@ -354,6 +412,26 @@ export default function AddCycleDayPage() {
                 </>
               )}
             </div>
+
+            {duplicateDay && (
+              <div
+                role="status"
+                className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+              >
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <p>
+                  You already have an entry for{' '}
+                  <strong>{`${formatDateDDMM(date)} (Day ${duplicateDay.dayNumber})`}</strong>. Saving here will
+                  replace existing data.{' '}
+                  <Link
+                    to={`/cycles/${cycle.id}/add-day?dayId=${duplicateDay.id}${returnTo === 'chart' ? '&returnTo=chart' : ''}`}
+                    className="font-medium underline underline-offset-2"
+                  >
+                    Edit that entry instead
+                  </Link>
+                </p>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -600,6 +678,19 @@ export default function AddCycleDayPage() {
           </form>
         </CardContent>
       </Card>
+
+      {pendingComparison && (
+        <DuplicateDayDialog
+          open
+          dateLabel={formatDateDDMM(date)}
+          conflicts={pendingComparison.conflicts}
+          kept={pendingComparison.kept}
+          busy={isSubmitting}
+          onReplace={() => saveDuplicate(pendingComparison, 'replace')}
+          onKeepExisting={() => saveDuplicate(pendingComparison, 'keep')}
+          onCancel={() => setPendingComparison(null)}
+        />
+      )}
 
       {cycle.days.length > 0 && (
         <div className="mt-6">

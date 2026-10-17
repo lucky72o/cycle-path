@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   buildCycleDayUpdateData,
   buildCycleDayCreateData,
+  stripEmptyFields,
 } from '../cycleDayDataBuilders';
 
 const ENTRY_DATE = new Date('2026-05-04T00:00:00Z');
@@ -110,5 +111,70 @@ describe('buildCycleDayCreateData', () => {
       { cycleId: 'cycle-1', dayNumber: 5, entryDate: ENTRY_DATE, dayOfWeek: DAY_OF_WEEK }
     );
     expect(data.disturbanceFactors).toEqual(['TRAVEL', 'STRESS']);
+  });
+});
+
+describe('stripEmptyFields', () => {
+  it('drops null, undefined, empty string, false and empty array', () => {
+    expect(
+      stripEmptyFields({
+        bbt: null,
+        bbtTime: '',
+        hadIntercourse: false,
+        excludeFromInterpretation: false,
+        cervicalAppearance: null,
+        cervicalSensation: null,
+        opkStatus: null,
+        menstrualFlow: null,
+        disturbanceFactors: [],
+        travelTimeDiff: null,
+        notes: '   ',
+      })
+    ).toEqual({});
+  });
+
+  it('keeps filled values', () => {
+    const input = {
+      bbt: 36.7,
+      bbtTime: '07:15',
+      hadIntercourse: true,
+      cervicalAppearance: 'STICKY' as const,
+      notes: 'x',
+    };
+    expect(stripEmptyFields(input)).toEqual(input);
+  });
+
+  it('keeps travelTimeDiff 0 when TRAVEL is ticked', () => {
+    const input = { disturbanceFactors: ['TRAVEL'], travelTimeDiff: 0 };
+    expect(stripEmptyFields(input)).toEqual(input);
+  });
+
+  it('drops travelTimeDiff when TRAVEL is not ticked', () => {
+    expect(stripEmptyFields({ disturbanceFactors: ['STRESS'], travelTimeDiff: 3 })).toEqual({
+      disturbanceFactors: ['STRESS'],
+      travelTimeDiff: null,
+    });
+  });
+
+  it('drops travelTimeDiff when the payload has no disturbanceFactors', () => {
+    expect(stripEmptyFields({ bbt: 36.5, travelTimeDiff: 3 })).toEqual({ bbt: 36.5 });
+  });
+
+  it('full Add-page payload with only BBT keeps only BBT', () => {
+    expect(
+      stripEmptyFields({
+        bbt: 36.7,
+        bbtTime: '',
+        hadIntercourse: false,
+        excludeFromInterpretation: false,
+        cervicalAppearance: null,
+        cervicalSensation: null,
+        opkStatus: null,
+        menstrualFlow: null,
+        disturbanceFactors: [],
+        travelTimeDiff: null,
+        notes: '',
+      })
+    ).toEqual({ bbt: 36.7 });
   });
 });
