@@ -420,7 +420,9 @@ export default function AddCycleDayPage() {
               >
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <p>
-                  {`You already have an entry for ${formatDateDDMM(date)} (Day ${duplicateDay.dayNumber}). Saving here will replace existing data.`}{' '}
+                  You already have an entry for{' '}
+                  <strong>{`${formatDateDDMM(date)} (Day ${duplicateDay.dayNumber})`}</strong>. Saving here will
+                  replace existing data.{' '}
                   <Link
                     to={`/cycles/${cycle.id}/add-day?dayId=${duplicateDay.id}${returnTo === 'chart' ? '&returnTo=chart' : ''}`}
                     className="font-medium underline underline-offset-2"

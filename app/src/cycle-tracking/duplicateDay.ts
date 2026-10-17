@@ -204,8 +204,11 @@ export function compareWithSavedDay(
     nextText: string,
     payload: CycleDayPartialArgs
   ) => {
-    if (state === 'keep') kept.push({ label: spec.label, saved: savedText });
-    else if (state === 'fill') Object.assign(fillIns, payload);
+    if (state === 'keep') {
+      const shown =
+        spec.label === 'Notes' && savedText.length > 30 ? `${savedText.slice(0, 30)}…` : savedText;
+      kept.push({ label: spec.label, saved: shown });
+    } else if (state === 'fill') Object.assign(fillIns, payload);
     else if (state === 'conflict') {
       conflicts.push({ label: spec.label, saved: savedText, next: nextText });
       Object.assign(replacements, payload);
@@ -244,6 +247,10 @@ export function compareWithSavedDay(
     classify(factorSpec, 'conflict', factorLabels(savedFactors), factorLabels(newFactors), {
       disturbanceFactors: newFactors
     });
+    // Replacing a TRAVEL set with a non-TRAVEL set must also clear the saved hours.
+    if (savedFactors.includes('TRAVEL') && !newFactors.includes('TRAVEL')) {
+      replacements.travelTimeDiff = null;
+    }
   }
 
   // Travel time difference: only meaningful when the new entry ticks TRAVEL.

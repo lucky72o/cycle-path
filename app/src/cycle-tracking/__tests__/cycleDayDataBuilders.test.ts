@@ -152,7 +152,12 @@ describe('stripEmptyFields', () => {
   it('drops travelTimeDiff when TRAVEL is not ticked', () => {
     expect(stripEmptyFields({ disturbanceFactors: ['STRESS'], travelTimeDiff: 3 })).toEqual({
       disturbanceFactors: ['STRESS'],
+      travelTimeDiff: null,
     });
+  });
+
+  it('drops travelTimeDiff when the payload has no disturbanceFactors', () => {
+    expect(stripEmptyFields({ bbt: 36.5, travelTimeDiff: 3 })).toEqual({ bbt: 36.5 });
   });
 
   it('full Add-page payload with only BBT keeps only BBT', () => {

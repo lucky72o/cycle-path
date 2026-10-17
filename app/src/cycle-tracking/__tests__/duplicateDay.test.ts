@@ -154,4 +154,25 @@ describe('formatDateDDMM', () => {
   it('formats from the string', () => {
     expect(formatDateDDMM('2026-05-14')).toBe('14/05');
   });
+
+  it('replacing a TRAVEL set with a non-TRAVEL set clears travelTimeDiff', () => {
+    const c = compareWithSavedDay(
+      { ...emptyForm, disturbanceFactors: ['STRESS'] },
+      { ...saved, disturbanceFactors: ['TRAVEL'], travelTimeDiff: 3 },
+      'CELSIUS'
+    );
+    expect(stripEmptyFields(buildDuplicateSavePayload(c, 'replace'))).toEqual({
+      disturbanceFactors: ['STRESS'],
+      travelTimeDiff: null
+    });
+    const keep = stripEmptyFields(buildDuplicateSavePayload(c, 'keep'));
+    expect(keep).not.toHaveProperty('disturbanceFactors');
+    expect(keep).not.toHaveProperty('travelTimeDiff');
+  });
+
+  it('truncates a long note in the kept line to 30 chars + ellipsis', () => {
+    const long = 'x'.repeat(150);
+    const c = compareWithSavedDay(emptyForm, { ...saved, notes: long }, 'CELSIUS');
+    expect(c.kept.find((k) => k.label === 'Notes')?.saved).toBe('x'.repeat(30) + '…');
+  });
 });

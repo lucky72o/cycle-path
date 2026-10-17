@@ -55,7 +55,7 @@ export function DuplicateDayDialog({
           </table>
 
           {kept.length > 0 && (
-            <p className='mt-3 text-xs text-muted-foreground'>
+            <p className='mt-3 text-xs text-emerald-700 dark:text-emerald-400'>
               {`✓ Kept as is: ${kept.map((k) => `${k.label} (${k.saved})`).join(', ')}`}
             </p>
           )}
