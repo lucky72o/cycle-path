@@ -16,8 +16,8 @@
 - Dialog title (exact): `Overwrite existing data for {DD/MM}?`
 - Dialog body (exact): `This day already has an entry. Saving will replace these fields:`
 - Kept line (exact prefix): `✓ Kept as is: ` + comma-separated `Label (value)`; omit the line when nothing is kept.
-- Buttons, in order: `Cancel` · `Keep existing` · `Replace` (Replace is the warning-coloured primary).
-- Dialog table columns: `Field` | `Saved` | `New`; saved value struck through.
+- Buttons, in order on every screen size: `Keep existing` · `Replace` · `Cancel` (revised 2026-10-17; see Task 5 for exact classes).
+- Dialog table columns: `Field` | `Saved` | `New`; saved value struck through in `text-slate-600`, new value bold `#1e3a8a` (revised 2026-10-17).
 - Field labels: `BBT`, `BBT Time`, `Intercourse`, `Exclude from BBT-based interpretation`, `Menstrual Flow`, `Cervical Fluid · Appearance`, `Cervical Fluid · Sensation`, `Ovulation Predictor Kit`, `Disturbance Factor`, `Travel time difference`, `Notes`.
 - BBT equality: compare at 2 decimals in the user's display unit.
 - Checkboxes never conflict; unticked = empty (keep).
@@ -193,3 +193,39 @@ Behaviour (only when `dayId` is absent; the edit path stays byte-for-byte the sa
   (g) phone width (~400px): notice and dialog fit without horizontal scroll.
   Capture screenshots of (a) and (d).
 - [ ] **Step 4: Commit**: `feat(duplicate-day): warn and confirm before overwriting a recorded day`
+
+---
+
+### Task 5: Dialog restyle — button order and colours (revision 2026-10-17)
+
+User-approved after Tasks 1–4 were built (mockup `.superpowers/brainstorm/31473-1792262571/content/button-order-colours-v7.html`). Presentation only; no behaviour, prop or handler changes.
+
+**Files:**
+- Modify: `app/src/cycle-tracking/components/DuplicateDayDialog.tsx` (table cells, button block)
+- Test: `app/src/cycle-tracking/__tests__/DuplicateDayDialog.test.tsx`
+
+**Interfaces:**
+- Consumes/produces: unchanged `DuplicateDayDialog` props (Task 3).
+
+Exact values:
+| Element | Classes |
+|---|---|
+| Button container | `mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end` (no `flex-col-reverse`; DOM order = visual order everywhere) |
+| Button order (DOM) | `Keep existing`, `Replace`, `Cancel` |
+| Keep existing | `rounded-md border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-600 hover:bg-emerald-100 dark:border-emerald-500 dark:bg-emerald-950 dark:text-emerald-400 dark:hover:bg-emerald-900` |
+| Replace | `rounded-md border border-red-600 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100 dark:border-red-500 dark:bg-red-950 dark:text-red-400 dark:hover:bg-red-900` |
+| Cancel | `rounded-md border border-red-600 bg-transparent px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-950` |
+| All three buttons | keep `disabled:pointer-events-none disabled:opacity-50` |
+| Saved cell | `text-slate-600 line-through dark:text-slate-400` (replaces `text-muted-foreground`) |
+| New cell | `font-semibold text-[#1e3a8a] dark:text-blue-300` (replaces amber) |
+
+- [ ] **Step 1: Write failing tests** in `DuplicateDayDialog.test.tsx`:
+  - `renders buttons in order Keep existing, Replace, Cancel`: `screen.getAllByRole('button').map(b => b.textContent)` equals `['Keep existing', 'Replace', 'Cancel']`.
+  - `styles the saved and new cells`: the saved cell has classes `text-slate-600` and `line-through`; the new cell has class `text-[#1e3a8a]`.
+  - `styles the buttons`: Keep existing has `border-emerald-600` and `text-emerald-600`; Replace has `border-red-600` and `bg-red-50`; Cancel has `border-red-600` and `bg-transparent`.
+- [ ] **Step 2: Run, expect FAIL**: `cd app && npx vitest run src/cycle-tracking/__tests__/DuplicateDayDialog.test.tsx`
+- [ ] **Step 3: Apply the classes and order** from the table.
+- [ ] **Step 4: Run, expect PASS**, then the full suite: `cd app && npx vitest run` (346 passing before this task).
+- [ ] **Step 5: Manual check:** at desktop width and at 400px, the order is Keep existing → Replace → Cancel, and the colours match the v7 mockup.
+- [ ] **Step 6: Commit**: `style(duplicate-day): dialog button order and colours per approved mockup`
+

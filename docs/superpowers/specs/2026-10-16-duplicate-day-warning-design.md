@@ -85,9 +85,12 @@ What "empty" and "same" mean for each field:
 
   - Title: **"Overwrite existing data for {DD/MM}?"**
   - Grey text (exact, user-approved): **"This day already has an entry. Saving will replace these fields:"**
-  - Table with columns **Field | Saved | New**, one row per conflicting field. The saved value is struck through and the new value emphasised. Field names use the Add page's own labels (e.g. "BBT", "BBT Time", "Cervical Fluid · Appearance").
+  - Table with columns **Field | Saved | New**, one row per conflicting field. The saved value is struck through in a readable dark grey (slate-600, `#475569`), not a pale grey. The new value is bold navy blue `#1e3a8a`, the text colour of the graph's Week Day / Cycle Day chips (`CycleChartPage.tsx` `MONTH_PALETTE[0].chipText`). Field names use the Add page's own labels (e.g. "BBT", "BBT Time", "Cervical Fluid · Appearance"). *(Colours revised 2026-10-17, user-approved mockup `.superpowers/brainstorm/31473-1792262571/content/button-order-colours-v7.html`.)*
   - Below the table, a green line listing saved fields that will be kept because the new entry left them empty: "✓ Kept as is: Cervical Fluid · Appearance (Sticky), Notes". Omit the line when nothing is kept.
-  - Buttons: **Cancel** · **Keep existing** · **Replace** (Replace is the emphasised, warning-coloured action).
+  - Buttons, in this order on every screen size (left to right on desktop, top to bottom on phones): **Keep existing** · **Replace** · **Cancel**. *(Order and colours revised 2026-10-17, user-approved, same mockup as above.)*
+    - **Keep existing:** pale green fill, green text, green outline (emerald-50 / emerald-600 / emerald-600).
+    - **Replace:** the Thermal Shift "Reject This Pattern" look (pale red fill `bg-red-50`, red text `text-red-600`), with a strong red outline (`border-red-600`) instead of that button's light `border-red-200`.
+    - **Cancel:** red text and the same strong red outline, no fill.
     - **Replace:** save conflicting fields with the new values, plus all fill-ins. Kept fields stay.
     - **Keep existing:** save only the fill-ins. Conflicting fields keep their saved values.
     - **Cancel:** save nothing, close the dialog, and leave the form as typed.
