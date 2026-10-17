@@ -68,7 +68,7 @@
 - Test: `app/src/cycle-tracking/__tests__/duplicateDay.test.ts`
 
 **Interfaces:**
-- Consumes: `CycleDayPartialArgs` (Task 1 file), `convertToCelsiusForStorage`, `toDisplayTemperature`, `formatTemperature` from `utils.ts`.
+- Consumes: `CycleDayPartialArgs` and `stripEmptyFields` (Task 1, `cycleDayDataBuilders.ts`; the latter in tests only), `convertToCelsiusForStorage`, `toDisplayTemperature`, `formatTemperature` from `utils.ts`.
 - Produces:
   ```ts
   export type DayFormValues = {
@@ -101,11 +101,11 @@
   export function buildDuplicateSavePayload(
     c: DuplicateComparison, choice: 'replace' | 'keep'): CycleDayPartialArgs;
   // utils.ts
-  export function formatDateDDMM(date: Date): string; // "14/05"
+  export function formatDateDDMM(isoDate: string): string; // "2026-05-14" -> "14/05", split the string; never via Date local fields
   ```
 - Rules come from the spec table. The display value of each field uses the Add page's option labels (e.g. `STICKY` → `Sticky`, `peak` → `Peak LH – Surge`, `VERY_HEAVY` → `Very Heavy`). Disturbances are shown as labels without emoji, joined by `, `. Travel is shown as `+3h` / `-2h` / `0h`. BBT uses `formatTemperature`. Booleans in `kept` show as `yes`. Export one `ENUM_LABELS` map from this module. `AddCycleDayPage` is not refactored to use it (YAGNI).
 - `findSavedDayForDate` uses the same day-number formula as `AddCycleDayPage.tsx:92-96`, returns `null` for day number < 1, and otherwise returns the matching `dayNumber`.
-- `buildDuplicateSavePayload('replace')` = `{...fillIns, ...replacements}`; `'keep'` = `fillIns`. BBT in payloads is Celsius via `convertToCelsiusForStorage`. When `disturbanceFactors` is in a payload and includes TRAVEL, the payload also includes `travelTimeDiff`.
+- `buildDuplicateSavePayload('replace')` = `{...fillIns, ...replacements}`; `'keep'` = `fillIns`. BBT in payloads is Celsius via `convertToCelsiusForStorage`. Travel is coupled both ways so it survives Task 1's `stripEmptyFields`: when `disturbanceFactors` is in a payload and includes TRAVEL, the payload also includes the form's `travelTimeDiff`; and **whenever `travelTimeDiff` is in a payload, the payload also includes the form's full `disturbanceFactors`**, even if that set compared equal.
 
 - [ ] **Step 1: Write failing tests.** Fixture `saved`: dayNumber 2, bbt 36.45, bbtTime '06:30', cervicalAppearance 'STICKY', notes 'note', everything else empty/false/[]. Tests:
   - `spec example`: form bbt '36.70', bbtTime '07:15', rest empty, unit CELSIUS → `conflicts` equals `[{label:'BBT',saved:'36.45°C',next:'36.70°C'},{label:'BBT Time',saved:'06:30',next:'07:15'}]`; `kept` labels equal `['Cervical Fluid · Appearance','Notes']`; `fillIns` equals `{}`.
@@ -116,9 +116,10 @@
   - `checkbox never conflicts`: saved hadIntercourse true, form false → no conflict, `kept` includes `Intercourse`; saved false, form true → `fillIns.hadIntercourse === true`.
   - `disturbances compared as set`: saved ['STRESS','ALCOHOL'], form ['ALCOHOL','STRESS'] → no row; form ['STRESS'] → a `Disturbance Factor` row.
   - `travel 0 vs saved +3 conflicts`: saved ['TRAVEL'], travelTimeDiff 3; form ['TRAVEL'], 0 → a row `{label:'Travel time difference', saved:'+3h', next:'0h'}`.
+  - `travel-only replace survives the server guard`: same fixture → `stripEmptyFields(buildDuplicateSavePayload(c,'replace'))` equals `{ disturbanceFactors: ['TRAVEL'], travelTimeDiff: 0 }`.
   - `payloads`: for the spec example, `buildDuplicateSavePayload(c,'keep')` equals `{}`; `'replace'` has `bbtTime: '07:15'` and `bbt` close to 36.70.
   - `findSavedDayForDate`: start '2026-05-13'; '2026-05-14' with a day of dayNumber 2 → that day; '2026-05-12' → `null`; '2026-05-20' with no day 8 → `null`.
-  - `formatDateDDMM(new Date(2026,4,14))` → `'14/05'`.
+  - `formatDateDDMM('2026-05-14')` → `'14/05'` (string-based, so stored UTC-midnight dates never shift a day west of UTC).
 - [ ] **Step 2: Run, expect FAIL**: `cd app && npx vitest run src/cycle-tracking/__tests__/duplicateDay.test.ts`
 - [ ] **Step 3: Implement** `duplicateDay.ts` and `formatDateDDMM`, iterating over a single ordered field table (label + empty test + equality + display) so the conflict order follows the form order.
 - [ ] **Step 4: Run, expect PASS**, then the full suite.
@@ -172,7 +173,7 @@
 
 Behaviour (only when `dayId` is absent; the edit path stays byte-for-byte the same):
 - `duplicateDay = !dayId && cycle ? findSavedDayForDate(cycle.days, cycle.startDate, date) : null`.
-- When `duplicateDay`, render the notice under the date/Cycle Day row (amber: `border-amber-300 bg-amber-50 text-amber-900`, dark-mode equivalents) with the exact copy, `formatDateDDMM(new Date(duplicateDay.date))`, `Day {duplicateDay.dayNumber}`, and a `<Link>` to `/cycles/{cycleId}/add-day?dayId={duplicateDay.id}` (append `&returnTo=chart` if `returnTo === 'chart'`). On this route change the page must re-initialise from `existingDay`. Verify the existing `useEffect` does this, since `dayId` changes on the same component.
+- When `duplicateDay`, render the notice under the date/Cycle Day row (amber: `border-amber-300 bg-amber-50 text-amber-900`, dark-mode equivalents) with the exact copy, `formatDateDDMM(date)` (the selected `YYYY-MM-DD` input value, not the stored `Date`), `Day {duplicateDay.dayNumber}`, and a `<Link>` to `/cycles/{cycleId}/add-day?dayId={duplicateDay.id}` (append `&returnTo=chart` if `returnTo === 'chart'`). On this route change the page must re-initialise from `existingDay`. Verify the existing `useEffect` does this, since `dayId` changes on the same component.
 - Submit with `duplicateDay`: build `DayFormValues` from state and call `compareWithSavedDay`. With no conflicts, save `buildDuplicateSavePayload(c,'replace')` immediately. With conflicts, open the dialog and keep the comparison in state. Replace / Keep existing save the matching payload; Cancel closes the dialog and leaves the form as typed.
 - Every Add-mode save (duplicate or not) sends `preserveExisting: true`. A duplicate save sends `{ cycleId, date, ...payload, preserveExisting: true }`.
 - After a successful save, keep the current reset + navigate behaviour.
