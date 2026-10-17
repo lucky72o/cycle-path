@@ -24,7 +24,7 @@ export function DuplicateDayDialog({
   onCancel,
 }: DuplicateDayDialogProps) {
   return (
-    <Dialog.Root open={open} onOpenChange={(next) => !next && onCancel()}>
+    <Dialog.Root open={open} onOpenChange={(next) => !next && !busy && onCancel()}>
       <Dialog.Portal>
         <Dialog.Overlay className='fixed inset-0 z-50 bg-black/60' />
         <Dialog.Content className='fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border bg-background p-5 shadow-lg'>

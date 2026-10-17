@@ -71,6 +71,12 @@ describe('DuplicateDayDialog', () => {
     expect(h.onCancel).toHaveBeenCalledTimes(1);
   });
 
+  it('does not call onCancel on Escape while busy', () => {
+    const h = setup({ busy: true });
+    fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape' });
+    expect(h.onCancel).not.toHaveBeenCalled();
+  });
+
   it('disables all buttons when busy', () => {
     setup({ busy: true });
     for (const name of ['Replace', 'Keep existing', 'Cancel']) {
