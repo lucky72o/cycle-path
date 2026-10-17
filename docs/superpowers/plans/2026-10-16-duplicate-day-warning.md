@@ -16,7 +16,7 @@
 - Dialog title (exact): `Overwrite existing data for {DD/MM}?`
 - Dialog body (exact): `This day already has an entry. Saving will replace these fields:`
 - Kept line (exact prefix): `✓ Kept as is: ` + comma-separated `Label (value)`; omit the line when nothing is kept.
-- Buttons, in order on every screen size: `Keep existing` · `Replace` · `Cancel` (revised 2026-10-17; see Task 5 for exact classes).
+- Buttons, in order on every screen size: `Keep existing` · `Replace` · `Back to form` (revised 2026-10-17: order, colours, and "Cancel" renamed "Back to form"; see Task 5 for exact classes). The prop stays `onCancel`.
 - Dialog table columns: `Field` | `Saved` | `New`; saved value struck through in `text-slate-600`, new value bold `#1e3a8a` (revised 2026-10-17).
 - Field labels: `BBT`, `BBT Time`, `Intercourse`, `Exclude from BBT-based interpretation`, `Menstrual Flow`, `Cervical Fluid · Appearance`, `Cervical Fluid · Sensation`, `Ovulation Predictor Kit`, `Disturbance Factor`, `Travel time difference`, `Notes`.
 - BBT equality: compare at 2 decimals in the user's display unit.
@@ -196,9 +196,9 @@ Behaviour (only when `dayId` is absent; the edit path stays byte-for-byte the sa
 
 ---
 
-### Task 5: Dialog restyle — button order and colours (revision 2026-10-17)
+### Task 5: Dialog restyle — button order, colours and "Back to form" label (revision 2026-10-17)
 
-User-approved after Tasks 1–4 were built (mockup `.superpowers/brainstorm/31473-1792262571/content/button-order-colours-v7.html`). Presentation only; no behaviour, prop or handler changes.
+User-approved after Tasks 1–4 were built (mockup `.superpowers/brainstorm/31473-1792262571/content/button-order-colours-v8.html`). Presentation only: the `Cancel` button's visible label becomes `Back to form`; the prop stays `onCancel` and its behaviour (save nothing, close, keep the form) is unchanged. Update the existing Task 3 tests that find the button by the text `Cancel`.
 
 **Files:**
 - Modify: `app/src/cycle-tracking/components/DuplicateDayDialog.tsx` (table cells, button block)
@@ -211,21 +211,22 @@ Exact values:
 | Element | Classes |
 |---|---|
 | Button container | `mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end` (no `flex-col-reverse`; DOM order = visual order everywhere) |
-| Button order (DOM) | `Keep existing`, `Replace`, `Cancel` |
+| Button order (DOM) | `Keep existing`, `Replace`, `Back to form` |
 | Keep existing | `rounded-md border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-600 hover:bg-emerald-100 dark:border-emerald-500 dark:bg-emerald-950 dark:text-emerald-400 dark:hover:bg-emerald-900` |
 | Replace | `rounded-md border border-red-600 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100 dark:border-red-500 dark:bg-red-950 dark:text-red-400 dark:hover:bg-red-900` |
-| Cancel | `rounded-md border border-red-600 bg-transparent px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-500 dark:text-red-400 dark:hover:bg-red-950` |
+| Back to form (`onCancel`) | `rounded-md border border-[#1e3a8a] bg-transparent px-4 py-2 text-sm font-medium text-[#1e3a8a] hover:bg-blue-50 dark:border-blue-300 dark:text-blue-300 dark:hover:bg-blue-950` |
 | All three buttons | keep `disabled:pointer-events-none disabled:opacity-50` |
 | Saved cell | `text-slate-600 line-through dark:text-slate-400` (replaces `text-muted-foreground`) |
 | New cell | `font-semibold text-[#1e3a8a] dark:text-blue-300` (replaces amber) |
 
 - [ ] **Step 1: Write failing tests** in `DuplicateDayDialog.test.tsx`:
-  - `renders buttons in order Keep existing, Replace, Cancel`: `screen.getAllByRole('button').map(b => b.textContent)` equals `['Keep existing', 'Replace', 'Cancel']`.
+  - `renders buttons in order Keep existing, Replace, Back to form`: `screen.getAllByRole('button').map(b => b.textContent)` equals `['Keep existing', 'Replace', 'Back to form']`, and no button has the text `Cancel`.
+  - `Back to form calls onCancel`: clicking `Back to form` calls `onCancel` once (and not onReplace/onKeepExisting).
   - `styles the saved and new cells`: the saved cell has classes `text-slate-600` and `line-through`; the new cell has class `text-[#1e3a8a]`.
-  - `styles the buttons`: Keep existing has `border-emerald-600` and `text-emerald-600`; Replace has `border-red-600` and `bg-red-50`; Cancel has `border-red-600` and `bg-transparent`.
+  - `styles the buttons`: Keep existing has `border-emerald-600` and `text-emerald-600`; Replace has `border-red-600` and `bg-red-50`; Back to form has `border-[#1e3a8a]`, `text-[#1e3a8a]` and `bg-transparent`.
 - [ ] **Step 2: Run, expect FAIL**: `cd app && npx vitest run src/cycle-tracking/__tests__/DuplicateDayDialog.test.tsx`
 - [ ] **Step 3: Apply the classes and order** from the table.
 - [ ] **Step 4: Run, expect PASS**, then the full suite: `cd app && npx vitest run` (346 passing before this task).
-- [ ] **Step 5: Manual check:** at desktop width and at 400px, the order is Keep existing → Replace → Cancel, and the colours match the v7 mockup.
+- [ ] **Step 5: Manual check:** at desktop width and at 400px, the order is Keep existing → Replace → Back to form, and the colours match the v8 mockup.
 - [ ] **Step 6: Commit**: `style(duplicate-day): dialog button order and colours per approved mockup`
 

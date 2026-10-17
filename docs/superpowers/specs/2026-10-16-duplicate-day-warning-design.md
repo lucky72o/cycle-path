@@ -87,13 +87,13 @@ What "empty" and "same" mean for each field:
   - Grey text (exact, user-approved): **"This day already has an entry. Saving will replace these fields:"**
   - Table with columns **Field | Saved | New**, one row per conflicting field. The saved value is struck through in a readable dark grey (slate-600, `#475569`), not a pale grey. The new value is bold navy blue `#1e3a8a`, the text colour of the graph's Week Day / Cycle Day chips (`CycleChartPage.tsx` `MONTH_PALETTE[0].chipText`). Field names use the Add page's own labels (e.g. "BBT", "BBT Time", "Cervical Fluid · Appearance"). *(Colours revised 2026-10-17, user-approved mockup `.superpowers/brainstorm/31473-1792262571/content/button-order-colours-v7.html`.)*
   - Below the table, a green line listing saved fields that will be kept because the new entry left them empty: "✓ Kept as is: Cervical Fluid · Appearance (Sticky), Notes". Omit the line when nothing is kept.
-  - Buttons, in this order on every screen size (left to right on desktop, top to bottom on phones): **Keep existing** · **Replace** · **Cancel**. *(Order and colours revised 2026-10-17, user-approved, same mockup as above.)*
+  - Buttons, in this order on every screen size (left to right on desktop, top to bottom on phones): **Keep existing** · **Replace** · **Back to form**. *(Order and colours revised 2026-10-17; "Cancel" renamed "Back to form" the same day because "Cancel" didn't say what happens. User-approved mockup `.superpowers/brainstorm/31473-1792262571/content/button-order-colours-v8.html`.)*
     - **Keep existing:** pale green fill, green text, green outline (emerald-50 / emerald-600 / emerald-600).
     - **Replace:** the Thermal Shift "Reject This Pattern" look (pale red fill `bg-red-50`, red text `text-red-600`), with a strong red outline (`border-red-600`) instead of that button's light `border-red-200`.
-    - **Cancel:** red text and the same strong red outline, no fill.
+    - **Back to form:** navy text and navy outline, no fill: the Week Day chip navy `#1e3a8a` (`CycleChartPage.tsx` `MONTH_PALETTE[0].chipText`).
     - **Replace:** save conflicting fields with the new values, plus all fill-ins. Kept fields stay.
     - **Keep existing:** save only the fill-ins. Conflicting fields keep their saved values.
-    - **Cancel:** save nothing, close the dialog, and leave the form as typed.
+    - **Back to form:** save nothing, close the dialog, and leave the form as typed (Esc / tapping outside do the same).
 
 After any successful save, the page behaves as it does now (form reset, then redirect to the days page or chart according to `returnTo`).
 
@@ -133,4 +133,4 @@ Changing a saved BBT or other sign through Replace goes through the same update 
 - Disturbance factors compared as a set.
 - Travel time difference is its own field and row; 0h with TRAVEL ticked is a real value, not "empty".
 - Stale-client gap accepted for v1, with the server-side guard preventing erasure.
-- Cancel keeps the typed form intact.
+- Back to form (formerly Cancel) keeps the typed form intact.
