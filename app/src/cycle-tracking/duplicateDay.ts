@@ -184,8 +184,14 @@ const NOTES_FIELD: FieldSpec = {
   payload: (f) => ({ notes: f.notes.trim() })
 };
 
-const factorLabels = (keys: string[]): string =>
-  keys.map((k) => enumLabel('disturbanceFactors', k)).join(', ');
+// Travel shows its hours, e.g. "Travel (+3h)", so replacing or keeping them is visible.
+const factorLabels = (keys: string[], travelHours?: number | null): string =>
+  keys
+    .map((k) => {
+      const label = enumLabel('disturbanceFactors', k);
+      return k === 'TRAVEL' && travelHours != null ? `${label} (${formatTravel(travelHours)})` : label;
+    })
+    .join(', ');
 
 export function compareWithSavedDay(
   form: DayFormValues,
@@ -239,12 +245,12 @@ export function compareWithSavedDay(
   const factorSpec = { label: 'Disturbance Factor' };
   let factorsConflict = false;
   if (newFactors.length === 0) {
-    if (savedFactors.length > 0) classify(factorSpec, 'keep', factorLabels(savedFactors), '', {});
+    if (savedFactors.length > 0) classify(factorSpec, 'keep', factorLabels(savedFactors, saved.travelTimeDiff), '', {});
   } else if (savedFactors.length === 0) {
     classify(factorSpec, 'fill', '', '', { disturbanceFactors: newFactors });
   } else if (!sameSet(savedFactors, newFactors)) {
     factorsConflict = true;
-    classify(factorSpec, 'conflict', factorLabels(savedFactors), factorLabels(newFactors), {
+    classify(factorSpec, 'conflict', factorLabels(savedFactors, saved.travelTimeDiff), factorLabels(newFactors, form.travelTimeDiff), {
       disturbanceFactors: newFactors
     });
     // Replacing a TRAVEL set with a non-TRAVEL set must also clear the saved hours.

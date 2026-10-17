@@ -170,6 +170,37 @@ describe('formatDateDDMM', () => {
     expect(keep).not.toHaveProperty('travelTimeDiff');
   });
 
+  it('shows travel hours in the Disturbance Factor row so clearing them is visible', () => {
+    const toStress = compareWithSavedDay(
+      { ...emptyForm, disturbanceFactors: ['STRESS'] },
+      { ...saved, disturbanceFactors: ['TRAVEL'], travelTimeDiff: 3 },
+      'CELSIUS'
+    );
+    expect(toStress.conflicts).toContainEqual({
+      label: 'Disturbance Factor',
+      saved: 'Travel (+3h)',
+      next: 'Stress'
+    });
+
+    const toTravel = compareWithSavedDay(
+      { ...emptyForm, disturbanceFactors: ['TRAVEL'], travelTimeDiff: 0 },
+      { ...saved, disturbanceFactors: ['STRESS'] },
+      'CELSIUS'
+    );
+    expect(toTravel.conflicts).toContainEqual({
+      label: 'Disturbance Factor',
+      saved: 'Stress',
+      next: 'Travel (0h)'
+    });
+
+    const kept = compareWithSavedDay(
+      emptyForm,
+      { ...saved, disturbanceFactors: ['TRAVEL'], travelTimeDiff: -2 },
+      'CELSIUS'
+    );
+    expect(kept.kept).toContainEqual({ label: 'Disturbance Factor', saved: 'Travel (-2h)' });
+  });
+
   it('truncates a long note in the kept line to 30 chars + ellipsis', () => {
     const long = 'x'.repeat(150);
     const c = compareWithSavedDay(emptyForm, { ...saved, notes: long }, 'CELSIUS');
