@@ -60,9 +60,48 @@ describe('DuplicateDayDialog', () => {
     expect(h.onReplace).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: 'Keep existing' }));
     expect(h.onKeepExisting).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to form' }));
     expect(h.onCancel).toHaveBeenCalledTimes(1);
     expect(h.onReplace).toHaveBeenCalledTimes(1);
+    expect(h.onKeepExisting).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders buttons in order Keep existing, Replace, Back to form', () => {
+    setup();
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'Keep existing',
+      'Replace',
+      'Back to form',
+    ]);
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+  });
+
+  it('Back to form calls onCancel only', () => {
+    const h = setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Back to form' }));
+    expect(h.onCancel).toHaveBeenCalledTimes(1);
+    expect(h.onReplace).not.toHaveBeenCalled();
+    expect(h.onKeepExisting).not.toHaveBeenCalled();
+  });
+
+  it('styles the saved and new cells', () => {
+    setup();
+    expect(screen.getByText('Light')).toHaveClass('text-slate-600', 'line-through');
+    expect(screen.getByText('Heavy')).toHaveClass('text-[#1e3a8a]');
+  });
+
+  it('styles the buttons', () => {
+    setup();
+    expect(screen.getByRole('button', { name: 'Keep existing' })).toHaveClass(
+      'border-emerald-600',
+      'text-emerald-600'
+    );
+    expect(screen.getByRole('button', { name: 'Replace' })).toHaveClass('border-red-600', 'bg-red-50');
+    expect(screen.getByRole('button', { name: 'Back to form' })).toHaveClass(
+      'border-[#1e3a8a]',
+      'text-[#1e3a8a]',
+      'bg-transparent'
+    );
   });
 
   it('calls onCancel on Escape', () => {
@@ -79,7 +118,7 @@ describe('DuplicateDayDialog', () => {
 
   it('disables all buttons when busy', () => {
     setup({ busy: true });
-    for (const name of ['Replace', 'Keep existing', 'Cancel']) {
+    for (const name of ['Replace', 'Keep existing', 'Back to form']) {
       expect(screen.getByRole('button', { name })).toBeDisabled();
     }
   });

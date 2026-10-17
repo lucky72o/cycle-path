@@ -47,8 +47,8 @@ export function DuplicateDayDialog({
               {conflicts.map((row) => (
                 <tr key={row.label} className='border-b last:border-b-0'>
                   <td className='py-1.5 pr-2 font-medium text-foreground'>{row.label}</td>
-                  <td className='py-1.5 pr-2 text-muted-foreground line-through'>{row.saved}</td>
-                  <td className='py-1.5 font-medium text-amber-700 dark:text-amber-400'>{row.next}</td>
+                  <td className='py-1.5 pr-2 text-slate-600 line-through dark:text-slate-400'>{row.saved}</td>
+                  <td className='py-1.5 font-semibold text-[#1e3a8a] dark:text-blue-300'>{row.next}</td>
                 </tr>
               ))}
             </tbody>
@@ -60,20 +60,12 @@ export function DuplicateDayDialog({
             </p>
           )}
 
-          <div className='mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end'>
-            <button
-              type='button'
-              disabled={busy}
-              onClick={onCancel}
-              className='rounded-md border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:pointer-events-none disabled:opacity-50'
-            >
-              Cancel
-            </button>
+          <div className='mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end'>
             <button
               type='button'
               disabled={busy}
               onClick={onKeepExisting}
-              className='rounded-md border border-amber-600 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-50 disabled:pointer-events-none disabled:opacity-50 dark:border-amber-500 dark:text-amber-300 dark:hover:bg-amber-950'
+              className='rounded-md border border-emerald-600 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-600 hover:bg-emerald-100 disabled:pointer-events-none disabled:opacity-50 dark:border-emerald-500 dark:bg-emerald-950 dark:text-emerald-400 dark:hover:bg-emerald-900'
             >
               Keep existing
             </button>
@@ -81,9 +73,17 @@ export function DuplicateDayDialog({
               type='button'
               disabled={busy}
               onClick={onReplace}
-              className='rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:pointer-events-none disabled:opacity-50 dark:bg-amber-500 dark:text-black dark:hover:bg-amber-400'
+              className='rounded-md border border-red-600 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100 disabled:pointer-events-none disabled:opacity-50 dark:border-red-500 dark:bg-red-950 dark:text-red-400 dark:hover:bg-red-900'
             >
               Replace
+            </button>
+            <button
+              type='button'
+              disabled={busy}
+              onClick={onCancel}
+              className='rounded-md border border-[#1e3a8a] bg-transparent px-4 py-2 text-sm font-medium text-[#1e3a8a] hover:bg-blue-50 disabled:pointer-events-none disabled:opacity-50 dark:border-blue-300 dark:text-blue-300 dark:hover:bg-blue-950'
+            >
+              Back to form
             </button>
           </div>
         </Dialog.Content>
