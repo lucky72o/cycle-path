@@ -1,3 +1,5 @@
+import { monthPaletteIndex } from './monthFolding';
+
 // TemperatureUnit type - matches Prisma enum
 // Will be available from '@prisma/client' after running migration
 export type TemperatureUnit = 'FAHRENHEIT' | 'CELSIUS';
@@ -441,4 +443,32 @@ export function computeMissingBbtDaysOnLine(
     }
   }
   return result;
+}
+
+/**
+ * Per-month-index color tokens for the cycle chart header.
+ *
+ * monthIndex 0 = first calendar month present in the displayed cycle range,
+ * 1 = second, 2+ = fallback (rare; only triggers for cycles spanning three
+ * calendar months). Drives the pill, the date underline, the weekday chip,
+ * the cycle-day chip, and the hover wash for every cell in the column.
+ *
+ * Why these specific hues — see the "Color tokens" section in
+ * docs/superpowers/specs/2026-05-12-graph-header-design.md.
+ */
+export const MONTH_PALETTE: Record<number, {
+  pillBg: string;
+  pillText: string;
+  chipBg: string;
+  chipText: string;
+  underline: string;
+  hoverWash: string;
+}> = {
+  0: { pillBg: '#dbeafe', pillText: '#1e3a8a', chipBg: '#dbeafe', chipText: '#1e3a8a', underline: '#60a5fa', hoverWash: '#dbeafe' }, // blue (1st month)
+  1: { pillBg: '#dcfce7', pillText: '#14532d', chipBg: '#dcfce7', chipText: '#14532d', underline: '#4ade80', hoverWash: '#dcfce7' }, // green (2nd month)
+  2: { pillBg: '#f1f5f9', pillText: '#334155', chipBg: '#f1f5f9', chipText: '#334155', underline: '#94a3b8', hoverWash: '#f1f5f9' }, // slate (3rd month, then the cycle repeats)
+};
+
+export function paletteFor(monthIndex: number) {
+  return MONTH_PALETTE[monthPaletteIndex(monthIndex)];
 }

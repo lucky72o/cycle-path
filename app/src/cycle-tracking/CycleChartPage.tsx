@@ -5,8 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight, computeMissingBbtDaysOnLine } from './utils';
-import { monthPaletteIndex } from './monthFolding';
+import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight, computeMissingBbtDaysOnLine, paletteFor } from './utils';
 import { chipStyleFor, type SensationValue } from './sensationRow';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
@@ -39,34 +38,6 @@ const DISTURBANCE_EMOJI: Record<string, string> = {
   MEDICATION: '💊',
   HOT_COLD_ROOM: '🌡️',
 };
-
-/**
- * Per-month-index color tokens for the cycle chart header.
- *
- * monthIndex 0 = first calendar month present in the displayed cycle range,
- * 1 = second, 2+ = fallback (rare; only triggers for cycles spanning three
- * calendar months). Drives the pill, the date underline, the weekday chip,
- * the cycle-day chip, and the hover wash for every cell in the column.
- *
- * Why these specific hues — see the "Color tokens" section in
- * docs/superpowers/specs/2026-05-12-graph-header-design.md.
- */
-const MONTH_PALETTE: Record<number, {
-  pillBg: string;
-  pillText: string;
-  chipBg: string;
-  chipText: string;
-  underline: string;
-  hoverWash: string;
-}> = {
-  0: { pillBg: '#dbeafe', pillText: '#1e3a8a', chipBg: '#dbeafe', chipText: '#1e3a8a', underline: '#60a5fa', hoverWash: '#dbeafe' }, // blue (1st month)
-  1: { pillBg: '#dcfce7', pillText: '#14532d', chipBg: '#dcfce7', chipText: '#14532d', underline: '#4ade80', hoverWash: '#dcfce7' }, // green (2nd month)
-  2: { pillBg: '#f1f5f9', pillText: '#334155', chipBg: '#f1f5f9', chipText: '#334155', underline: '#94a3b8', hoverWash: '#f1f5f9' }, // slate (3rd month, then the cycle repeats)
-};
-
-function paletteFor(monthIndex: number) {
-  return MONTH_PALETTE[monthPaletteIndex(monthIndex)];
-}
 
 export default function CycleChartPage() {
   const { cycleId } = useParams();
