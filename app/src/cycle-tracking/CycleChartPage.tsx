@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight } from './utils';
+import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight, computeMissingBbtDaysOnLine } from './utils';
 import { monthPaletteIndex } from './monthFolding';
 import { chipStyleFor, type SensationValue } from './sensationRow';
 import type { ApexOptions } from 'apexcharts';
@@ -416,30 +416,11 @@ export default function CycleChartPage() {
   // Used to render a small × on the connecting line at the interpolated temperature position.
   const missingBBTDaysOnLine = useMemo(() => {
     if (!chartData || !settings) return [];
-
-    const included = Array.from(chartData.allDaysMap.values())
-      .filter((d: any) => !d.excludeFromInterpretation)
-      .sort((a: any, b: any) => a.dayNumber - b.dayNumber);
-
-    if (included.length < 2) return [];
-
-    const result: Array<{ dayNumber: number; interpolatedTemp: number }> = [];
-
-    for (let i = 0; i < included.length - 1; i++) {
-      const p1 = included[i];
-      const p2 = included[i + 1];
-      for (let day = p1.dayNumber + 1; day < p2.dayNumber; day++) {
-        const existing = chartData.allDaysMap.get(day);
-        // Only mark days with no BBT at all; excluded days already show a grey dot
-        if (!existing || existing.bbt === null) {
-          const t = (day - p1.dayNumber) / (p2.dayNumber - p1.dayNumber);
-          const t1 = toDisplayTemperature(p1.bbt, settings.temperatureUnit);
-          const t2 = toDisplayTemperature(p2.bbt, settings.temperatureUnit);
-          result.push({ dayNumber: day, interpolatedTemp: t1 + (t2 - t1) * t });
-        }
-      }
-    }
-    return result;
+    return computeMissingBbtDaysOnLine(
+      Array.from(chartData.allDaysMap.values()),
+      { minDay: chartData.minDay, maxDay: chartData.maxDay },
+      (t) => toDisplayTemperature(t, settings.temperatureUnit),
+    );
   }, [chartData, settings]);
 
   // Build labels for dates across the full displayed range using the cycle

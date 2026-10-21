@@ -407,3 +407,38 @@ export function formatDateDDMM(isoDate: string): string {
   const [, month, day] = isoDate.slice(0, 10).split('-');
   return `${day}/${month}`;
 }
+
+/**
+ * Days with no BBT at all that sit strictly between two consecutive included
+ * (non-excluded) days that do have a BBT; each carries the linearly
+ * interpolated temperature (display unit) used to draw a small x on the line.
+ * Only days with minDay <= dayNumber <= maxDay are considered, so a folded
+ * chart never emits markers for days it does not display.
+ */
+export function computeMissingBbtDaysOnLine(
+  days: Array<{ dayNumber: number; bbt: number | null; excludeFromInterpretation: boolean }>,
+  range: { minDay: number; maxDay: number },
+  toDisplay: (bbt: number) => number,
+): Array<{ dayNumber: number; interpolatedTemp: number }> {
+  const inRange = days.filter((d) => d.dayNumber >= range.minDay && d.dayNumber <= range.maxDay);
+  const byDay = new Map(inRange.map((d) => [d.dayNumber, d]));
+  const included = inRange
+    .filter((d) => !d.excludeFromInterpretation && d.bbt !== null)
+    .sort((a, b) => a.dayNumber - b.dayNumber);
+
+  const result: Array<{ dayNumber: number; interpolatedTemp: number }> = [];
+  for (let i = 0; i < included.length - 1; i++) {
+    const p1 = included[i];
+    const p2 = included[i + 1];
+    for (let day = p1.dayNumber + 1; day < p2.dayNumber; day++) {
+      const existing = byDay.get(day);
+      if (!existing || existing.bbt === null) {
+        const t = (day - p1.dayNumber) / (p2.dayNumber - p1.dayNumber);
+        const t1 = toDisplay(p1.bbt as number);
+        const t2 = toDisplay(p2.bbt as number);
+        result.push({ dayNumber: day, interpolatedTemp: t1 + (t2 - t1) * t });
+      }
+    }
+  }
+  return result;
+}
