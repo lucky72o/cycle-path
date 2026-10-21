@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import ReactApexChart from 'react-apexcharts';
 import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight, computeMissingBbtDaysOnLine, paletteFor, LEFT_PLOT_RESERVE_FALLBACK, RIGHT_PLOT_RESERVE } from './utils';
 import { useMonthFolding } from './useMonthFolding';
-import { RIBBON_WIDTH, standardCellWidth, foldedContainerWidth, isDayInRange, monthPillMode } from './monthFolding';
+import { RIBBON_WIDTH, standardCellWidth, foldedContainerWidth, monthPillMode, headerGeometry, keepsPin } from './monthFolding';
 import { FoldRibbonLayer } from './components/FoldRibbonLayer';
 import { FoldToolbar } from './components/FoldToolbar';
+import { MonthPillStrip } from './components/MonthPillStrip';
 import { SignDot } from './components/SignDot';
 import { chipStyleFor, type SensationValue } from './sensationRow';
 import type { ApexOptions } from 'apexcharts';
@@ -204,8 +205,12 @@ export default function CycleChartPage() {
     lastDay: cycle ? (cycle.isActive ? Math.max(28, recordedMaxDay) : recordedMaxDay) : 0,
     anchorLatest: !!cycle?.isActive,
   });
-  const ribbonsLeft = fold.foldedBefore.length * RIBBON_WIDTH;
-  const ribbonsRight = fold.foldedAfter.length * RIBBON_WIDTH;
+  // Header geometry follows the fold mode: pills mode has a taller 30 px
+  // gutter row; ribbons and off keep the 22 px gutter. Pills mode reserves no
+  // ribbon slots.
+  const geo = headerGeometry(fold.mode);
+  const ribbonsLeft = fold.mode === 'ribbons' ? fold.foldedBefore.length * RIBBON_WIDTH : 0;
+  const ribbonsRight = fold.mode === 'ribbons' ? fold.foldedAfter.length * RIBBON_WIDTH : 0;
   // The measured plotAreaOffset includes the before-ribbon slots; the row-label
   // column ends where those slots begin.
   const labelColWidth = Math.max(0, plotAreaOffset - ribbonsLeft);
@@ -988,16 +993,16 @@ export default function CycleChartPage() {
   // stored crosshair x values point at the wrong date: clear them too rather
   // than recompute, since the plot width is re-measured asynchronously.
   // Opening a folded-after month keeps minDay and the fixed cell width, so
-  // pins survive it.
-  const prevMinDayRef = useRef(displayDayRange.minDay);
+  // pins survive it. The decision lives in keepsPin.
+  const prevRangeRef = useRef(displayDayRange);
   useEffect(() => {
-    const shifted = prevMinDayRef.current !== displayDayRange.minDay;
-    prevMinDayRef.current = displayDayRange.minDay;
-    if (hoveredDayNumber !== null && (shifted || !isDayInRange(hoveredDayNumber, displayDayRange))) {
+    const prevRange = prevRangeRef.current;
+    prevRangeRef.current = displayDayRange;
+    if (hoveredDayNumber !== null && !keepsPin(hoveredDayNumber, prevRange, displayDayRange)) {
       setHoveredDayNumber(null);
       setCrosshairX(null);
     }
-    if (pinnedDayNumber !== null && (shifted || !isDayInRange(pinnedDayNumber, displayDayRange))) {
+    if (pinnedDayNumber !== null && !keepsPin(pinnedDayNumber, prevRange, displayDayRange)) {
       pinnedDayNumberRef.current = null;
       pinnedCrosshairXRef.current = null;
       setPinnedDayNumber(null);
@@ -1005,7 +1010,7 @@ export default function CycleChartPage() {
     }
     if (
       lastTouchedDayRef.current !== null &&
-      (shifted || !isDayInRange(lastTouchedDayRef.current, displayDayRange))
+      !keepsPin(lastTouchedDayRef.current, prevRange, displayDayRange)
     ) {
       lastTouchedDayRef.current = null;
     }
@@ -1402,7 +1407,7 @@ export default function CycleChartPage() {
               style={{
                 width: foldedWidth !== null ? `${foldedWidth}px` : undefined,
                 minWidth: `${foldedWidth ?? containerMinWidth}px`,
-                paddingTop: '130px',
+                paddingTop: `${geo.header}px`,
                 paddingBottom: `${LOWER_TABLE_PADDING_BOTTOM}px`,
               }}
               onMouseMove={(e) => {
@@ -1419,7 +1424,10 @@ export default function CycleChartPage() {
                   {/* Row Labels - positioned in y-axis area */}
                   <div className="absolute top-0 left-0" style={{ width: `${labelColWidth}px`, zIndex: 2 }}>
                     {/* Gutter cell — blank; the hairline + month pills live in the gutter overlay container (Task 8). */}
-                    <div className="bg-white border-b border-slate-300 border-r border-slate-300" style={{ height: '22px' }} />
+                    <div
+                      className={fold.mode === 'pills' ? 'bg-white border-b border-slate-300' : 'bg-white border-b border-slate-300 border-r border-slate-300'}
+                      style={{ height: `${geo.gutter}px` }}
+                    />
                     <div className="flex items-center justify-end px-3 text-xs font-medium bg-white border-b border-slate-200 border-r border-slate-300" style={{ height: '36px' }}>
                       Date
                     </div>
@@ -1437,21 +1445,22 @@ export default function CycleChartPage() {
                       positioned by monthSpans. The container ignores the
                       pointer (it spans the whole width over the chart); only
                       the pills take clicks. */}
-                  <div className="absolute top-0 left-0 right-0" style={{ height: '22px', zIndex: 4, pointerEvents: 'none' }}>
-                    {/* Hairline running through the gutter band, plot-area only.
-                        The 22 px gutter cell's 1 px bottom border is at y = 21–22. */}
+                  <div className="absolute top-0 left-0 right-0" style={{ height: `${geo.gutter}px`, zIndex: 4, pointerEvents: 'none' }}>
+                    {/* Hairline running through the gutter band: plot-area only in
+                        ribbons/off mode, full width in pills mode. It sits on the
+                        gutter cell's 1 px bottom border (y = gutter - 1). */}
                     <div
                       className="absolute"
                       style={{
-                        left: `${plotAreaOffset}px`,
+                        left: fold.mode === 'pills' ? 0 : `${plotAreaOffset}px`,
                         right: 0,
-                        top: '21px',
+                        top: `${geo.hairlineTop}px`,
                         height: '1px',
                         background: '#cbd5e1',
                       }}
                     />
                     {/* One pill per calendar-month span */}
-                    {monthSpans.map((span) => {
+                    {fold.mode !== 'pills' && monthSpans.map((span) => {
                       const numDays = chartData.maxDay - chartData.minDay + 1;
                       const cellWidth = plotAreaWidth / numDays;
                       const spanWidthPx = (span.endDayNumber - span.startDayNumber + 1) * cellWidth;
@@ -1524,7 +1533,7 @@ export default function CycleChartPage() {
                       never inside its DOM, so the canvas listeners never see
                       ribbon events. The zero-size wrapper only sets the stacking
                       level: above the overlays and crosshair, below the tooltip. */}
-                  {fold.enabled && (fold.foldedBefore.length > 0 || fold.foldedAfter.length > 0) && (
+                  {fold.mode === 'ribbons' && (fold.foldedBefore.length > 0 || fold.foldedAfter.length > 0) && (
                     <FoldRibbonLayer
                       scrollContainerRef={scrollContainerRef}
                       foldedBefore={fold.foldedBefore}
@@ -1533,6 +1542,20 @@ export default function CycleChartPage() {
                       naturalRight={plotAreaOffset + plotAreaWidth + RIGHT_PLOT_RESERVE}
                       height={containerHeight}
                       onOpen={fold.open}
+                    />
+                  )}
+                  {/* Pills mode (< 1024 px): the month pills float at the
+                      chart's left edge and are the fold controls; edge stubs
+                      mark hidden months. Same stacking level as the ribbons. */}
+                  {fold.mode === 'pills' && (
+                    <MonthPillStrip
+                      scrollContainerRef={scrollContainerRef}
+                      spans={fold.spans}
+                      block={fold.block}
+                      chartWidth={foldedWidth ?? containerMinWidth}
+                      height={containerHeight}
+                      onOpen={fold.open}
+                      onFold={fold.fold}
                     />
                   )}
 
@@ -1574,7 +1597,7 @@ export default function CycleChartPage() {
                                   style={{
                                     left: `${leftEdge}px`,
                                     width: `${cellWidth}px`,
-                                    top: '22px',
+                                    top: `${geo.dateTop}px`,
                                     height: '36px',
                                     background: cellBg,
                                     color: dateTextColor,
@@ -1606,7 +1629,7 @@ export default function CycleChartPage() {
                                   style={{
                                     left: `${leftEdge}px`,
                                     width: `${cellWidth}px`,
-                                    top: '58px',
+                                    top: `${geo.weekDayTop}px`,
                                     height: '36px',
                                     background: cellBg,
                                     borderRight: '1px solid #f1f5f9',
@@ -1640,7 +1663,7 @@ export default function CycleChartPage() {
                                   style={{
                                     left: `${leftEdge}px`,
                                     width: `${cellWidth}px`,
-                                    top: '94px',
+                                    top: `${geo.cycleDayTop}px`,
                                     height: '36px',
                                     background: cellBg,
                                     borderRight: '1px solid #f1f5f9',
