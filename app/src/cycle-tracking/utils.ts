@@ -449,8 +449,9 @@ export function computeMissingBbtDaysOnLine(
  * Per-month-index color tokens for the cycle chart header.
  *
  * monthIndex 0 = first calendar month present in the displayed cycle range,
- * 1 = second, 2+ = fallback (rare; only triggers for cycles spanning three
- * calendar months). Drives the pill, the date underline, the weekday chip,
+ * 1 = second, 2 = third; the palette then cycles every three months
+ * (see paletteFor / monthPaletteIndex), so long cycles reuse blue, green,
+ * slate in order. Drives the pill, the date underline, the weekday chip,
  * the cycle-day chip, and the hover wash for every cell in the column.
  *
  * Why these specific hues — see the "Color tokens" section in

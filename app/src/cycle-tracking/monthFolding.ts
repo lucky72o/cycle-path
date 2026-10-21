@@ -120,7 +120,8 @@ export function ribbonGroupX(args: {
     : Math.min(naturalX, scrollLeft + clientWidth - groupWidth);
 }
 
-const dayWord = (n: number) => `${n} ${n === 1 ? 'day' : 'days'}`;
+/** `1 day`, `2 days`. */
+export const dayWord = (n: number) => `${n} ${n === 1 ? 'day' : 'days'}`;
 
 export function ribbonLabel(span: MonthSpan): string {
   return `${span.monthLabel.slice(0, 3)} · ${dayWord(spanDays(span))}`;

@@ -41,6 +41,10 @@ describe('fold/open', () => {
     expect(canFold({ from: 1, to: 3 }, 2)).toBe(false);
     expect(canFold({ from: 3, to: 3 }, 3)).toBe(false);
   });
+  it('months outside the open block cannot fold', () => {
+    expect(canFold({ from: 1, to: 2 }, 0)).toBe(false);
+    expect(canFold({ from: 1, to: 2 }, 3)).toBe(false);
+  });
   it('foldMonth shrinks from the folded edge and is a no-op otherwise', () => {
     expect(foldMonth({ from: 1, to: 3 }, 1)).toEqual({ from: 2, to: 3 });
     expect(foldMonth({ from: 1, to: 3 }, 3)).toEqual({ from: 1, to: 2 });

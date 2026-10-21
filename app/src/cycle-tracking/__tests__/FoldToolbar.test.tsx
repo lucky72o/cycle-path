@@ -10,8 +10,13 @@ describe('FoldToolbar', () => {
     expect(screen.getByText('56 days folded')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Show all' })).toBeEnabled();
     render(<FoldToolbar foldedDays={0} allOpen onShowAll={vi.fn()} onCollapseAll={vi.fn()} />);
-    expect(screen.queryAllByText(/days folded/)).toHaveLength(1);
+    expect(screen.queryAllByText(/folded/)).toHaveLength(1);
     expect(screen.getAllByRole('button', { name: 'Show all' })[1]).toBeDisabled();
+  });
+
+  it('uses the singular for one folded day', () => {
+    render(<FoldToolbar foldedDays={1} allOpen={false} onShowAll={vi.fn()} onCollapseAll={vi.fn()} />);
+    expect(screen.getByText('1 day folded')).toBeInTheDocument();
   });
 
   it('fires the callbacks', () => {
