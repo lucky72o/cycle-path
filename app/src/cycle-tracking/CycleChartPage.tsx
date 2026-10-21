@@ -1275,7 +1275,7 @@ export default function CycleChartPage() {
   return (
     <div className="flex">
       <SideNav />
-      <div className="flex-1 p-4 md:p-8 max-w-6xl">
+      <div className="flex-1 min-w-0 p-4 md:p-8 max-w-6xl">
       <div className="mb-4 md:mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-xl md:text-3xl font-bold mb-2 flex items-center gap-2">
