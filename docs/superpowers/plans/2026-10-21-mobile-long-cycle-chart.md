@@ -26,7 +26,7 @@
 - Edge stubs: 4 px wide, from y = 30 to the bottom of the chart container, one equal-height segment per hidden month in its `underline` colour, opacity 0.9, `pointer-events: none`; before-stub x = `scrollLeft`; after-stub x = `min(chartWidth − 4, scrollLeft + clientWidth − 4)`; none when that side has no folded month.
 - z-order: strip and stubs above grid cells, overlays and crosshair (`zIndex: 6`), below the tooltip (`zIndex: 10`).
 - Pills and toolbar buttons stop click, pointerdown and touchstart propagation (never pin a tooltip).
-- Tooltip guard (`CycleChartPage.tsx:985-1014`) is **unchanged** in both modes.
+- Tooltip guard (`CycleChartPage.tsx:985-1014`) keeps its behaviour in both modes: a hover/pin clears when the first displayed day shifts or the day leaves the range, and survives otherwise. Its decision moves into the pure `keepsPin` helper (Task 1) and the page calls it (Task 4) with no behaviour change.
 - Scroll intents unchanged: load/cycle/mode change → anchor side ('end' = latest recorded day); open before the block → 'start'; open after → 'end-of-range'; Show all / Collapse all → anchor side.
 - No change to interpretation, ribbons mode, short cycles, Days page or CSV. Personal cycle data is never committed.
 
@@ -36,7 +36,7 @@
 2. **Rotating a phone or resizing across 1024 px with months folded**: the block must reset to the new mode's default and scroll to the anchor side, never carry a 40-day block into pills mode or a stale block back; pinned in Task 2 (mode-switch hook test).
 3. **A very long cycle (9–12 months) on a 308 px card with most months open**: merging cannot help, compacting may not either; the strip must scroll on its own rather than overflow the card or overlap; pinned in Task 1 (`fitStrip` scroll-fallback test) and Task 3 (strip `overflowX: 'auto'` assertion).
 4. **Collapse all on a cycle whose anchor month has 2 days**: the chart is narrower than the card; the after-stub (ended cycle) or the strip must not float in empty card space beyond the chart; pinned in Task 3 (after-stub clamp test).
-5. **Tapping a pill over a day column that has a pinned tooltip**: the tap must not re-pin or move the tooltip to the column underneath; pinned in Task 3 (propagation test) and checked by eye in Task 5.
+5. **Tapping a pill over a day column that has a pinned tooltip**: the tap must not re-pin or move the tooltip to the column underneath; pinned in Task 3 (propagation test) and checked by eye in Task 4. A pin whose month folds away must clear: pinned in Task 1 (`keepsPin`).
 
 ---
 
@@ -71,6 +71,8 @@
     available: number,
     gap?: number, // default 4
   ): { items: StripItem[]; compact: boolean; scroll: boolean };
+  export function keepsPin(day: number, prev: { minDay: number; maxDay: number }, next: { minDay: number; maxDay: number }): boolean;
+  // prev.minDay === next.minDay && isDayInRange(day, next) — the existing page guard's decision, unchanged
   ```
 
 - [ ] **Step 1: Write the failing tests** (add to `monthFolding.test.ts`; reuse its existing span fixtures or build with `buildMonthSpans(new Date('2026-07-07'), 1, 105)` → Jul 1–25, Aug 26–56, Sep 57–86, Oct 87–105)
@@ -169,6 +171,22 @@ describe('strip model', () => {
     const all = { from: 0, to: 3 };
     expect(fitStrip(spans105, all, w, 4 * 12 * 3 + 4 * 20 + 12)).toMatchObject({ compact: true, scroll: false });
     expect(fitStrip(spans105, all, w, 50)).toMatchObject({ compact: true, scroll: true });
+  });
+});
+
+describe('keepsPin (tooltip guard decision, pills mode ranges)', () => {
+  const sepOct = { minDay: 57, maxDay: 105 };
+  it('clears when the pinned day\'s month folds away', () => {
+    expect(keepsPin(100, sepOct, { minDay: 57, maxDay: 86 })).toBe(false); // Oct folded
+  });
+  it('survives when a later month folds and the day stays displayed', () => {
+    expect(keepsPin(60, sepOct, { minDay: 57, maxDay: 86 })).toBe(true);
+  });
+  it('survives when a month opens after the block', () => {
+    expect(keepsPin(60, { minDay: 57, maxDay: 86 }, sepOct)).toBe(true);
+  });
+  it('clears when the first displayed day shifts, even if the day stays in range', () => {
+    expect(keepsPin(100, sepOct, { minDay: 26, maxDay: 105 })).toBe(false); // Aug opened before
   });
 });
 ```
@@ -311,7 +329,7 @@ git commit -m "feat(chart-folding): pills mode below 1024px with a 14-day defaul
 
 ```tsx
 it('renders one pill per month in calendar order with the spec labels', () => {
-  render(<MonthPillStrip {...base} block={{ from: 3, to: 3 }} />); // clientWidth 1000
+  render(<MonthPillStrip {...base(1000)} block={{ from: 3, to: 3 }} />);
   expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
     'Show July, 25 days', 'Show August, 31 days', 'Show September, 30 days', 'October is open',
   ]);
@@ -319,22 +337,22 @@ it('renders one pill per month in calendar order with the spec labels', () => {
 });
 it('open pills show "−" only when foldable and call onFold', () => {
   const onFold = vi.fn();
-  render(<MonthPillStrip {...base} block={{ from: 2, to: 3 }} onFold={onFold} />);
+  render(<MonthPillStrip {...base(1000)} block={{ from: 2, to: 3 }} onFold={onFold} />);
   fireEvent.click(screen.getByRole('button', { name: 'Fold September' }));
   expect(onFold).toHaveBeenCalledWith(2);
 });
 it('folded pills call onOpen; a merged pill opens the month nearest the block', () => {
   const onOpen = vi.fn();
-  render(<MonthPillStrip {...base} clientWidth={300} block={{ from: 3, to: 3 }} onOpen={onOpen} />);
+  render(<MonthPillStrip {...base(300)} block={{ from: 3, to: 3 }} onOpen={onOpen} />);
   const merged = screen.getByRole('button', { name: 'Show September, 30 days (July–September folded, 86 days)' });
   expect(merged).toHaveTextContent('Jul–Sep 86');
   fireEvent.click(merged);
   expect(onOpen).toHaveBeenCalledWith(2);
 });
 it('merged pill takes its first month colour; folded pills are outlined', () => {
-  render(<MonthPillStrip {...base} clientWidth={300} block={{ from: 3, to: 3 }} />);
+  render(<MonthPillStrip {...base(300)} block={{ from: 3, to: 3 }} />);
   const pill = within(screen.getByRole('button', { name: /July–September/ })).getByTestId('pill');
-  expect(pill.style.borderColor).toBe(hexToRgb(paletteFor(0).underline));
+  expect(pill.style.borderColor).toBe(rgb(paletteFor(0).underline)); // rgb(): local helper, '#60a5fa' → 'rgb(96, 165, 250)'
   expect(pill.style.background).toContain('rgb(255, 255, 255)');
 });
 it('floats at scrollLeft + 4 and follows scroll', () => {
@@ -342,7 +360,7 @@ it('floats at scrollLeft + 4 and follows scroll', () => {
 });
 it('stops propagation so taps never pin a tooltip', () => {
   const outer = vi.fn();
-  render(<div onClick={outer} onPointerDown={outer} onTouchStart={outer}><MonthPillStrip {...base} block={{ from: 3, to: 3 }} /></div>);
+  render(<div onClick={outer} onPointerDown={outer} onTouchStart={outer}><MonthPillStrip {...base(1000)} block={{ from: 3, to: 3 }} /></div>);
   const b = screen.getByRole('button', { name: 'Show July, 25 days' });
   fireEvent.pointerDown(b); fireEvent.touchStart(b); fireEvent.click(b);
   expect(outer).not.toHaveBeenCalled();
@@ -354,12 +372,12 @@ it('clamps the after-stub to the chart edge when the chart is narrower than the 
   // ended cycle, block {0,0}, chartWidth 400, clientWidth 900, scrollLeft 0 → stub-after left === '396px'
 });
 it('lets the strip scroll when even compact pills do not fit', () => {
-  render(<MonthPillStrip {...base} clientWidth={80} block={{ from: 0, to: 3 }} />);
+  render(<MonthPillStrip {...base(80)} block={{ from: 0, to: 3 }} />);
   expect(screen.getByTestId('pill-strip').style.overflowX).toBe('auto');
 });
 ```
 
-(`base` = `{ scrollContainerRef, spans, chartWidth: 2000, height: 860, onOpen: vi.fn(), onFold: vi.fn(), measure }` with `clientWidth` passed to `fakeScrollContainer`; adapt the helper so `clientWidth` is a test parameter. Add `data-testid` `pill-strip`, `pill` (the inner 22 px span), `stub-before`, `stub-after`.)
+(`base(clientWidth)` builds the props: `fakeScrollContainer(0, clientWidth)` (copied from `FoldRibbonLayer.test.tsx`, it already takes `clientWidth`) assigned to a `createRef()` as `scrollContainerRef`, plus `spans`, `chartWidth: 2000`, `height: 860`, `onOpen: vi.fn()`, `onFold: vi.fn()`, `measure`. `clientWidth` is never a component prop. Define a local `rgb(hex: string): string` helper in the test file (`'#60a5fa'` → `'rgb(96, 165, 250)'`) because jsdom normalises inline colours. Add `data-testid` `pill-strip`, `pill` (the inner 22 px span), `stub-before`, `stub-after`.)
 
 - [ ] **Step 2: Run to verify they fail**
 
@@ -385,10 +403,10 @@ git commit -m "feat(chart-folding): floating month pill strip with merge-in-thre
 ### Task 4: Wire pills mode into the chart page
 
 **Files:**
-- Modify: `app/src/cycle-tracking/CycleChartPage.tsx` — `:207-211` (ribbon widths), `:1405` (`paddingTop`), `:1422` (gutter label cell), `:1440-1525` (gutter overlay: hairline and natural-position pills), `:1527-1537` (ribbon layer), `:1577`, `:1609`, `:1643` (header cell tops).
+- Modify: `app/src/cycle-tracking/CycleChartPage.tsx` — `:207-211` (ribbon widths), `:985-1014` (tooltip guard), `:1405` (`paddingTop`), `:1422` (gutter label cell), `:1440-1525` (gutter overlay: hairline and natural-position pills), `:1527-1537` (ribbon layer), `:1577`, `:1609`, `:1643` (header cell tops).
 
 **Interfaces:**
-- Consumes: `fold.mode` (Task 2), `headerGeometry` (Task 1), `MonthPillStrip` (Task 3).
+- Consumes: `fold.mode` (Task 2), `headerGeometry`, `keepsPin` (Task 1), `MonthPillStrip` (Task 3).
 
 - [ ] **Step 1: Geometry from the mode**
 
@@ -398,16 +416,20 @@ git commit -m "feat(chart-folding): floating month pill strip with merge-in-thre
 
 Skip the `monthSpans.map(...)` natural-position pills when `fold.mode === 'pills'`. Render `FoldRibbonLayer` only when `fold.mode === 'ribbons'` (and something is folded). When `fold.mode === 'pills'` render `<MonthPillStrip scrollContainerRef={scrollContainerRef} spans={fold.spans} block={fold.block} chartWidth={foldedWidth ?? containerMinWidth} height={containerHeight} onOpen={fold.open} onFold={fold.fold} />` in the same place. `FoldToolbar` keeps rendering when `fold.enabled` (both modes).
 
-- [ ] **Step 3: Type-check and run the suite**
+- [ ] **Step 3: Route the tooltip guard through `keepsPin`**
+
+In the effect at `CycleChartPage.tsx:985-1014`, keep a `prevRangeRef` (replacing `prevMinDayRef`) and replace each `shifted || !isDayInRange(day, displayDayRange)` with `!keepsPin(day, prevRange, displayDayRange)` for the hovered day, the pinned day and `lastTouchedDayRef`. Identical behaviour; the decision is now the tested helper.
+
+- [ ] **Step 4: Type-check and run the suite**
 
 Run: `cd app && npx tsc --noEmit -p . && npx vitest run`
 Expected: all PASS.
 
-- [ ] **Step 4: Verify by eye at 390×844 on `/cycles/<long-cycle-id>/chart`** (Playwright MCP; if the page shows "Loading…", set `wasp:sessionId` in localStorage)
+- [ ] **Step 5: Verify by eye at 390×844 on `/cycles/<long-cycle-id>/chart`** (Playwright MCP; if the page shows "Loading…", set `wasp:sessionId` in localStorage)
 
-Default: toolbar `86 days folded`, strip `+ Jul 25  + Aug 31  + Sep 30  Oct 19` (or `+ Jul–Sep 86  Oct 19` if it does not fit the measured card), latest day 19 Oct at the right edge, blue/green/slate stub at the left edge, no vertical line above Date, columns 22 px. Tap `+ Sep 30` → September opens, scrolled to 1 Sep, strip `+ Jul 25  + Aug 31  − Sep 30  − Oct 19`, strip stays put while swiping into October. Tap `− Oct 19` → October folds, after-stub at the right edge. Show all → 103 columns, no stubs, scrolled to 19 Oct. Collapse all → October only. At 1440 px the chart is pixel-identical to `main` (ribbons, 22 px gutter). At 1000 px: pills. Pin a tooltip on 18 Oct, tap a pill over it → the tooltip does not move.
+Default: toolbar `86 days folded`, strip `+ Jul 25  + Aug 31  + Sep 30  Oct 19` (or `+ Jul–Sep 86  Oct 19` if it does not fit the measured card), latest day 19 Oct at the right edge, blue/green/slate stub at the left edge, no vertical line above Date, columns 22 px. Tap `+ Sep 30` → September opens, scrolled to 1 Sep, strip `+ Jul 25  + Aug 31  − Sep 30  − Oct 19`, strip stays put while swiping into October. Tap `− Oct 19` → October folds, after-stub at the right edge. Show all → 105 cycle-day columns (one per cycle day, including days with no entry), no stubs, scrolled to 19 Oct. Collapse all → October only. At 1440 px the chart is pixel-identical to `main` (ribbons, 22 px gutter). At 1000 px: pills. Pin a tooltip on 18 Oct, tap a pill over it → the tooltip does not move; with Sep + Oct open, pin 20 Sep and tap `− Oct 19` → the pin stays; pin 18 Oct and tap `− Oct 19` → the pin is gone.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add app/src/cycle-tracking/CycleChartPage.tsx
