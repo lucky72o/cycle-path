@@ -9,6 +9,9 @@ import {
   defaultOpenBlock,
   foldMonth,
   foldedDayCount,
+  foldMode,
+  frameDays,
+  type FoldMode,
   isAllOpen,
   isFoldingEligible,
   openMonth,
@@ -43,6 +46,7 @@ export function useIsWideViewport(): boolean {
 export type ScrollIntent = 'start' | 'end' | 'end-of-range';
 
 export type MonthFolding = {
+  mode: FoldMode;
   enabled: boolean;
   spans: MonthSpan[];
   block: OpenBlock;
@@ -73,21 +77,22 @@ export function useMonthFolding(args: {
     () => (startMs === null ? [] : buildMonthSpans(new Date(startMs), 1, lastDay)),
     [startMs, lastDay],
   );
-  const enabled = wide && isFoldingEligible(lastDay, spans);
+  const mode = foldMode(wide, isFoldingEligible(lastDay, spans));
+  const enabled = mode !== 'off';
   const anchorSide: 'start' | 'end' = anchorLatest ? 'end' : 'start';
 
   // The user's block is only valid for the key it was set under; any change of
-  // cycle, anchor, enabled state or month count implicitly falls back to the
+  // cycle, anchor, fold mode or month count implicitly falls back to the
   // default (the month count guards against a stale block indexing past the
   // end of a cycle that lost a month).
-  const key = `${cycleId ?? ''}|${anchorLatest}|${enabled}|${spans.length}`;
+  const key = `${cycleId ?? ''}|${anchorLatest}|${mode}|${spans.length}`;
   const [user, setUser] = useState<{ key: string; block: OpenBlock } | null>(null);
   const scrollIntent = useRef<ScrollIntent | null>(anchorSide);
   const [seenKey, setSeenKey] = useState(key);
   if (seenKey !== key) {
     // Render-time reset (React-supported): drop the stale block immediately,
     // so a later return to a previous key cannot resurrect it. Any key change
-    // (cycle, anchor, folding on/off, a gained or lost month) falls back to the
+    // (cycle, anchor, fold mode, a gained or lost month) falls back to the
     // default view, so it also re-arms the scroll to the anchor side in the
     // same render; callers need no effect-ordering contract.
     scrollIntent.current = anchorSide;
@@ -96,7 +101,10 @@ export function useMonthFolding(args: {
   }
   const userBlock = user && user.key === key ? user.block : null;
 
-  const defaultBlock = useMemo(() => defaultOpenBlock(spans, anchorLatest), [spans, anchorLatest]);
+  const defaultBlock = useMemo(
+    () => defaultOpenBlock(spans, anchorLatest, frameDays(mode)),
+    [spans, anchorLatest, mode],
+  );
   const block = userBlock ?? defaultBlock;
 
   const setBlock = useCallback((b: OpenBlock) => setUser({ key, block: b }), [key]);
@@ -124,6 +132,7 @@ export function useMonthFolding(args: {
   const canFold = useCallback((i: number) => enabled && canFoldBlock(block, i), [enabled, block]);
 
   return {
+    mode,
     enabled,
     spans,
     block,
