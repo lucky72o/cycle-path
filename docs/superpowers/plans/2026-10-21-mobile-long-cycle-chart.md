@@ -352,7 +352,7 @@ it('folded pills call onOpen; a merged pill opens the month nearest the block', 
 it('merged pill takes its first month colour; folded pills are outlined', () => {
   render(<MonthPillStrip {...base(300)} block={{ from: 3, to: 3 }} />);
   const pill = within(screen.getByRole('button', { name: /July–September/ })).getByTestId('pill');
-  expect(pill.style.borderColor).toBe(rgb(paletteFor(0).underline)); // rgb(): local helper, '#60a5fa' → 'rgb(96, 165, 250)'
+  expect(normalise(pill.style.borderColor)).toBe(normalise(paletteFor(0).underline)); // jsdom keeps 6-digit hex as-is but turns '#fff' into rgb(); normalise both sides
   expect(pill.style.background).toContain('rgb(255, 255, 255)');
 });
 it('floats at scrollLeft + 4 and follows scroll', () => {
@@ -377,7 +377,7 @@ it('lets the strip scroll when even compact pills do not fit', () => {
 });
 ```
 
-(`base(clientWidth)` builds the props: `fakeScrollContainer(0, clientWidth)` (copied from `FoldRibbonLayer.test.tsx`, it already takes `clientWidth`) assigned to a `createRef()` as `scrollContainerRef`, plus `spans`, `chartWidth: 2000`, `height: 860`, `onOpen: vi.fn()`, `onFold: vi.fn()`, `measure`. `clientWidth` is never a component prop. Define a local `rgb(hex: string): string` helper in the test file (`'#60a5fa'` → `'rgb(96, 165, 250)'`) because jsdom normalises inline colours. Add `data-testid` `pill-strip`, `pill` (the inner 22 px span), `stub-before`, `stub-after`.)
+(`base(clientWidth)` builds the props: `fakeScrollContainer(0, clientWidth)` (copied from `FoldRibbonLayer.test.tsx`, it already takes `clientWidth`) assigned to a `createRef()` as `scrollContainerRef`, plus `spans`, `chartWidth: 2000`, `height: 860`, `onOpen: vi.fn()`, `onFold: vi.fn()`, `measure`. `clientWidth` is never a component prop. Define a local `normalise(colour: string): string` helper in the test file that maps both `#rgb`/`#rrggbb` and `rgb(r, g, b)` to `rgb(r, g, b)`, and pass actual and expected values through it; jsdom 21 leaves a 6-digit hex untouched but rewrites `#fff` as `rgb(255, 255, 255)`. Add `data-testid` `pill-strip`, `pill` (the inner 22 px span), `stub-before`, `stub-after`.)
 
 - [ ] **Step 2: Run to verify they fail**
 
