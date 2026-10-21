@@ -35,14 +35,37 @@ const args = {
 };
 
 describe('useMonthFolding', () => {
-  it('is disabled below 1024px and exposes the full range', () => {
+  it('is in pills mode below 1024px with a 14-day default block', () => {
     stubMatchMedia(false);
     const { result } = renderHook(() => useMonthFolding(args));
-    expect(result.current.enabled).toBe(false);
+    expect(result.current.mode).toBe('pills');
+    expect(result.current.enabled).toBe(true);
+    expect(result.current.block).toEqual({ from: 3, to: 3 });
+    expect(result.current.visible).toEqual({ minDay: 87, maxDay: 105 });
+    expect(result.current.scrollIntent.current).toBe('end');
+  });
+
+  it('is off for a cycle of 40 days or fewer at any width', () => {
+    stubMatchMedia(false);
+    const { result } = renderHook(() => useMonthFolding({ ...args, lastDay: 40 }));
+    expect(result.current.mode).toBe('off');
     expect(result.current.visible).toBeNull();
-    expect(result.current.spans.length).toBeGreaterThan(1);
-    expect(result.current.canFold(0)).toBe(false);
-    expect(result.current.canFold(result.current.spans.length - 1)).toBe(false);
+  });
+
+  it('resets to the new mode default and re-arms the scroll when crossing 1024px', () => {
+    stubMatchMedia(true);
+    const { result } = renderHook(() => useMonthFolding(args));
+    act(() => result.current.showAll());
+    result.current.scrollIntent.current = null;
+    act(() => changeListener!({ matches: false }));
+    expect(result.current.mode).toBe('pills');
+    expect(result.current.block).toEqual({ from: 3, to: 3 });
+    expect(result.current.scrollIntent.current).toBe('end');
+    result.current.scrollIntent.current = null;
+    act(() => changeListener!({ matches: true }));
+    expect(result.current.mode).toBe('ribbons');
+    expect(result.current.block).toEqual({ from: 2, to: 3 });
+    expect(result.current.scrollIntent.current).toBe('end');
   });
 
   it('opens the default block and sets scrollIntent to the anchor side', () => {
@@ -104,7 +127,8 @@ describe('useMonthFolding', () => {
     const { result } = renderHook(() => useMonthFolding(args));
     act(() => result.current.collapseAll());
     act(() => changeListener!({ matches: false }));
-    expect(result.current.enabled).toBe(false);
+    expect(result.current.mode).toBe('pills');
+    expect(result.current.block).toEqual({ from: 3, to: 3 });
     act(() => changeListener!({ matches: true }));
     const spans = buildMonthSpans(args.cycleStartDate, 1, args.lastDay);
     expect(result.current.block).toEqual(defaultOpenBlock(spans, true));
