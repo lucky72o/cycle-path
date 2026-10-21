@@ -195,10 +195,12 @@ export default function CycleChartPage() {
     return Math.max(...cycle.days.map((day: any) => day.dayNumber));
   }, [cycle]);
 
-  // Month folding for long cycles (desktop >= 1024 px, > 40 displayed days,
-  // more than one calendar month). When enabled, only the open block of whole
-  // months is displayed; folded months collapse into 24 px ribbons that sit in
-  // reserved slots either side of the plot (extra Apex grid padding).
+  // Month folding for long cycles (> 40 displayed days, more than one calendar
+  // month). Only the open block of whole months is displayed. At >= 1024 px
+  // ('ribbons' mode) folded months collapse into 24 px ribbons that sit in
+  // reserved slots either side of the plot (extra Apex grid padding); below
+  // 1024 px ('pills' mode) folded months become pills in the floating
+  // MonthPillStrip and no ribbon slots are reserved.
   const fold = useMonthFolding({
     cycleId: cycle?.id,
     cycleStartDate: cycle ? new Date(cycle.startDate) : null,
@@ -1423,7 +1425,7 @@ export default function CycleChartPage() {
                 <>
                   {/* Row Labels - positioned in y-axis area */}
                   <div className="absolute top-0 left-0" style={{ width: `${labelColWidth}px`, zIndex: 2 }}>
-                    {/* Gutter cell — blank; the hairline + month pills live in the gutter overlay container (Task 8). */}
+                    {/* Gutter cell — blank; the hairline and month pills live in the gutter overlay container below. */}
                     <div
                       className={fold.mode === 'pills' ? 'bg-white border-b border-slate-300' : 'bg-white border-b border-slate-300 border-r border-slate-300'}
                       style={{ height: `${geo.gutter}px` }}
@@ -1441,10 +1443,14 @@ export default function CycleChartPage() {
 
                   {/* Gutter overlay — hairline + month-label pills. Lives in
                       the full-chart coord space (left:0 = container's left
-                      edge); hairline starts at plotAreaOffset, pills are
-                      positioned by monthSpans. The container ignores the
-                      pointer (it spans the whole width over the chart); only
-                      the pills take clicks. */}
+                      edge). In ribbons/off mode the hairline starts at
+                      plotAreaOffset and pills are positioned over their
+                      months by monthSpans; in pills mode the hairline runs
+                      full width and this overlay draws no pills: they come
+                      from MonthPillStrip (rendered further down), floating at
+                      the scroll container's left edge. The
+                      container ignores the pointer (it spans the whole width
+                      over the chart); only the pills take clicks. */}
                   <div className="absolute top-0 left-0 right-0" style={{ height: `${geo.gutter}px`, zIndex: 4, pointerEvents: 'none' }}>
                     {/* Hairline running through the gutter band: plot-area only in
                         ribbons/off mode, full width in pills mode. It sits on the

@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject, type SyntheticEvent } from 'react';
+import { useLayoutEffect, useMemo, useState, type RefObject, type SyntheticEvent } from 'react';
 import type { MonthSpan } from '../utils';
 import { paletteFor } from '../utils';
 import {
@@ -75,7 +75,8 @@ export function MonthPillStrip({
 }) {
   const [viewport, setViewport] = useState({ scrollLeft: 0, clientWidth: 0 });
 
-  useEffect(() => {
+  // Layout effect: read the viewport before first paint so fitStrip never runs with width 0 on screen.
+  useLayoutEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
     const read = () => {
@@ -102,7 +103,10 @@ export function MonthPillStrip({
 
   const { scrollLeft, clientWidth } = viewport;
   const stripWidth = Math.max(0, clientWidth - 8);
-  const { items, compact, scroll } = fitStrip(spans, block, measure, stripWidth);
+  const { items, compact, scroll } = useMemo(
+    () => fitStrip(spans, block, measure, stripWidth),
+    [spans, block, stripWidth, measure],
+  );
 
   const before = spans.slice(0, block.from);
   const after = spans.slice(block.to + 1);
@@ -120,8 +124,9 @@ export function MonthPillStrip({
           height: GUTTER,
           display: 'flex',
           gap: 4,
-          overflowX: scroll ? 'auto' : 'visible',
-          overflowY: 'hidden',
+          // The 30 px row already contains the 22 px pill + its 2 px outline, so
+          // nothing needs clipping vertically; only scroll mode clips/scrolls.
+          overflow: scroll ? 'auto' : 'visible',
           scrollbarWidth: 'none',
         }}
       >
@@ -132,11 +137,13 @@ export function MonthPillStrip({
           const inert = open && !item.foldable;
           const target = stripItemTarget(item);
           const label = stripItemLabel(item, compact);
+          const ariaLabel = stripItemAriaLabel(item);
           return (
             <button
               key={item.months[0].monthIndex}
               type="button"
-              aria-label={stripItemAriaLabel(item)}
+              aria-label={ariaLabel}
+              title={ariaLabel}
               aria-disabled={inert ? 'true' : undefined}
               onClick={(e) => {
                 stop(e);

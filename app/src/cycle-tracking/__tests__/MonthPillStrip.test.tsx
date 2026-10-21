@@ -165,6 +165,22 @@ describe('MonthPillStrip', () => {
 
   it('lets the strip scroll when even compact pills do not fit', () => {
     render(<MonthPillStrip {...props(80)} block={{ from: 0, to: 3 }} />);
-    expect(screen.getByTestId('pill-strip').style.overflowX).toBe('auto');
+    const strip = screen.getByTestId('pill-strip');
+    expect(strip.style.overflow).toBe('auto');
+    expect(strip.style.overflowY).not.toBe('hidden');
+  });
+
+  it('leaves overflow visible when the pills fit (nothing is clipped)', () => {
+    render(<MonthPillStrip {...props(1000)} block={{ from: 3, to: 3 }} />);
+    const strip = screen.getByTestId('pill-strip');
+    expect(strip.style.overflow).toBe('visible');
+    expect(strip.style.overflowY).not.toBe('hidden');
+  });
+
+  it('gives every pill a title equal to its aria-label', () => {
+    render(<MonthPillStrip {...props(1000)} block={{ from: 2, to: 3 }} />);
+    for (const b of screen.getAllByRole('button')) {
+      expect(b.getAttribute('title')).toBe(b.getAttribute('aria-label'));
+    }
   });
 });
