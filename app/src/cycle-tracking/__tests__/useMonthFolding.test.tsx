@@ -106,8 +106,27 @@ describe('useMonthFolding', () => {
     act(() => result.current.collapseAll());
     result.current.scrollIntent.current = null;
     act(() => changeListener!({ matches: false }));
-    expect(result.current.scrollIntent.current).toBeNull();
+    // Folding switching off also discards the block and re-arms the intent.
+    expect(result.current.scrollIntent.current).toBe('end');
+    result.current.scrollIntent.current = null;
     act(() => changeListener!({ matches: true }));
+    expect(result.current.scrollIntent.current).toBe('end');
+  });
+
+  it('re-arms scrollIntent to the anchor side when the cycle gains a month', () => {
+    stubMatchMedia(true);
+    // Day 80 is 24 Sep: Jul, Aug, Sep.
+    const { result, rerender } = renderHook((p) => useMonthFolding(p), {
+      initialProps: { ...args, lastDay: 80 },
+    });
+    act(() => result.current.open(0));
+    expect(result.current.block).toEqual({ from: 0, to: 2 });
+    expect(result.current.scrollIntent.current).toBe('start');
+    result.current.scrollIntent.current = null;
+    // Day 87 is 1 Oct: October appears, the user block is discarded.
+    rerender({ ...args, lastDay: 87 });
+    expect(result.current.spans.length).toBe(4);
+    expect(result.current.block).toEqual(defaultOpenBlock(result.current.spans, true));
     expect(result.current.scrollIntent.current).toBe('end');
   });
 

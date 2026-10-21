@@ -72,20 +72,18 @@ export function useMonthFolding(args: {
   // cycle, anchor, enabled state or month count implicitly falls back to the
   // default (the month count guards against a stale block indexing past the
   // end of a cycle that lost a month).
-  const cycleAnchorKey = `${cycleId ?? ''}|${anchorLatest}`;
-  const key = `${cycleAnchorKey}|${enabled}|${spans.length}`;
+  const key = `${cycleId ?? ''}|${anchorLatest}|${enabled}|${spans.length}`;
   const [user, setUser] = useState<{ key: string; block: OpenBlock } | null>(null);
   const scrollIntent = useRef<'start' | 'end' | null>(anchorSide);
-  const [seen, setSeen] = useState({ key, cycleAnchorKey, enabled });
-  if (seen.key !== key) {
+  const [seenKey, setSeenKey] = useState(key);
+  if (seenKey !== key) {
     // Render-time reset (React-supported): drop the stale block immediately,
-    // so a later return to a previous key cannot resurrect it. A new cycle or
-    // anchor, or folding switching back on, re-arms the scroll to the anchor
-    // side in the same render, so callers need no effect-ordering contract.
-    if (seen.cycleAnchorKey !== cycleAnchorKey || (enabled && !seen.enabled)) {
-      scrollIntent.current = anchorSide;
-    }
-    setSeen({ key, cycleAnchorKey, enabled });
+    // so a later return to a previous key cannot resurrect it. Any key change
+    // (cycle, anchor, folding on/off, a gained or lost month) falls back to the
+    // default view, so it also re-arms the scroll to the anchor side in the
+    // same render; callers need no effect-ordering contract.
+    scrollIntent.current = anchorSide;
+    setSeenKey(key);
     setUser(null);
   }
   const userBlock = user && user.key === key ? user.block : null;

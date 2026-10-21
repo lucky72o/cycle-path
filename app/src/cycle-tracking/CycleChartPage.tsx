@@ -5,9 +5,9 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight, computeMissingBbtDaysOnLine, paletteFor, LEFT_PLOT_RESERVE_FALLBACK } from './utils';
+import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight, computeMissingBbtDaysOnLine, paletteFor, LEFT_PLOT_RESERVE_FALLBACK, RIGHT_PLOT_RESERVE } from './utils';
 import { useMonthFolding } from './useMonthFolding';
-import { RIBBON_WIDTH, standardCellWidth, foldedContainerWidth } from './monthFolding';
+import { RIBBON_WIDTH, standardCellWidth, foldedContainerWidth, ribbonGroupX, isDayInRange } from './monthFolding';
 import { FoldRibbon } from './components/FoldRibbon';
 import { FoldToolbar } from './components/FoldToolbar';
 import { SignDot } from './components/SignDot';
@@ -460,15 +460,14 @@ export default function CycleChartPage() {
   // explicit width: fewer open days leave empty card space, more scroll.
   const foldedWidth = useMemo(() => {
     if (!fold.enabled || scrollClientWidth <= 0) return null;
-    const leftReserve = Math.max(LEFT_PLOT_RESERVE_FALLBACK, labelColWidth);
+    // Both the 40-day frame and the container use the label column Apex
+    // actually drew (once measured); the conservative fallback reserve applies
+    // only before the first measurement. Using the fallback for either would
+    // leave part of the frame unused or spread it over the open days.
+    const leftReserve = plotAreaOffset > 0 ? labelColWidth : LEFT_PLOT_RESERVE_FALLBACK;
     const cellWidth = standardCellWidth(scrollClientWidth, leftReserve);
     const openDays = displayDayRange.maxDay - displayDayRange.minDay + 1;
-    // The container is sized with the label column Apex actually drew (once
-    // measured), not the conservative fallback reserve: otherwise the unused
-    // part of the fallback is spread over the open days and columns come out
-    // wider than cellWidth (e.g. ~23.7 px instead of 22 px with 19 days open).
-    const measuredLeft = plotAreaOffset > 0 ? labelColWidth : leftReserve;
-    return foldedContainerWidth({ leftReserve: measuredLeft, ribbonsLeft, ribbonsRight, openDays, cellWidth });
+    return foldedContainerWidth({ leftReserve, ribbonsLeft, ribbonsRight, openDays, cellWidth });
   }, [fold.enabled, scrollClientWidth, plotAreaOffset, labelColWidth, ribbonsLeft, ribbonsRight, displayDayRange]);
 
   // One element per contiguous calendar-month segment of the displayed range.
@@ -943,6 +942,58 @@ export default function CycleChartPage() {
     ro.observe(el);
     return () => ro.disconnect();
   }, [chartData]);
+
+  // Horizontal scroll position of the chart, so the folded-month ribbon groups
+  // can stay pinned to the visible edges while the user scrolls.
+  const [chartScrollLeft, setChartScrollLeft] = useState(0);
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setChartScrollLeft(el.scrollLeft));
+    };
+    setChartScrollLeft(el.scrollLeft);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      el.removeEventListener('scroll', onScroll);
+    };
+  }, [chartData]);
+
+  // Programmatic scroll, only when the folding hook has armed an intent (page
+  // load / cycle change, opening a folded month, Show all / Collapse all).
+  // Runs ~350 ms after the chart re-rendered so Apex has re-measured. The hook
+  // arms the anchor side on cycle change even with folding off, so an active
+  // cycle wider than its container opens on the latest day on every screen.
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el || !chartData || plotAreaWidth === 0 || !fold.scrollIntent.current) return;
+    const t = setTimeout(() => {
+      const intent = fold.scrollIntent.current;
+      if (!intent) return;
+      el.scrollLeft = intent === 'end' ? el.scrollWidth : 0;
+      fold.scrollIntent.current = null;
+    }, 350);
+    return () => clearTimeout(t);
+  }, [chartData, plotAreaWidth, fold.block, fold.scrollIntent]);
+
+  // Days that fold away must not keep a hover crosshair or a pinned tooltip.
+  useEffect(() => {
+    if (hoveredDayNumber !== null && !isDayInRange(hoveredDayNumber, displayDayRange)) {
+      setHoveredDayNumber(null);
+      setCrosshairX(null);
+    }
+    if (pinnedDayNumber !== null && !isDayInRange(pinnedDayNumber, displayDayRange)) {
+      pinnedDayNumberRef.current = null;
+      pinnedCrosshairXRef.current = null;
+      setPinnedDayNumber(null);
+      setPinnedCrosshairX(null);
+    }
+    // Only a change of the displayed range can fold a day away.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayDayRange]);
 
   // Native mousemove/mouseleave on the ApexCharts canvas to drive crosshair+tooltip
   // for BBT node hover (ApexCharts' dataPointMouseEnter event is unreliable).
@@ -1452,18 +1503,36 @@ export default function CycleChartPage() {
                     })}
                   </div>
 
-                  {/* Folded-month ribbons, in their reserved slots either side of
-                      the plot (natural positions). Siblings of the Apex container,
+                  {/* Folded-month ribbons. Each group has a reserved natural slot
+                      (before: right of the label column; after: past the 40 px
+                      right reserve, so the coverline label stays clear) and is
+                      pinned to the visible edge of the scroll viewport until that
+                      slot scrolls into view. Siblings of the Apex container,
                       never inside its DOM, so the canvas listeners never see
                       ribbon events. The zero-size wrapper only sets the stacking
                       level: above the overlays and crosshair, below the tooltip. */}
-                  {fold.enabled && (fold.foldedBefore.length > 0 || fold.foldedAfter.length > 0) && (
+                  {fold.enabled && (fold.foldedBefore.length > 0 || fold.foldedAfter.length > 0) && (() => {
+                    const beforeX = ribbonGroupX({
+                      side: 'before',
+                      naturalX: plotAreaOffset - ribbonsLeft,
+                      groupWidth: ribbonsLeft,
+                      scrollLeft: chartScrollLeft,
+                      clientWidth: scrollClientWidth,
+                    });
+                    const afterX = ribbonGroupX({
+                      side: 'after',
+                      naturalX: plotAreaOffset + plotAreaWidth + RIGHT_PLOT_RESERVE,
+                      groupWidth: ribbonsRight,
+                      scrollLeft: chartScrollLeft,
+                      clientWidth: scrollClientWidth,
+                    });
+                    return (
                     <div className="absolute top-0 left-0" style={{ width: 0, height: 0, zIndex: 6 }}>
                       {fold.foldedBefore.map((s, i) => (
                         <FoldRibbon
                           key={s.monthIndex}
                           span={s}
-                          x={plotAreaOffset - ribbonsLeft + i * RIBBON_WIDTH}
+                          x={beforeX + i * RIBBON_WIDTH}
                           height={containerHeight}
                           palette={paletteFor(s.monthIndex)}
                           onOpen={() => fold.open(s.monthIndex)}
@@ -1473,14 +1542,15 @@ export default function CycleChartPage() {
                         <FoldRibbon
                           key={s.monthIndex}
                           span={s}
-                          x={plotAreaOffset + plotAreaWidth + i * RIBBON_WIDTH}
+                          x={afterX + i * RIBBON_WIDTH}
                           height={containerHeight}
                           palette={paletteFor(s.monthIndex)}
                           onOpen={() => fold.open(s.monthIndex)}
                         />
                       ))}
                     </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Grid cells - calculated positions within plot area */}
                   <div className="absolute top-0" style={{ left: 0, right: 0, zIndex: 1 }}>
