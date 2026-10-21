@@ -977,21 +977,38 @@ export default function CycleChartPage() {
       fold.scrollIntent.current = null;
     }, 350);
     return () => clearTimeout(t);
-  }, [chartData, plotAreaWidth, fold.block, fold.scrollIntent]);
+    // fold.scrollIntent is a stable ref; read at timeout time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartData, plotAreaWidth, fold.block]);
 
   // Days that fold away must not keep a hover crosshair or a pinned tooltip.
+  // When the first displayed day changes (opening a folded-before month, Show
+  // all, Collapse all, folding the first month) every column shifts, so the
+  // stored crosshair x values point at the wrong date: clear them too rather
+  // than recompute, since the plot width is re-measured asynchronously.
+  // Opening a folded-after month keeps minDay and the fixed cell width, so
+  // pins survive it.
+  const prevMinDayRef = useRef(displayDayRange.minDay);
   useEffect(() => {
-    if (hoveredDayNumber !== null && !isDayInRange(hoveredDayNumber, displayDayRange)) {
+    const shifted = prevMinDayRef.current !== displayDayRange.minDay;
+    prevMinDayRef.current = displayDayRange.minDay;
+    if (hoveredDayNumber !== null && (shifted || !isDayInRange(hoveredDayNumber, displayDayRange))) {
       setHoveredDayNumber(null);
       setCrosshairX(null);
     }
-    if (pinnedDayNumber !== null && !isDayInRange(pinnedDayNumber, displayDayRange)) {
+    if (pinnedDayNumber !== null && (shifted || !isDayInRange(pinnedDayNumber, displayDayRange))) {
       pinnedDayNumberRef.current = null;
       pinnedCrosshairXRef.current = null;
       setPinnedDayNumber(null);
       setPinnedCrosshairX(null);
     }
-    // Only a change of the displayed range can fold a day away.
+    if (
+      lastTouchedDayRef.current !== null &&
+      (shifted || !isDayInRange(lastTouchedDayRef.current, displayDayRange))
+    ) {
+      lastTouchedDayRef.current = null;
+    }
+    // Only a change of the displayed range can fold a day away or shift columns.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayDayRange]);
 
