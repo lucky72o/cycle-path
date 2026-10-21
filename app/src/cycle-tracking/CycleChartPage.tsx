@@ -7,8 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import ReactApexChart from 'react-apexcharts';
 import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight, computeMissingBbtDaysOnLine, paletteFor, LEFT_PLOT_RESERVE_FALLBACK, RIGHT_PLOT_RESERVE } from './utils';
 import { useMonthFolding } from './useMonthFolding';
-import { RIBBON_WIDTH, standardCellWidth, foldedContainerWidth, ribbonGroupX, isDayInRange } from './monthFolding';
-import { FoldRibbon } from './components/FoldRibbon';
+import { RIBBON_WIDTH, standardCellWidth, foldedContainerWidth, isDayInRange } from './monthFolding';
+import { FoldRibbonLayer } from './components/FoldRibbonLayer';
 import { FoldToolbar } from './components/FoldToolbar';
 import { SignDot } from './components/SignDot';
 import { chipStyleFor, type SensationValue } from './sensationRow';
@@ -943,25 +943,6 @@ export default function CycleChartPage() {
     return () => ro.disconnect();
   }, [chartData]);
 
-  // Horizontal scroll position of the chart, so the folded-month ribbon groups
-  // can stay pinned to the visible edges while the user scrolls.
-  const [chartScrollLeft, setChartScrollLeft] = useState(0);
-  useEffect(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    let raf = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => setChartScrollLeft(el.scrollLeft));
-    };
-    setChartScrollLeft(el.scrollLeft);
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      cancelAnimationFrame(raf);
-      el.removeEventListener('scroll', onScroll);
-    };
-  }, [chartData]);
-
   // Programmatic scroll, only when the folding hook has armed an intent (page
   // load / cycle change, opening a folded month, Show all / Collapse all).
   // Runs ~350 ms after the chart re-rendered so Apex has re-measured. The hook
@@ -973,13 +954,33 @@ export default function CycleChartPage() {
     const t = setTimeout(() => {
       const intent = fold.scrollIntent.current;
       if (!intent) return;
-      el.scrollLeft = intent === 'end' ? el.scrollWidth : 0;
+      const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+      if (intent === 'start') {
+        el.scrollLeft = 0;
+      } else if (intent === 'end-of-range') {
+        // Opening a folded-after month: show the very end of the range.
+        el.scrollLeft = el.scrollWidth;
+      } else {
+        // 'end': the latest RECORDED day sits at the right edge. Active cycles
+        // are padded to 28 displayed days, so scrollWidth would show blank
+        // future days and hide the day just logged on narrow containers.
+        const numDays = chartData.maxDay - chartData.minDay + 1;
+        const cellWidth = plotAreaWidth / numDays;
+        const target = recordedMaxDay === 0
+          ? 0
+          : plotAreaOffset
+            + (recordedMaxDay - displayDayRange.minDay + 1) * cellWidth
+            + RIGHT_PLOT_RESERVE
+            - el.clientWidth;
+        el.scrollLeft = Math.min(maxScroll, Math.max(0, target));
+      }
       fold.scrollIntent.current = null;
     }, 350);
     return () => clearTimeout(t);
-    // fold.scrollIntent is a stable ref; read at timeout time.
+    // fold.scrollIntent is a stable ref; read at timeout time. The geometry
+    // values are read at timeout time too (latest render's closure).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chartData, plotAreaWidth, fold.block]);
+  }, [chartData, plotAreaWidth, plotAreaOffset, fold.block]);
 
   // Days that fold away must not keep a hover crosshair or a pinned tooltip.
   // When the first displayed day changes (opening a folded-before month, Show
@@ -1528,46 +1529,17 @@ export default function CycleChartPage() {
                       never inside its DOM, so the canvas listeners never see
                       ribbon events. The zero-size wrapper only sets the stacking
                       level: above the overlays and crosshair, below the tooltip. */}
-                  {fold.enabled && (fold.foldedBefore.length > 0 || fold.foldedAfter.length > 0) && (() => {
-                    const beforeX = ribbonGroupX({
-                      side: 'before',
-                      naturalX: plotAreaOffset - ribbonsLeft,
-                      groupWidth: ribbonsLeft,
-                      scrollLeft: chartScrollLeft,
-                      clientWidth: scrollClientWidth,
-                    });
-                    const afterX = ribbonGroupX({
-                      side: 'after',
-                      naturalX: plotAreaOffset + plotAreaWidth + RIGHT_PLOT_RESERVE,
-                      groupWidth: ribbonsRight,
-                      scrollLeft: chartScrollLeft,
-                      clientWidth: scrollClientWidth,
-                    });
-                    return (
-                    <div className="absolute top-0 left-0" style={{ width: 0, height: 0, zIndex: 6 }}>
-                      {fold.foldedBefore.map((s, i) => (
-                        <FoldRibbon
-                          key={s.monthIndex}
-                          span={s}
-                          x={beforeX + i * RIBBON_WIDTH}
-                          height={containerHeight}
-                          palette={paletteFor(s.monthIndex)}
-                          onOpen={() => fold.open(s.monthIndex)}
-                        />
-                      ))}
-                      {fold.foldedAfter.map((s, i) => (
-                        <FoldRibbon
-                          key={s.monthIndex}
-                          span={s}
-                          x={afterX + i * RIBBON_WIDTH}
-                          height={containerHeight}
-                          palette={paletteFor(s.monthIndex)}
-                          onOpen={() => fold.open(s.monthIndex)}
-                        />
-                      ))}
-                    </div>
-                    );
-                  })()}
+                  {fold.enabled && (fold.foldedBefore.length > 0 || fold.foldedAfter.length > 0) && (
+                    <FoldRibbonLayer
+                      scrollContainerRef={scrollContainerRef}
+                      foldedBefore={fold.foldedBefore}
+                      foldedAfter={fold.foldedAfter}
+                      naturalLeft={plotAreaOffset - ribbonsLeft}
+                      naturalRight={plotAreaOffset + plotAreaWidth + RIGHT_PLOT_RESERVE}
+                      height={containerHeight}
+                      onOpen={fold.open}
+                    />
+                  )}
 
                   {/* Grid cells - calculated positions within plot area */}
                   <div className="absolute top-0" style={{ left: 0, right: 0, zIndex: 1 }}>

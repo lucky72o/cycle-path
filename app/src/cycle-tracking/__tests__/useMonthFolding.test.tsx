@@ -77,6 +77,17 @@ describe('useMonthFolding', () => {
     expect(result.current.scrollIntent).toBe(ref);
   });
 
+  it('open(after-month) sets the end-of-range intent', () => {
+    stubMatchMedia(true);
+    const { result } = renderHook(() => useMonthFolding(args));
+    act(() => result.current.fold(3));
+    expect(result.current.block).toEqual({ from: 2, to: 2 });
+    result.current.scrollIntent.current = null;
+    act(() => result.current.open(3));
+    expect(result.current.block).toEqual({ from: 2, to: 3 });
+    expect(result.current.scrollIntent.current).toBe('end-of-range');
+  });
+
   it('resets to the default block when the cycle id changes', () => {
     stubMatchMedia(true);
     const { result, rerender } = renderHook((p) => useMonthFolding(p), { initialProps: args });

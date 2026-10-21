@@ -34,6 +34,14 @@ export function useIsWideViewport(): boolean {
   return wide;
 }
 
+/**
+ * Pending programmatic scroll. 'end' = the latest recorded day at the right
+ * edge (padded future days of an active cycle stay off-screen); 'end-of-range'
+ * = the very end of the scroll range (after opening a folded-after month);
+ * 'start' = day 1 of the displayed range.
+ */
+export type ScrollIntent = 'start' | 'end' | 'end-of-range';
+
 export type MonthFolding = {
   enabled: boolean;
   spans: MonthSpan[];
@@ -48,7 +56,7 @@ export type MonthFolding = {
   open(monthIndex: number): void;
   showAll(): void;
   collapseAll(): void;
-  scrollIntent: React.MutableRefObject<'start' | 'end' | null>;
+  scrollIntent: React.MutableRefObject<ScrollIntent | null>;
 };
 
 export function useMonthFolding(args: {
@@ -74,7 +82,7 @@ export function useMonthFolding(args: {
   // end of a cycle that lost a month).
   const key = `${cycleId ?? ''}|${anchorLatest}|${enabled}|${spans.length}`;
   const [user, setUser] = useState<{ key: string; block: OpenBlock } | null>(null);
-  const scrollIntent = useRef<'start' | 'end' | null>(anchorSide);
+  const scrollIntent = useRef<ScrollIntent | null>(anchorSide);
   const [seenKey, setSeenKey] = useState(key);
   if (seenKey !== key) {
     // Render-time reset (React-supported): drop the stale block immediately,
@@ -100,7 +108,7 @@ export function useMonthFolding(args: {
   const open = useCallback(
     (i: number) => {
       if (i < block.from) scrollIntent.current = 'start';
-      else if (i > block.to) scrollIntent.current = 'end';
+      else if (i > block.to) scrollIntent.current = 'end-of-range';
       setBlock(openMonth(block, i));
     },
     [block, setBlock],
