@@ -62,16 +62,15 @@ export function FoldRibbon({
           display: 'flex',
         }}
       >
-        <SignDot sign="+" color={palette.pillText} />
+        <SignDot sign="+" color={palette.pillText} gap={0} />
       </span>
       <span
         style={{
           position: 'absolute',
           top: 40,
           left: '50%',
-          marginLeft: -7,
           writingMode: 'vertical-rl',
-          transform: 'rotate(180deg)',
+          transform: 'translateX(-50%) rotate(180deg)',
           fontSize: 11,
           fontWeight: 600,
           color: palette.pillText,

@@ -5,7 +5,12 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
-import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight, computeMissingBbtDaysOnLine, paletteFor } from './utils';
+import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight, computeMissingBbtDaysOnLine, paletteFor, LEFT_PLOT_RESERVE_FALLBACK } from './utils';
+import { useMonthFolding } from './useMonthFolding';
+import { RIBBON_WIDTH, standardCellWidth, foldedContainerWidth } from './monthFolding';
+import { FoldRibbon } from './components/FoldRibbon';
+import { FoldToolbar } from './components/FoldToolbar';
+import { SignDot } from './components/SignDot';
 import { chipStyleFor, type SensationValue } from './sensationRow';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
@@ -96,6 +101,13 @@ export default function CycleChartPage() {
   const [plotAreaTop, setPlotAreaTop] = useState<number>(0);
   const [plotAreaHeight, setPlotAreaHeight] = useState<number>(0);
   const [chartHeight, setChartHeight] = useState<number>(0);
+  // Full height of the chart container (month row to the bottom of the Notes
+  // row) — the height of a folded-month ribbon.
+  const [containerHeight, setContainerHeight] = useState<number>(0);
+  // Horizontal scroll container around the chart; its clientWidth sets the
+  // standard column width when month folding is on.
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [scrollClientWidth, setScrollClientWidth] = useState<number>(0);
   const [crosshairX, setCrosshairX] = useState<number | null>(null);
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
@@ -182,16 +194,37 @@ export default function CycleChartPage() {
     return Math.max(...cycle.days.map((day: any) => day.dayNumber));
   }, [cycle]);
 
+  // Month folding for long cycles (desktop >= 1024 px, > 40 displayed days,
+  // more than one calendar month). When enabled, only the open block of whole
+  // months is displayed; folded months collapse into 24 px ribbons that sit in
+  // reserved slots either side of the plot (extra Apex grid padding).
+  const fold = useMonthFolding({
+    cycleId: cycle?.id,
+    cycleStartDate: cycle ? new Date(cycle.startDate) : null,
+    lastDay: cycle ? (cycle.isActive ? Math.max(28, recordedMaxDay) : recordedMaxDay) : 0,
+    anchorLatest: !!cycle?.isActive,
+  });
+  const ribbonsLeft = fold.foldedBefore.length * RIBBON_WIDTH;
+  const ribbonsRight = fold.foldedAfter.length * RIBBON_WIDTH;
+  // The measured plotAreaOffset includes the before-ribbon slots; the row-label
+  // column ends where those slots begin.
+  const labelColWidth = Math.max(0, plotAreaOffset - ribbonsLeft);
+  const foldVisibleMin = fold.visible?.minDay;
+  const foldVisibleMax = fold.visible?.maxDay;
+
   const displayDayRange = useMemo(() => {
     if (!cycle) {
       return { minDay: 1, maxDay: 28 };
+    }
+    if (foldVisibleMin !== undefined && foldVisibleMax !== undefined) {
+      return { minDay: foldVisibleMin, maxDay: foldVisibleMax };
     }
     // Unified formula: every cycle (active or ended) shows at least 28 days.
     // For ended cycles where recordedMaxDay < 28, cells [recordedMaxDay+1..28]
     // form the gray tail (see isCycleDayInTail). For long cycles
     // (recordedMaxDay > 28), the range expands naturally to recordedMaxDay.
     return { minDay: 1, maxDay: Math.max(28, recordedMaxDay) };
-  }, [cycle, recordedMaxDay]);
+  }, [cycle, recordedMaxDay, foldVisibleMin, foldVisibleMax]);
 
   const chartData = useMemo(() => {
     if (!settings || !cycle) return null;
@@ -422,23 +455,41 @@ export default function CycleChartPage() {
     return computeContainerMinWidth(numDays, plotAreaOffset);
   }, [displayDayRange, plotAreaOffset]);
 
+  // With folding on, columns are always the standard width (a 40-day frame of
+  // the scroll viewport, floored at MIN_CELL_WIDTH) and the container gets an
+  // explicit width: fewer open days leave empty card space, more scroll.
+  const foldedWidth = useMemo(() => {
+    if (!fold.enabled || scrollClientWidth <= 0) return null;
+    const leftReserve = Math.max(LEFT_PLOT_RESERVE_FALLBACK, labelColWidth);
+    const cellWidth = standardCellWidth(scrollClientWidth, leftReserve);
+    const openDays = displayDayRange.maxDay - displayDayRange.minDay + 1;
+    // The container is sized with the label column Apex actually drew (once
+    // measured), not the conservative fallback reserve: otherwise the unused
+    // part of the fallback is spread over the open days and columns come out
+    // wider than cellWidth (e.g. ~23.7 px instead of 22 px with 19 days open).
+    const measuredLeft = plotAreaOffset > 0 ? labelColWidth : leftReserve;
+    return foldedContainerWidth({ leftReserve: measuredLeft, ribbonsLeft, ribbonsRight, openDays, cellWidth });
+  }, [fold.enabled, scrollClientWidth, plotAreaOffset, labelColWidth, ribbonsLeft, ribbonsRight, displayDayRange]);
+
   // One element per contiguous calendar-month segment of the displayed range.
   // Drives the month-label pills in the gutter row.
   //
   // Cycle-relative coloring contract: monthIndex 0 == cycle's first calendar
-  // month, 1 == second, etc. This only holds because displayDayRange.minDay
-  // is always 1 in the current chart. If that ever changes (e.g. a "month 2
-  // onwards" detail view), update buildMonthSpans usage to offset monthIndex
-  // by the number of months skipped — see MonthSpan JSDoc in utils.ts.
+  // month, 1 == second, etc. With month folding the displayed range may start
+  // after day 1, so the spans are taken from the whole-cycle list and clipped
+  // to the displayed range rather than rebuilt (rebuilding would renumber
+  // monthIndex from the first open month and shift the colours).
   const monthSpans = useMemo(() => {
     if (!cycle) return [];
-    // Defensive assertion: today's chart always passes minDay=1; if a future
-    // change breaks that, the colors will silently shift, so fail loudly.
-    if (displayDayRange.minDay !== 1) {
-      console.warn(
-        'CycleChartPage: monthSpans assumes displayDayRange.minDay === 1 for cycle-relative coloring; got',
-        displayDayRange.minDay,
-      );
+    if (fold.enabled) {
+      const { minDay, maxDay } = displayDayRange;
+      return fold.spans
+        .filter((sp) => sp.endDayNumber >= minDay && sp.startDayNumber <= maxDay)
+        .map((sp) => ({
+          ...sp,
+          startDayNumber: Math.max(sp.startDayNumber, minDay),
+          endDayNumber: Math.min(sp.endDayNumber, maxDay),
+        }));
     }
     // For ended cycles, clamp the gutter range to recordedMaxDay so colored
     // month pills don't render over the gray tail. Active cycles keep the
@@ -453,7 +504,7 @@ export default function CycleChartPage() {
       displayDayRange.minDay,
       gutterMaxDay,
     );
-  }, [cycle, displayDayRange, recordedMaxDay]);
+  }, [cycle, displayDayRange, recordedMaxDay, fold.enabled, fold.spans]);
 
   // Lookup: dayNumber -> monthIndex (0 for 1st month of cycle, 1 for 2nd, ...).
   // Drives per-cell color selection (date underline, weekday chip, cycle-day
@@ -692,10 +743,12 @@ export default function CycleChartPage() {
         padding: {
           // NOTE: If you change `left`, also revisit LEFT_PLOT_RESERVE_FALLBACK
           // in utils.ts — the chart's min-w math depends on this value.
-          left: 50,
+          // Grows by the before-ribbon slots when months are folded.
+          left: 50 + ribbonsLeft,
           // NOTE: If you change `right`, also update RIGHT_PLOT_RESERVE in
           // utils.ts — the chart's min-w math reserves exactly this many px.
-          right: 40,
+          // Grows by the after-ribbon slots when months are folded.
+          right: 40 + ribbonsRight,
         },
         show: true,
         clipMarkers: false, // Don't clip markers at the edge
@@ -815,7 +868,7 @@ export default function CycleChartPage() {
         enabled: false // Disabled - using custom React tooltip + native mousemove listener
       }
     };
-  }, [settings, chartData, allDaysWithBBT, cycle, navigate, yAxisRange, plotAreaWidth, plotAreaOffset]);
+  }, [settings, chartData, allDaysWithBBT, cycle, navigate, yAxisRange, plotAreaWidth, plotAreaOffset, ribbonsLeft, ribbonsRight]);
 
   const prevCycle = useMemo(() => {
     if (!cycle || !allCycles) return null;
@@ -859,6 +912,7 @@ export default function CycleChartPage() {
             const chartRect = chartSvg.getBoundingClientRect();
             setChartHeight(chartRect.height);
           }
+          setContainerHeight(chartContainerRef.current.offsetHeight);
         }
       }
     };
@@ -878,6 +932,16 @@ export default function CycleChartPage() {
       clearTimeout(timer);
       resizeObserver.disconnect();
     };
+  }, [chartData, ribbonsLeft, ribbonsRight]);
+
+  // Track the scroll container's width (drives the standard column width).
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    setScrollClientWidth(el.clientWidth);
+    const ro = new ResizeObserver(() => setScrollClientWidth(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
   }, [chartData]);
 
   // Native mousemove/mouseleave on the ApexCharts canvas to drive crosshair+tooltip
@@ -1252,12 +1316,26 @@ export default function CycleChartPage() {
             }
           `}</style>
           {chartData ? (
-            <div className="overflow-x-auto">
+            <>
+            {fold.enabled && (
+              <FoldToolbar
+                foldedDays={fold.foldedDays}
+                allOpen={fold.allOpen}
+                onShowAll={fold.showAll}
+                onCollapseAll={fold.collapseAll}
+              />
+            )}
+            <div className="overflow-x-auto" ref={scrollContainerRef}>
             <div
               ref={chartContainerRef}
               className="relative"
               data-chart-container="cycle-chart"
-              style={{ minWidth: `${containerMinWidth}px`, paddingTop: '130px', paddingBottom: `${LOWER_TABLE_PADDING_BOTTOM}px` }}
+              style={{
+                width: foldedWidth !== null ? `${foldedWidth}px` : undefined,
+                minWidth: `${foldedWidth ?? containerMinWidth}px`,
+                paddingTop: '130px',
+                paddingBottom: `${LOWER_TABLE_PADDING_BOTTOM}px`,
+              }}
               onMouseMove={(e) => {
                 const rect = chartContainerRef.current?.getBoundingClientRect();
                 if (rect) {
@@ -1270,7 +1348,7 @@ export default function CycleChartPage() {
               {chartData && plotAreaWidth > 0 && (
                 <>
                   {/* Row Labels - positioned in y-axis area */}
-                  <div className="absolute top-0 left-0" style={{ width: `${plotAreaOffset}px`, zIndex: 2 }}>
+                  <div className="absolute top-0 left-0" style={{ width: `${labelColWidth}px`, zIndex: 2 }}>
                     {/* Gutter cell — blank; the hairline + month pills live in the gutter overlay container (Task 8). */}
                     <div className="bg-white border-b border-slate-300 border-r border-slate-300" style={{ height: '22px' }} />
                     <div className="flex items-center justify-end px-3 text-xs font-medium bg-white border-b border-slate-200 border-r border-slate-300" style={{ height: '36px' }}>
@@ -1287,8 +1365,10 @@ export default function CycleChartPage() {
                   {/* Gutter overlay — hairline + month-label pills. Lives in
                       the full-chart coord space (left:0 = container's left
                       edge); hairline starts at plotAreaOffset, pills are
-                      positioned by monthSpans. */}
-                  <div className="absolute top-0 left-0 right-0" style={{ height: '22px', zIndex: 1 }}>
+                      positioned by monthSpans. The container ignores the
+                      pointer (it spans the whole width over the chart); only
+                      the pills take clicks. */}
+                  <div className="absolute top-0 left-0 right-0" style={{ height: '22px', zIndex: 4, pointerEvents: 'none' }}>
                     {/* Hairline running through the gutter band, plot-area only.
                         The 22 px gutter cell's 1 px bottom border is at y = 21–22. */}
                     <div
@@ -1318,23 +1398,42 @@ export default function CycleChartPage() {
                       // English month name "September" (~46–50 px at this font), with a small
                       // safety margin so the ellipsis safety net below rarely needs to fire.
                       // Below it, fall back to e.g. "Jan" / "Sep".
-                      const useShortLabel = pillMaxWidthPx < 68;
+                      // A foldable pill carries a "−" dot (12 px + 4 px gap, 5 px less
+                      // left padding), so it needs 11 px more room for the full name.
+                      const foldable = fold.canFold(span.monthIndex);
+                      const useShortLabel = pillMaxWidthPx < (foldable ? 79 : 68);
                       const label = useShortLabel ? span.monthLabel.slice(0, 3) : span.monthLabel;
 
                       const leftEdge = plotAreaOffset + (span.startDayNumber - chartData.minDay) * cellWidth;
                       const palette = paletteFor(span.monthIndex);
+                      const foldThis = () => fold.fold(span.monthIndex);
                       return (
                         <span
                           key={span.startDayNumber}
-                          className="absolute"
+                          className={foldable ? 'absolute cursor-pointer hover:brightness-95' : 'absolute'}
+                          role={foldable ? 'button' : undefined}
+                          aria-label={foldable ? `Fold ${span.monthLabel}` : undefined}
+                          tabIndex={foldable ? 0 : undefined}
+                          onClick={foldable ? foldThis : undefined}
+                          onKeyDown={
+                            foldable
+                              ? (e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    foldThis();
+                                  }
+                                }
+                              : undefined
+                          }
                           style={{
                             top: '14.5px',
                             left: `${leftEdge + 4}px`,
+                            pointerEvents: 'auto',
                             maxWidth: `${pillMaxWidthPx}px`,
                             boxSizing: 'border-box',
                             height: '14px',
                             lineHeight: '14px',
-                            padding: '0 8px',
+                            padding: foldable ? '0 8px 0 3px' : '0 8px',
                             borderRadius: '9px',
                             background: palette.pillBg,
                             color: palette.pillText,
@@ -1346,11 +1445,42 @@ export default function CycleChartPage() {
                             textOverflow: 'ellipsis',
                           }}
                         >
+                          {foldable && <SignDot sign="−" color={palette.pillText} />}
                           {label}
                         </span>
                       );
                     })}
                   </div>
+
+                  {/* Folded-month ribbons, in their reserved slots either side of
+                      the plot (natural positions). Siblings of the Apex container,
+                      never inside its DOM, so the canvas listeners never see
+                      ribbon events. The zero-size wrapper only sets the stacking
+                      level: above the overlays and crosshair, below the tooltip. */}
+                  {fold.enabled && (fold.foldedBefore.length > 0 || fold.foldedAfter.length > 0) && (
+                    <div className="absolute top-0 left-0" style={{ width: 0, height: 0, zIndex: 6 }}>
+                      {fold.foldedBefore.map((s, i) => (
+                        <FoldRibbon
+                          key={s.monthIndex}
+                          span={s}
+                          x={plotAreaOffset - ribbonsLeft + i * RIBBON_WIDTH}
+                          height={containerHeight}
+                          palette={paletteFor(s.monthIndex)}
+                          onOpen={() => fold.open(s.monthIndex)}
+                        />
+                      ))}
+                      {fold.foldedAfter.map((s, i) => (
+                        <FoldRibbon
+                          key={s.monthIndex}
+                          span={s}
+                          x={plotAreaOffset + plotAreaWidth + i * RIBBON_WIDTH}
+                          height={containerHeight}
+                          palette={paletteFor(s.monthIndex)}
+                          onOpen={() => fold.open(s.monthIndex)}
+                        />
+                      ))}
+                    </div>
+                  )}
 
                   {/* Grid cells - calculated positions within plot area */}
                   <div className="absolute top-0" style={{ left: 0, right: 0, zIndex: 1 }}>
@@ -1964,7 +2094,7 @@ export default function CycleChartPage() {
                   <div
                     className="absolute left-0"
                     style={{
-                      width: `${plotAreaOffset}px`,
+                      width: `${labelColWidth}px`,
                       top: `${plotAreaTop + chartHeight}px`, // Measured plot area top + measured chart height
                       zIndex: 2
                     }}
@@ -2026,7 +2156,7 @@ export default function CycleChartPage() {
                   <div
                     className="absolute left-0"
                     style={{
-                      width: `${plotAreaOffset}px`,
+                      width: `${labelColWidth}px`,
                       top: `${plotAreaTop + chartHeight + 38}px`, // After Time Stamp (38px)
                       zIndex: 2
                     }}
@@ -2118,7 +2248,7 @@ export default function CycleChartPage() {
                   <div
                     className="absolute left-0"
                     style={{
-                      width: `${plotAreaOffset}px`,
+                      width: `${labelColWidth}px`,
                       top: `${plotAreaTop + chartHeight + 66}px`, // After Time Stamp (38px) + LH Test (28px)
                       zIndex: 2
                     }}
@@ -2178,7 +2308,7 @@ export default function CycleChartPage() {
                   <div 
                     className="absolute left-0" 
                     style={{ 
-                      width: `${plotAreaOffset}px`, 
+                      width: `${labelColWidth}px`, 
                       top: `${plotAreaTop + chartHeight + 94}px`, // After Time Stamp (38px) + LH Test (28px) + Intimacy (28px)
                       zIndex: 2 
                     }}
@@ -2353,7 +2483,7 @@ export default function CycleChartPage() {
                   <div
                     className="absolute left-0"
                     style={{
-                      width: `${plotAreaOffset}px`,
+                      width: `${labelColWidth}px`,
                       top: `${plotAreaTop + chartHeight + 234}px`,
                       zIndex: 2
                     }}
@@ -2371,7 +2501,7 @@ export default function CycleChartPage() {
                   <div
                     className="absolute left-0"
                     style={{
-                      width: `${plotAreaOffset}px`,
+                      width: `${labelColWidth}px`,
                       top: `${plotAreaTop + chartHeight + 262}px`,
                       zIndex: 2
                     }}
@@ -2389,7 +2519,7 @@ export default function CycleChartPage() {
                   <div
                     className="absolute left-0"
                     style={{
-                      width: `${plotAreaOffset}px`,
+                      width: `${labelColWidth}px`,
                       top: `${plotAreaTop + chartHeight + 290}px`,
                       zIndex: 2
                     }}
@@ -2652,6 +2782,7 @@ export default function CycleChartPage() {
               )}
             </div>
             </div>
+            </>
           ) : (
             <div className="text-center py-12 text-muted-foreground">
               <p className="mb-4">No temperature data recorded yet.</p>

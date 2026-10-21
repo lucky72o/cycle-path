@@ -41,6 +41,8 @@ describe('useMonthFolding', () => {
     expect(result.current.enabled).toBe(false);
     expect(result.current.visible).toBeNull();
     expect(result.current.spans.length).toBeGreaterThan(1);
+    expect(result.current.canFold(0)).toBe(false);
+    expect(result.current.canFold(result.current.spans.length - 1)).toBe(false);
   });
 
   it('opens the default block and sets scrollIntent to the anchor side', () => {

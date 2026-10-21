@@ -1,4 +1,5 @@
-export function SignDot({ sign, color }: { sign: '+' | '−'; color: string }) {
+/** `gap` is the space after the dot (before a following label); 0 when the dot stands alone. */
+export function SignDot({ sign, color, gap = 4 }: { sign: '+' | '−'; color: string; gap?: number }) {
   return (
     <span
       aria-hidden="true"
@@ -13,7 +14,7 @@ export function SignDot({ sign, color }: { sign: '+' | '−'; color: string }) {
         lineHeight: '11px',
         fontWeight: 700,
         fontSize: '11px',
-        marginRight: 4,
+        marginRight: gap,
       }}
     >
       {sign}

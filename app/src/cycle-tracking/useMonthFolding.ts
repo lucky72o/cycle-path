@@ -115,7 +115,7 @@ export function useMonthFolding(args: {
     scrollIntent.current = anchorSide;
     setBlock(collapsedBlock(spans, anchorLatest));
   }, [anchorSide, anchorLatest, spans, setBlock]);
-  const canFold = useCallback((i: number) => canFoldBlock(block, i), [block]);
+  const canFold = useCallback((i: number) => enabled && canFoldBlock(block, i), [enabled, block]);
 
   return {
     enabled,
