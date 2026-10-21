@@ -1,3 +1,5 @@
+import { monthPaletteIndex } from './monthFolding';
+
 // TemperatureUnit type - matches Prisma enum
 // Will be available from '@prisma/client' after running migration
 export type TemperatureUnit = 'FAHRENHEIT' | 'CELSIUS';
@@ -406,4 +408,68 @@ export function getCFBarHeight(appearance: string): number {
 export function formatDateDDMM(isoDate: string): string {
   const [, month, day] = isoDate.slice(0, 10).split('-');
   return `${day}/${month}`;
+}
+
+/**
+ * Days with no BBT at all that sit strictly between two consecutive included
+ * (non-excluded) days that do have a BBT; each carries the linearly
+ * interpolated temperature (display unit) used to draw a small x on the line.
+ * Only days with minDay <= dayNumber <= maxDay are considered, so a folded
+ * chart never emits markers for days it does not display.
+ */
+export function computeMissingBbtDaysOnLine(
+  days: Array<{ dayNumber: number; bbt: number | null; excludeFromInterpretation: boolean }>,
+  range: { minDay: number; maxDay: number },
+  toDisplay: (bbt: number) => number,
+): Array<{ dayNumber: number; interpolatedTemp: number }> {
+  const inRange = days.filter((d) => d.dayNumber >= range.minDay && d.dayNumber <= range.maxDay);
+  const byDay = new Map(inRange.map((d) => [d.dayNumber, d]));
+  const included = inRange
+    .filter((d) => !d.excludeFromInterpretation && d.bbt !== null)
+    .sort((a, b) => a.dayNumber - b.dayNumber);
+
+  const result: Array<{ dayNumber: number; interpolatedTemp: number }> = [];
+  for (let i = 0; i < included.length - 1; i++) {
+    const p1 = included[i];
+    const p2 = included[i + 1];
+    for (let day = p1.dayNumber + 1; day < p2.dayNumber; day++) {
+      const existing = byDay.get(day);
+      if (!existing || existing.bbt === null) {
+        const t = (day - p1.dayNumber) / (p2.dayNumber - p1.dayNumber);
+        const t1 = toDisplay(p1.bbt as number);
+        const t2 = toDisplay(p2.bbt as number);
+        result.push({ dayNumber: day, interpolatedTemp: t1 + (t2 - t1) * t });
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Per-month-index color tokens for the cycle chart header.
+ *
+ * monthIndex 0 = first calendar month present in the displayed cycle range,
+ * 1 = second, 2 = third; the palette then cycles every three months
+ * (see paletteFor / monthPaletteIndex), so long cycles reuse blue, green,
+ * slate in order. Drives the pill, the date underline, the weekday chip,
+ * the cycle-day chip, and the hover wash for every cell in the column.
+ *
+ * Why these specific hues — see the "Color tokens" section in
+ * docs/superpowers/specs/2026-05-12-graph-header-design.md.
+ */
+export const MONTH_PALETTE: Record<number, {
+  pillBg: string;
+  pillText: string;
+  chipBg: string;
+  chipText: string;
+  underline: string;
+  hoverWash: string;
+}> = {
+  0: { pillBg: '#dbeafe', pillText: '#1e3a8a', chipBg: '#dbeafe', chipText: '#1e3a8a', underline: '#60a5fa', hoverWash: '#dbeafe' }, // blue (1st month)
+  1: { pillBg: '#dcfce7', pillText: '#14532d', chipBg: '#dcfce7', chipText: '#14532d', underline: '#4ade80', hoverWash: '#dcfce7' }, // green (2nd month)
+  2: { pillBg: '#f1f5f9', pillText: '#334155', chipBg: '#f1f5f9', chipText: '#334155', underline: '#94a3b8', hoverWash: '#f1f5f9' }, // slate (3rd month, then the cycle repeats)
+};
+
+export function paletteFor(monthIndex: number) {
+  return MONTH_PALETTE[monthPaletteIndex(monthIndex)];
 }

@@ -86,7 +86,12 @@ function useChartProjection(props: ThermalShiftLayerProps) {
 
   const dayMap = new Map(days.map((d) => [d.dayNumber, d]));
 
+  // Days outside the displayed range (e.g. inside a folded month) must not be
+  // drawn at all — a negative index would land them over the y-axis legend.
+  const inRange = (dayNumber: number) => dayNumber >= minDay && dayNumber <= maxDay;
+
   const dotPosition = (dayNumber: number): { x: number; y: number } | null => {
+    if (!inRange(dayNumber)) return null;
     const day = dayMap.get(dayNumber);
     if (!day || day.bbt === null) return null;
     const display = toDisplayTemperature(day.bbt, temperatureUnit);
@@ -99,6 +104,7 @@ function useChartProjection(props: ThermalShiftLayerProps) {
     opacity: number,
     key: string,
   ) => {
+    if (!inRange(dayNumber)) return null;
     const dayIndex = dayNumber - minDay;
     const x = plotAreaOffset + dayIndex * cellWidth;
     return (
