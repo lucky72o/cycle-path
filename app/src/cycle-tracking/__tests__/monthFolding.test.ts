@@ -6,10 +6,13 @@ import {
   standardCellWidth, foldedContainerWidth, ribbonGroupX, ribbonLabel, ribbonAriaLabel,
   monthPaletteIndex,
   monthPillMode,
+  foldMode, frameDays, headerGeometry, stripItems, stripItemLabel, stripItemAriaLabel,
+  stripItemTarget, fitStrip, keepsPin, type StripItem,
 } from '../monthFolding';
 
 const spans = (startIso: string, lastDay: number) => buildMonthSpans(new Date(startIso), 1, lastDay);
 const spansA = spans('2026-07-07', 105);
+const spans105 = spansA;
 
 describe('isFoldingEligible', () => {
   it('needs > 40 days and > 1 month', () => {
@@ -117,5 +120,117 @@ describe('labels and colours', () => {
   });
   it('monthPaletteIndex cycles every three months', () => {
     expect([0, 1, 2, 3, 4, 5].map(monthPaletteIndex)).toEqual([0, 1, 2, 0, 1, 2]);
+  });
+});
+
+describe('mode and frame', () => {
+  it('foldMode', () => {
+    expect(foldMode(true, true)).toBe('ribbons');
+    expect(foldMode(false, true)).toBe('pills');
+    expect(foldMode(true, false)).toBe('off');
+    expect(foldMode(false, false)).toBe('off');
+  });
+  it('frameDays', () => {
+    expect(frameDays('ribbons')).toBe(40);
+    expect(frameDays('pills')).toBe(14);
+  });
+});
+
+describe('defaultOpenBlock with the 14-day frame', () => {
+  it('active, anchor month >= 14 days opens it alone', () => {
+    expect(defaultOpenBlock(spans105, true, 14)).toEqual({ from: 3, to: 3 }); // Oct 19 days
+  });
+  it('active, a 2-day anchor month also opens the previous month', () => {
+    const s = buildMonthSpans(new Date('2026-07-07'), 1, 119); // day 119 = 2 Nov
+    expect(defaultOpenBlock(s, true, 14)).toEqual({ from: 3, to: 4 });
+  });
+  it('ended opens the first month(s) until >= 14 days', () => {
+    expect(defaultOpenBlock(spans105, false, 14)).toEqual({ from: 0, to: 0 }); // Jul 25 days
+  });
+  it('default frame stays 40', () => {
+    expect(defaultOpenBlock(spans105, true)).toEqual({ from: 2, to: 3 });
+  });
+});
+
+describe('headerGeometry', () => {
+  it('pills mode uses a 30 px gutter', () => {
+    expect(headerGeometry('pills')).toEqual({ gutter: 30, header: 138, dateTop: 30, weekDayTop: 66, cycleDayTop: 102, hairlineTop: 29 });
+  });
+  it('ribbons and off keep today', () => {
+    const today = { gutter: 22, header: 130, dateTop: 22, weekDayTop: 58, cycleDayTop: 94, hairlineTop: 21 };
+    expect(headerGeometry('ribbons')).toEqual(today);
+    expect(headerGeometry('off')).toEqual(today);
+  });
+});
+
+describe('strip model', () => {
+  const w = (item: StripItem, compact: boolean) => 12 * stripItemLabel(item, compact).length + 20;
+  it('stripItems: one item per month, calendar order, open foldable only at block ends', () => {
+    const items = stripItems(spans105, { from: 2, to: 3 });
+    expect(items.map((i) => i.kind)).toEqual(['folded', 'folded', 'open', 'open']);
+    expect(items.map((i) => stripItemLabel(i, false))).toEqual(['Jul 25', 'Aug 31', 'Sep 30', 'Oct 19']);
+    expect(items.filter((i) => i.kind === 'open').map((i) => (i as { foldable: boolean }).foldable)).toEqual([true, true]);
+    expect((stripItems(spans105, { from: 3, to: 3 })[3] as { foldable: boolean }).foldable).toBe(false);
+  });
+  it('labels and aria labels', () => {
+    const merged: StripItem = { kind: 'folded', side: 'before', months: spans105.slice(0, 3) };
+    expect(stripItemLabel(merged, false)).toBe('Jul–Sep 86');
+    expect(stripItemLabel(merged, true)).toBe('Jul–Sep');
+    expect(stripItemAriaLabel(merged)).toBe('Show September, 30 days (July–September folded, 86 days)');
+    expect(stripItemAriaLabel({ kind: 'folded', side: 'before', months: [spans105[0]] })).toBe('Show July, 25 days');
+    expect(stripItemAriaLabel({ kind: 'open', months: [spans105[3]], foldable: true })).toBe('Fold October');
+    expect(stripItemAriaLabel({ kind: 'open', months: [spans105[3]], foldable: false })).toBe('October is open');
+  });
+  it('a merged pill targets the month nearest the open block', () => {
+    expect(stripItemTarget({ kind: 'folded', side: 'before', months: spans105.slice(0, 3) })).toBe(2);
+    expect(stripItemTarget({ kind: 'folded', side: 'after', months: spans105.slice(1, 4) })).toBe(1);
+  });
+  it('fitStrip: no merge when it fits', () => {
+    const r = fitStrip(spans105, { from: 3, to: 3 }, w, 10_000);
+    expect(r).toMatchObject({ compact: false, scroll: false });
+    expect(r.items).toHaveLength(4);
+  });
+  it('fitStrip: merges the before-group from month 0 in threes', () => {
+    // 4 unmerged pills ~ 4*92+12 = 380; merged Jul–Sep + Oct ~ 140+92+4 = 236
+    const r = fitStrip(spans105, { from: 3, to: 3 }, w, 300);
+    expect(r.items.map((i) => stripItemLabel(i, r.compact))).toEqual(['Jul–Sep 86', 'Oct 19']);
+    expect(r.compact).toBe(false);
+  });
+  it('fitStrip: stops after a partial merge', () => {
+    const s = buildMonthSpans(new Date('2026-01-01'), 1, 290); // Jan..Oct 17
+    const block = { from: 9, to: 9 };
+    const full = fitStrip(s, block, w, 10_000).items.length; // 10
+    const r = fitStrip(s, block, w, 12 * 70); // fits after one merge
+    expect(r.items.length).toBe(full - 2);
+    expect(stripItemLabel(r.items[0], false)).toBe('Jan–Mar 90');
+    expect(stripItemLabel(r.items[1], false)).toBe('Apr 30');
+  });
+  it('fitStrip: never merges open months; after-group chunks start from the last month', () => {
+    const s = buildMonthSpans(new Date('2026-01-01'), 1, 290);
+    const r = fitStrip(s, { from: 0, to: 1 }, w, 400, 4);
+    expect(r.items.filter((i) => i.kind === 'open')).toHaveLength(2);
+    const lastFolded = r.items[r.items.length - 1];
+    expect(lastFolded.months.map((m) => m.monthLabel)).toEqual(['August', 'September', 'October']);
+  });
+  it('fitStrip: compacts after merging is exhausted, then scrolls', () => {
+    const all = { from: 0, to: 3 };
+    expect(fitStrip(spans105, all, w, 4 * 12 * 3 + 4 * 20 + 12)).toMatchObject({ compact: true, scroll: false });
+    expect(fitStrip(spans105, all, w, 50)).toMatchObject({ compact: true, scroll: true });
+  });
+});
+
+describe('keepsPin (tooltip guard decision, pills mode ranges)', () => {
+  const sepOct = { minDay: 57, maxDay: 105 };
+  it('clears when the pinned day\'s month folds away', () => {
+    expect(keepsPin(100, sepOct, { minDay: 57, maxDay: 86 })).toBe(false); // Oct folded
+  });
+  it('survives when a later month folds and the day stays displayed', () => {
+    expect(keepsPin(60, sepOct, { minDay: 57, maxDay: 86 })).toBe(true);
+  });
+  it('survives when a month opens after the block', () => {
+    expect(keepsPin(60, { minDay: 57, maxDay: 86 }, sepOct)).toBe(true);
+  });
+  it('clears when the first displayed day shifts, even if the day stays in range', () => {
+    expect(keepsPin(100, sepOct, { minDay: 26, maxDay: 105 })).toBe(false); // Aug opened before
   });
 });

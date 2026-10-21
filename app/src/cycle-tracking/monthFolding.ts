@@ -20,15 +20,19 @@ export function isFoldingEligible(lastDay: number, spans: MonthSpan[]): boolean 
 
 /**
  * Starts at the anchor month (latest when `anchorLatest`, else first) and adds
- * neighbours away from the anchor while fewer than STANDARD_FRAME_DAYS are open.
+ * neighbours away from the anchor while fewer than `frame` days are open.
  */
-export function defaultOpenBlock(spans: MonthSpan[], anchorLatest: boolean): OpenBlock {
+export function defaultOpenBlock(
+  spans: MonthSpan[],
+  anchorLatest: boolean,
+  frame: number = STANDARD_FRAME_DAYS,
+): OpenBlock {
   if (spans.length === 0) return { from: 0, to: 0 };
   const anchor = anchorLatest ? spans.length - 1 : 0;
   let from = anchor;
   let to = anchor;
   let total = spanDays(spans[anchor]);
-  while (total < STANDARD_FRAME_DAYS && (from > 0 || to < spans.length - 1)) {
+  while (total < frame && (from > 0 || to < spans.length - 1)) {
     if (anchorLatest ? from > 0 : to >= spans.length - 1) {
       from -= 1;
       total += spanDays(spans[from]);
@@ -153,4 +157,136 @@ export function ribbonAriaLabel(span: MonthSpan): string {
 
 export function monthPaletteIndex(monthIndex: number): 0 | 1 | 2 {
   return (monthIndex % 3) as 0 | 1 | 2;
+}
+
+export const PILLS_FRAME_DAYS = 14;
+
+export type FoldMode = 'ribbons' | 'pills' | 'off';
+
+export function foldMode(wide: boolean, eligible: boolean): FoldMode {
+  if (!eligible) return 'off';
+  return wide ? 'ribbons' : 'pills';
+}
+
+export function frameDays(mode: FoldMode): number {
+  return mode === 'pills' ? PILLS_FRAME_DAYS : STANDARD_FRAME_DAYS;
+}
+
+export type HeaderGeometry = {
+  gutter: number;
+  header: number;
+  dateTop: number;
+  weekDayTop: number;
+  cycleDayTop: number;
+  hairlineTop: number;
+};
+
+export function headerGeometry(mode: FoldMode): HeaderGeometry {
+  const gutter = mode === 'pills' ? 30 : 22;
+  return {
+    gutter,
+    header: gutter + 108,
+    dateTop: gutter,
+    weekDayTop: gutter + 36,
+    cycleDayTop: gutter + 72,
+    hairlineTop: gutter - 1,
+  };
+}
+
+export type StripItem =
+  | { kind: 'open'; months: [MonthSpan]; foldable: boolean }
+  | { kind: 'folded'; side: 'before' | 'after'; months: MonthSpan[] }; // 1-3 consecutive months, calendar order
+
+/** One item per month, calendar order, nothing merged. */
+export function stripItems(spans: MonthSpan[], block: OpenBlock): StripItem[] {
+  return spans.map((span, i): StripItem =>
+    i >= block.from && i <= block.to
+      ? { kind: 'open', months: [span], foldable: canFold(block, i) }
+      : { kind: 'folded', side: i < block.from ? 'before' : 'after', months: [span] },
+  );
+}
+
+const sumDays = (months: MonthSpan[]) => months.reduce((n, m) => n + spanDays(m), 0);
+const short = (m: MonthSpan) => m.monthLabel.slice(0, 3);
+
+export function stripItemLabel(item: StripItem, compact: boolean): string {
+  const { months } = item;
+  const name = months.length > 1 ? `${short(months[0])}\u2013${short(months[months.length - 1])}` : short(months[0]);
+  return compact ? name : `${name} ${sumDays(months)}`;
+}
+
+export function stripItemAriaLabel(item: StripItem): string {
+  if (item.kind === 'open') {
+    const name = item.months[0].monthLabel;
+    return item.foldable ? `Fold ${name}` : `${name} is open`;
+  }
+  const target = stripItemTarget(item);
+  const t = item.months.find((m) => m.monthIndex === target) ?? item.months[0];
+  const base = `Show ${t.monthLabel}, ${dayWord(spanDays(t))}`;
+  if (item.months.length === 1) return base;
+  const first = item.months[0].monthLabel;
+  const last = item.months[item.months.length - 1].monthLabel;
+  return `${base} (${first}\u2013${last} folded, ${dayWord(sumDays(item.months))})`;
+}
+
+/** monthIndex to open (folded) or fold (open); a merged pill targets the month nearest the open block. */
+export function stripItemTarget(item: StripItem): number {
+  const idx = item.months.map((m) => m.monthIndex);
+  if (item.kind === 'folded' && item.side === 'before') return idx[idx.length - 1];
+  return idx[0];
+}
+
+export function fitStrip(
+  spans: MonthSpan[],
+  block: OpenBlock,
+  pillWidth: (item: StripItem, compact: boolean) => number,
+  available: number,
+  gap: number = 4,
+): { items: StripItem[]; compact: boolean; scroll: boolean } {
+  // Candidate merge chunks (>= 2 months): before-group from month 0, after-group from the last month.
+  const chunks: [number, number][] = [];
+  for (let a = 0; a < block.from; a += 3) {
+    const b = Math.min(a + 2, block.from - 1);
+    if (b > a) chunks.push([a, b]);
+  }
+  for (let b = spans.length - 1; b > block.to; b -= 3) {
+    const a = Math.max(b - 2, block.to + 1);
+    if (b > a) chunks.push([a, b]);
+  }
+
+  const base = stripItems(spans, block);
+  const build = (merged: number): StripItem[] => {
+    const out: StripItem[] = [];
+    for (let i = 0; i < base.length; i++) {
+      const chunk = chunks.slice(0, merged).find(([a]) => a === i);
+      if (chunk) {
+        const first = base[chunk[0]] as Extract<StripItem, { kind: 'folded' }>;
+        out.push({ kind: 'folded', side: first.side, months: spans.slice(chunk[0], chunk[1] + 1) });
+        i = chunk[1];
+      } else {
+        out.push(base[i]);
+      }
+    }
+    return out;
+  };
+  const width = (items: StripItem[], c: boolean) =>
+    items.reduce((n, it) => n + pillWidth(it, c), 0) + gap * Math.max(0, items.length - 1);
+
+  let merged = 0;
+  let items = build(0);
+  while (width(items, false) > available && merged < chunks.length) {
+    merged += 1;
+    items = build(merged);
+  }
+  const compact = width(items, false) > available;
+  return { items, compact, scroll: width(items, compact) > available };
+}
+
+/** The page's existing guard: a pin survives only when the first displayed day is unchanged and the day is still in range. */
+export function keepsPin(
+  day: number,
+  prev: { minDay: number; maxDay: number },
+  next: { minDay: number; maxDay: number },
+): boolean {
+  return prev.minDay === next.minDay && isDayInRange(day, next);
 }
