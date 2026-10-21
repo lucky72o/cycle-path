@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import ReactApexChart from 'react-apexcharts';
 import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight } from './utils';
+import { monthPaletteIndex } from './monthFolding';
 import { chipStyleFor, type SensationValue } from './sensationRow';
 import type { ApexOptions } from 'apexcharts';
 import SideNav from './SideNav';
@@ -60,11 +61,11 @@ const MONTH_PALETTE: Record<number, {
 }> = {
   0: { pillBg: '#dbeafe', pillText: '#1e3a8a', chipBg: '#dbeafe', chipText: '#1e3a8a', underline: '#60a5fa', hoverWash: '#dbeafe' }, // blue (1st month)
   1: { pillBg: '#dcfce7', pillText: '#14532d', chipBg: '#dcfce7', chipText: '#14532d', underline: '#4ade80', hoverWash: '#dcfce7' }, // green (2nd month)
-  2: { pillBg: '#f1f5f9', pillText: '#334155', chipBg: '#f1f5f9', chipText: '#334155', underline: '#94a3b8', hoverWash: '#f1f5f9' }, // slate (3rd+ month)
+  2: { pillBg: '#f1f5f9', pillText: '#334155', chipBg: '#f1f5f9', chipText: '#334155', underline: '#94a3b8', hoverWash: '#f1f5f9' }, // slate (3rd month, then the cycle repeats)
 };
 
 function paletteFor(monthIndex: number) {
-  return MONTH_PALETTE[Math.min(monthIndex, 2)];
+  return MONTH_PALETTE[monthPaletteIndex(monthIndex)];
 }
 
 export default function CycleChartPage() {
@@ -1336,13 +1337,14 @@ export default function CycleChartPage() {
                       edge); hairline starts at plotAreaOffset, pills are
                       positioned by monthSpans. */}
                   <div className="absolute top-0 left-0 right-0" style={{ height: '22px', zIndex: 1 }}>
-                    {/* Hairline running through the gutter band, plot-area only */}
+                    {/* Hairline running through the gutter band, plot-area only.
+                        The 22 px gutter cell's 1 px bottom border is at y = 21–22. */}
                     <div
                       className="absolute"
                       style={{
                         left: `${plotAreaOffset}px`,
                         right: 0,
-                        top: '11px',
+                        top: '21px',
                         height: '1px',
                         background: '#cbd5e1',
                       }}
@@ -1374,7 +1376,7 @@ export default function CycleChartPage() {
                           key={span.startDayNumber}
                           className="absolute"
                           style={{
-                            top: '4px',
+                            top: '14.5px',
                             left: `${leftEdge + 4}px`,
                             maxWidth: `${pillMaxWidthPx}px`,
                             boxSizing: 'border-box',
