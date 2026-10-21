@@ -69,30 +69,29 @@ export function useMonthFolding(args: {
   const anchorSide: 'start' | 'end' = anchorLatest ? 'end' : 'start';
 
   // The user's block is only valid for the key it was set under; any change of
-  // cycle, anchor or enabled state implicitly falls back to the default.
-  const key = `${cycleId ?? ''}|${anchorLatest}|${enabled}`;
+  // cycle, anchor, enabled state or month count implicitly falls back to the
+  // default (the month count guards against a stale block indexing past the
+  // end of a cycle that lost a month).
+  const cycleAnchorKey = `${cycleId ?? ''}|${anchorLatest}`;
+  const key = `${cycleAnchorKey}|${enabled}|${spans.length}`;
   const [user, setUser] = useState<{ key: string; block: OpenBlock } | null>(null);
-  const [seenKey, setSeenKey] = useState(key);
-  if (seenKey !== key) {
+  const scrollIntent = useRef<'start' | 'end' | null>(anchorSide);
+  const [seen, setSeen] = useState({ key, cycleAnchorKey, enabled });
+  if (seen.key !== key) {
     // Render-time reset (React-supported): drop the stale block immediately,
-    // so a later return to a previous key cannot resurrect it.
-    setSeenKey(key);
+    // so a later return to a previous key cannot resurrect it. A new cycle or
+    // anchor, or folding switching back on, re-arms the scroll to the anchor
+    // side in the same render, so callers need no effect-ordering contract.
+    if (seen.cycleAnchorKey !== cycleAnchorKey || (enabled && !seen.enabled)) {
+      scrollIntent.current = anchorSide;
+    }
+    setSeen({ key, cycleAnchorKey, enabled });
     setUser(null);
   }
   const userBlock = user && user.key === key ? user.block : null;
 
   const defaultBlock = useMemo(() => defaultOpenBlock(spans, anchorLatest), [spans, anchorLatest]);
   const block = userBlock ?? defaultBlock;
-
-  const scrollIntent = useRef<'start' | 'end' | null>(anchorSide);
-  const prevCycleAnchor = useRef(`${cycleId ?? ''}|${anchorLatest}`);
-  useEffect(() => {
-    const k = `${cycleId ?? ''}|${anchorLatest}`;
-    if (prevCycleAnchor.current !== k) {
-      prevCycleAnchor.current = k;
-      scrollIntent.current = anchorSide;
-    }
-  }, [cycleId, anchorLatest, anchorSide]);
 
   const setBlock = useCallback((b: OpenBlock) => setUser({ key, block: b }), [key]);
 

@@ -97,4 +97,27 @@ describe('useMonthFolding', () => {
     expect(result.current.block).toEqual(defaultOpenBlock(spans, true));
     expect(result.current.block).not.toEqual({ from: 3, to: 3 });
   });
+
+  it('re-arms scrollIntent to the anchor side when folding switches back on', () => {
+    stubMatchMedia(true);
+    const { result } = renderHook(() => useMonthFolding(args));
+    act(() => result.current.collapseAll());
+    result.current.scrollIntent.current = null;
+    act(() => changeListener!({ matches: false }));
+    expect(result.current.scrollIntent.current).toBeNull();
+    act(() => changeListener!({ matches: true }));
+    expect(result.current.scrollIntent.current).toBe('end');
+  });
+
+  it('falls back to the default block when the cycle loses a month', () => {
+    stubMatchMedia(true);
+    const { result, rerender } = renderHook((p) => useMonthFolding(p), { initialProps: args });
+    act(() => result.current.showAll());
+    expect(result.current.block).toEqual({ from: 0, to: 3 });
+    // Day 80 is 24 Sep: October disappears; the stale { to: 3 } must not reach visibleDayRange.
+    expect(() => rerender({ ...args, lastDay: 80 })).not.toThrow();
+    expect(result.current.spans.length).toBe(3);
+    expect(result.current.block).toEqual({ from: 1, to: 2 });
+    expect(result.current.visible).toEqual({ minDay: 26, maxDay: 80 });
+  });
 });
