@@ -91,7 +91,10 @@ method; nothing it does may alter what the method shows.
 - **Standard column width** — `max(MIN_CELL_WIDTH, (cardPlotWidth) / 40)` where
   `cardPlotWidth` is the scroll container's width minus the left label reserve and
   the right reserve (`LEFT_PLOT_RESERVE_FALLBACK` / measured offset,
-  `RIGHT_PLOT_RESERVE`). A 40-day frame — the width of one paper Sensiplan sheet.
+  `RIGHT_PLOT_RESERVE`). The left reserve is the **measured label-column width**
+  (measured plot offset minus the before-ribbon slots) once Apex has rendered; the
+  130 px `LEFT_PLOT_RESERVE_FALLBACK` is used only before that first measurement.
+  A 40-day frame — the width of one paper Sensiplan sheet.
   On the owner's 1,440 px screen this evaluates to 21.7 px and floors to 22 px.
 
 ### When folding is available
@@ -121,6 +124,8 @@ Fold state resets on every page load and whenever the cycle id changes.
 
 When folding is available, the chart container's width is set explicitly to
 `leftReserve + ribbonsLeft + ribbonsRight + rightReserve + openDays × standardColumnWidth`
+(with `leftReserve` the measured label-column width, fallback 130 px only before
+measurement — same rule as the standard column width)
 (and `min-width` to the same, so the existing 800 px floor cannot stretch it). Columns
 are therefore always the standard width: fewer open days leaves empty card space on
 the right; more open days scrolls. "Show all" on a 103-day cycle gives a 22 px-column
@@ -141,7 +146,8 @@ When folding is not available, nothing about widths changes.
      and the explicit container width includes them (see "Column width"). So the
      before-group's natural x is `plotAreaOffset − ribbonsLeft` (immediately left of
      the first open day, right of the label column) and the after-group's natural x
-     is `plotAreaOffset + plotAreaWidth` (immediately right of the last open day).
+     is `plotAreaOffset + plotAreaWidth + RIGHT_PLOT_RESERVE` (just past the 40 px
+     right reserve after the last open day, so the coverline label stays clear).
      No day column ever sits under a natural slot.
   2. **Clamped pinning.** Let `sl = scrollLeft`, `cw = clientWidth` of the scroll
      container, `wL`/`wR` the group widths (24 px × count). Rendered x, in chart
@@ -204,8 +210,14 @@ The page scrolls it programmatically **only** on these events, ~350 ms after the
 chart has re-rendered (Apex re-measures on resize):
 
 - page load / cycle change: to the anchor side (end for active, start for ended);
-- after opening a folded-before month: to the start; a folded-after month: to the end;
+- after opening a folded-before month: to the start; a folded-after month: to the
+  end of the scroll range (`scrollWidth`);
 - after Show all / Collapse all: to the anchor side.
+
+"To the end" (the active-cycle anchor side) means the **latest recorded day** sits at
+the right edge of the viewport (followed by the right reserve); the padded future days
+of an active cycle (`max(28, recordedMaxDay)`) are never shown by default. Only opening
+a folded-after month scrolls to the full `scrollWidth`.
 
 Never while the user is merely looking or hovering.
 
