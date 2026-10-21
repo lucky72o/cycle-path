@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import ReactApexChart from 'react-apexcharts';
 import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight, computeMissingBbtDaysOnLine, paletteFor, LEFT_PLOT_RESERVE_FALLBACK, RIGHT_PLOT_RESERVE } from './utils';
 import { useMonthFolding } from './useMonthFolding';
-import { RIBBON_WIDTH, standardCellWidth, foldedContainerWidth, isDayInRange } from './monthFolding';
+import { RIBBON_WIDTH, standardCellWidth, foldedContainerWidth, isDayInRange, monthPillMode } from './monthFolding';
 import { FoldRibbonLayer } from './components/FoldRibbonLayer';
 import { FoldToolbar } from './components/FoldToolbar';
 import { SignDot } from './components/SignDot';
@@ -1456,22 +1456,15 @@ export default function CycleChartPage() {
                       const cellWidth = plotAreaWidth / numDays;
                       const spanWidthPx = (span.endDayNumber - span.startDayNumber + 1) * cellWidth;
                       // Pill is anchored at +4 px inset from the span's left edge; reserve 4 px on
-                      // the right too so two adjacent pills never visually overlap. Below ~22 px
-                      // of pill room (the case where a cycle starts on the last day of a month)
-                      // there's no useful label to show, so skip the pill entirely.
+                      // the right too so two adjacent pills never visually overlap. See
+                      // monthPillMode for the width thresholds: below ~22 px of room (a cycle
+                      // that starts on the last day of a month) there's no space for a label,
+                      // so a foldable month gets a "−"-only control and any other month nothing.
                       const pillMaxWidthPx = Math.max(0, spanWidthPx - 8);
-                      if (pillMaxWidthPx < 22) return null;
-
-                      // Use the 3-letter abbreviation when the full month name wouldn't fit.
-                      // Threshold 68 px = padding (16) + ~52 px of text room for the longest
-                      // English month name "September" (~46–50 px at this font), with a small
-                      // safety margin so the ellipsis safety net below rarely needs to fire.
-                      // Below it, fall back to e.g. "Jan" / "Sep".
-                      // A foldable pill carries a "−" dot (12 px + 4 px gap, 5 px less
-                      // left padding), so it needs 11 px more room for the full name.
                       const foldable = fold.canFold(span.monthIndex);
-                      const useShortLabel = pillMaxWidthPx < (foldable ? 79 : 68);
-                      const label = useShortLabel ? span.monthLabel.slice(0, 3) : span.monthLabel;
+                      const mode = monthPillMode(pillMaxWidthPx, foldable);
+                      if (mode === 'none') return null;
+                      const label = mode === 'dot' ? '' : mode === 'short' ? span.monthLabel.slice(0, 3) : span.monthLabel;
 
                       const leftEdge = plotAreaOffset + (span.startDayNumber - chartData.minDay) * cellWidth;
                       const palette = paletteFor(span.monthIndex);
@@ -1498,11 +1491,13 @@ export default function CycleChartPage() {
                             top: '14.5px',
                             left: `${leftEdge + 4}px`,
                             pointerEvents: 'auto',
-                            maxWidth: `${pillMaxWidthPx}px`,
+                            // The dot-only control is 1 px wider than the dot so it keeps its
+                            // round pill shape; it may slightly exceed the span's inset room.
+                            maxWidth: mode === 'dot' ? undefined : `${pillMaxWidthPx}px`,
                             boxSizing: 'border-box',
                             height: '14px',
                             lineHeight: '14px',
-                            padding: foldable ? '0 8px 0 3px' : '0 8px',
+                            padding: mode === 'dot' ? '0 1px' : foldable ? '0 8px 0 3px' : '0 8px',
                             borderRadius: '9px',
                             background: palette.pillBg,
                             color: palette.pillText,
@@ -1514,7 +1509,7 @@ export default function CycleChartPage() {
                             textOverflow: 'ellipsis',
                           }}
                         >
-                          {foldable && <SignDot sign="−" color={palette.pillText} />}
+                          {foldable && <SignDot sign="−" color={palette.pillText} gap={mode === 'dot' ? 0 : 4} />}
                           {label}
                         </span>
                       );

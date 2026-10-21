@@ -123,6 +123,26 @@ export function ribbonGroupX(args: {
 /** `1 day`, `2 days`. */
 export const dayWord = (n: number) => `${n} ${n === 1 ? 'day' : 'days'}`;
 
+/**
+ * How a month pill in the chart's month row should render for the room it has.
+ * `pillMaxWidthPx` is the span width minus the 4 px insets on each side.
+ *
+ * - 'full'  — full month name ("September").
+ * - 'short' — 3-letter name ("Sep"). Threshold 68 px = padding (16) + ~52 px of
+ *             text for the longest English month name; a foldable pill also
+ *             carries a 12 px "−" dot + 4 px gap (and 5 px less left padding),
+ *             so it needs 11 px more.
+ * - 'dot'   — too narrow for any label (e.g. a one-day edge month at 22 px
+ *             columns) but the month is foldable: render a "−"-only control so
+ *             the spec's first/last-month fold interaction is never unreachable.
+ * - 'none'  — too narrow for a label and not foldable: render nothing.
+ */
+export type MonthPillMode = 'full' | 'short' | 'dot' | 'none';
+export function monthPillMode(pillMaxWidthPx: number, foldable: boolean): MonthPillMode {
+  if (pillMaxWidthPx < 22) return foldable ? 'dot' : 'none';
+  return pillMaxWidthPx < (foldable ? 79 : 68) ? 'short' : 'full';
+}
+
 export function ribbonLabel(span: MonthSpan): string {
   return `${span.monthLabel.slice(0, 3)} · ${dayWord(spanDays(span))}`;
 }

@@ -5,6 +5,7 @@ import {
   collapsedBlock, isAllOpen, visibleDayRange, isDayInRange, foldedDayCount,
   standardCellWidth, foldedContainerWidth, ribbonGroupX, ribbonLabel, ribbonAriaLabel,
   monthPaletteIndex,
+  monthPillMode,
 } from '../monthFolding';
 
 const spans = (startIso: string, lastDay: number) => buildMonthSpans(new Date(startIso), 1, lastDay);
@@ -91,6 +92,21 @@ describe('geometry', () => {
     expect(ribbonGroupX({ side: 'after', naturalX: 600, groupWidth: 72, scrollLeft: 0, clientWidth: 1038 })).toBe(600);
   });
 });
+describe('monthPillMode', () => {
+  it('renders a dot-only control for a narrow foldable month, nothing for a narrow unfoldable one', () => {
+    expect(monthPillMode(14, true)).toBe('dot');   // one-day month at 22 px columns
+    expect(monthPillMode(14, false)).toBe('none');
+    expect(monthPillMode(21.9, true)).toBe('dot');
+  });
+  it('switches to the short label below 68 px (79 px when a "−" dot is shown)', () => {
+    expect(monthPillMode(22, false)).toBe('short');
+    expect(monthPillMode(67.9, false)).toBe('short');
+    expect(monthPillMode(68, false)).toBe('full');
+    expect(monthPillMode(78.9, true)).toBe('short');
+    expect(monthPillMode(79, true)).toBe('full');
+  });
+});
+
 describe('labels and colours', () => {
   it('ribbonLabel / ribbonAriaLabel pluralise', () => {
     expect(ribbonLabel(spansA[2])).toBe('Sep · 30 days');
