@@ -250,10 +250,11 @@ runs ~350 ms after the chart re-rendered, as today, and never while the user is 
 ### Touch and tooltips
 
 Today a tap on the plot or a grid cell pins a tooltip; that stays. Pills, Show all and Collapse
-all stop propagation so they never pin. Any fold/open/Show all/Collapse all clears hover and
-pinned tooltip state. The desktop guard clears when the first displayed day shifts or the
-pinned day leaves the range; extend it to clear on any change of the last displayed day too
-(folding the last open month).
+all stop propagation so they never pin. The existing tooltip guard applies unchanged in both
+modes: hover and pinned state clear when the first displayed day shifts (every column moves) or
+when the pinned day leaves the displayed range; a pin on a day that stays displayed at the same
+x survives, as it does on desktop today (e.g. opening a month after the block, or folding a
+month that does not contain the pinned day). No desktop behaviour changes.
 
 ### Month colours, range guard, geometry of other rows
 
@@ -294,7 +295,8 @@ or an invisible extended hit box), so a thumb landing on the row edge still hits
   merge, several merges, partial merge, merge from the far side, never merging open months,
   compact fallback, scroll fallback), merged-pill label and colour, tap target of a merged pill
   (nearest month), the mode gate at 1023/1024 px and its state reset, strip x on scroll, stub
-  presence and segment colours, tooltip clearing when the last displayed day changes. The
+  presence and segment colours, the tooltip guard in pills mode (a pin clears when its month
+  folds and survives when another month folds or opens after it). The
   existing suite stays green except the one assertion that folding "is disabled below 1024px"
   in `__tests__/useMonthFolding.test.tsx`, which becomes "pills mode below 1024 px".
 - A manual check on the owner's real cycle at 390×844 and 430×932 (Playwright MCP, dev server
