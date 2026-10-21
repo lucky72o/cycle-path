@@ -28,4 +28,44 @@ describe('FoldToolbar', () => {
     expect(onShowAll).toHaveBeenCalledTimes(1);
     expect(onCollapseAll).toHaveBeenCalledTimes(1);
   });
+
+  function renderWrapped(isolate: boolean) {
+    const spies = { onClick: vi.fn(), onPointerDown: vi.fn(), onTouchStart: vi.fn() };
+    const onShowAll = vi.fn();
+    const onCollapseAll = vi.fn();
+    render(
+      <div {...spies}>
+        <FoldToolbar
+          foldedDays={3}
+          allOpen={false}
+          onShowAll={onShowAll}
+          onCollapseAll={onCollapseAll}
+          {...(isolate ? { isolateEvents: true } : {})}
+        />
+      </div>,
+    );
+    for (const name of ['Show all', 'Collapse all']) {
+      const btn = screen.getByRole('button', { name });
+      fireEvent.pointerDown(btn);
+      fireEvent.touchStart(btn);
+      fireEvent.click(btn);
+    }
+    return { spies, onShowAll, onCollapseAll };
+  }
+
+  it('with isolateEvents, pointerdown/touchstart/click never reach ancestors and actions still fire', () => {
+    const { spies, onShowAll, onCollapseAll } = renderWrapped(true);
+    expect(spies.onClick).not.toHaveBeenCalled();
+    expect(spies.onPointerDown).not.toHaveBeenCalled();
+    expect(spies.onTouchStart).not.toHaveBeenCalled();
+    expect(onShowAll).toHaveBeenCalledTimes(1);
+    expect(onCollapseAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('without isolateEvents, events still propagate (desktop unchanged)', () => {
+    const { spies } = renderWrapped(false);
+    expect(spies.onClick).toHaveBeenCalledTimes(2);
+    expect(spies.onPointerDown).toHaveBeenCalledTimes(2);
+    expect(spies.onTouchStart).toHaveBeenCalledTimes(2);
+  });
 });

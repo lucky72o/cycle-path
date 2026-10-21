@@ -1399,6 +1399,7 @@ export default function CycleChartPage() {
                 allOpen={fold.allOpen}
                 onShowAll={fold.showAll}
                 onCollapseAll={fold.collapseAll}
+                isolateEvents={fold.mode === 'pills'}
               />
             )}
             <div className="overflow-x-auto" ref={scrollContainerRef}>
