@@ -90,7 +90,12 @@ export function useMonthFolding(args: {
   // cycle, anchor, fold mode or month count implicitly falls back to the
   // default (the month count guards against a stale block indexing past the
   // end of a cycle that lost a month).
-  const key = `${cycleId ?? ''}|${anchorLatest}|${mode}|${spans.length}|${focusDay ?? ''}`;
+  // The focus day's presence is part of the key: right after a save the page
+  // can render from the pre-save cache (no saved day yet), so the refetch that
+  // adds it must re-arm the focus scroll even when the month count is unchanged.
+  const focusInSpans =
+    focusDay !== null && spans.some(s => focusDay >= s.startDayNumber && focusDay <= s.endDayNumber);
+  const key = `${cycleId ?? ''}|${anchorLatest}|${mode}|${spans.length}|${focusDay ?? ''}|${focusInSpans}`;
   const [user, setUser] = useState<{ key: string; block: OpenBlock } | null>(null);
   const scrollIntent = useRef<ScrollIntent | null>(homeIntent);
   const [seenKey, setSeenKey] = useState(key);
