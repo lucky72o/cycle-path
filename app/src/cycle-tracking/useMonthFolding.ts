@@ -8,6 +8,7 @@ import {
   collapsedBlock,
   defaultOpenBlock,
   foldMonth,
+  focusedOpenBlock,
   foldedDayCount,
   foldMode,
   frameDays,
@@ -41,9 +42,10 @@ export function useIsWideViewport(): boolean {
  * Pending programmatic scroll. 'end' = the latest recorded day at the right
  * edge (padded future days of an active cycle stay off-screen); 'end-of-range'
  * = the very end of the scroll range (after opening a folded-after month);
- * 'start' = day 1 of the displayed range.
+ * 'start' = day 1 of the displayed range; { day } = that day centred (return
+ * from saving a day).
  */
-export type ScrollIntent = 'start' | 'end' | 'end-of-range';
+export type ScrollIntent = 'start' | 'end' | 'end-of-range' | { day: number };
 
 export type MonthFolding = {
   mode: FoldMode;
@@ -68,8 +70,10 @@ export function useMonthFolding(args: {
   cycleStartDate: Date | null;
   lastDay: number;
   anchorLatest: boolean;
+  /** Day just added or edited: the default view opens on it instead of the anchor. */
+  focusDay?: number | null;
 }): MonthFolding {
-  const { cycleId, cycleStartDate, lastDay, anchorLatest } = args;
+  const { cycleId, cycleStartDate, lastDay, anchorLatest, focusDay = null } = args;
   const wide = useIsWideViewport();
   const startMs = cycleStartDate ? cycleStartDate.getTime() : null;
 
@@ -80,31 +84,32 @@ export function useMonthFolding(args: {
   const mode = foldMode(wide, isFoldingEligible(lastDay, spans));
   const enabled = mode !== 'off';
   const anchorSide: 'start' | 'end' = anchorLatest ? 'end' : 'start';
+  const homeIntent: ScrollIntent = focusDay !== null ? { day: focusDay } : anchorSide;
 
   // The user's block is only valid for the key it was set under; any change of
   // cycle, anchor, fold mode or month count implicitly falls back to the
   // default (the month count guards against a stale block indexing past the
   // end of a cycle that lost a month).
-  const key = `${cycleId ?? ''}|${anchorLatest}|${mode}|${spans.length}`;
+  const key = `${cycleId ?? ''}|${anchorLatest}|${mode}|${spans.length}|${focusDay ?? ''}`;
   const [user, setUser] = useState<{ key: string; block: OpenBlock } | null>(null);
-  const scrollIntent = useRef<ScrollIntent | null>(anchorSide);
+  const scrollIntent = useRef<ScrollIntent | null>(homeIntent);
   const [seenKey, setSeenKey] = useState(key);
   if (seenKey !== key) {
     // Render-time reset (React-supported): drop the stale block immediately,
     // so a later return to a previous key cannot resurrect it. Any key change
     // (cycle, anchor, fold mode, a gained or lost month) falls back to the
-    // default view, so it also re-arms the scroll to the anchor side in the
-    // same render; callers need no effect-ordering contract.
-    scrollIntent.current = anchorSide;
+    // default view, so it also re-arms the scroll to the anchor side (or the
+    // focus day) in the same render; callers need no effect-ordering contract.
+    scrollIntent.current = homeIntent;
     setSeenKey(key);
     setUser(null);
   }
   const userBlock = user && user.key === key ? user.block : null;
 
-  const defaultBlock = useMemo(
-    () => defaultOpenBlock(spans, anchorLatest, frameDays(mode)),
-    [spans, anchorLatest, mode],
-  );
+  const defaultBlock = useMemo(() => {
+    const base = defaultOpenBlock(spans, anchorLatest, frameDays(mode));
+    return focusDay !== null ? focusedOpenBlock(spans, base, focusDay, frameDays(mode)) : base;
+  }, [spans, anchorLatest, mode, focusDay]);
   const block = userBlock ?? defaultBlock;
 
   const setBlock = useCallback((b: OpenBlock) => setUser({ key, block: b }), [key]);

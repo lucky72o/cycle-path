@@ -19,6 +19,7 @@ import { DuplicateDayDialog } from './components/DuplicateDayDialog';
 import { computeBbtForStorage } from './computeBbtForStorage';
 import { NOTE_MAX_LENGTH } from './notesValidation';
 import SideNav from './SideNav';
+import { buildReturnPath } from './returnFocus';
 
 export default function AddCycleDayPage() {
   const { cycleId } = useParams();
@@ -123,8 +124,8 @@ export default function AddCycleDayPage() {
       setNotes('');
     }
 
-    // Redirect back to chart if that's where the edit was initiated, otherwise days page
-    navigate(returnTo === 'chart' ? `/cycles/${cycleId}/chart` : `/cycles/${cycleId}/days`);
+    // Back to the page the change began on (chart or days), focused on the saved day
+    navigate(buildReturnPath(cycleId!, returnTo, date));
   };
 
   const saveDay = async (buildArgs: () => Record<string, unknown>) => {
@@ -671,7 +672,7 @@ export default function AddCycleDayPage() {
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? 'Saving...' : existingDay ? 'Update Entry' : 'Save Entry'}
               </Button>
-              <Link to={returnTo === 'chart' ? `/cycles/${cycle.id}/chart` : `/cycles/${cycle.id}/days`}>
+              <Link to={buildReturnPath(cycle.id, returnTo)}>
                 <Button type="button" variant="outline">Cancel</Button>
               </Link>
             </div>

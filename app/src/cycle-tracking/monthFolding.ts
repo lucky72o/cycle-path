@@ -44,6 +44,34 @@ export function defaultOpenBlock(
   return { from, to };
 }
 
+/**
+ * The block to open when returning to the chart focused on `day`: the default
+ * block if it already shows that day, else the day's month grown (later months
+ * first) until `frame` days are open.
+ */
+export function focusedOpenBlock(
+  spans: MonthSpan[],
+  base: OpenBlock,
+  day: number,
+  frame: number = STANDARD_FRAME_DAYS,
+): OpenBlock {
+  const i = spans.findIndex(s => day >= s.startDayNumber && day <= s.endDayNumber);
+  if (i < 0 || (i >= base.from && i <= base.to)) return base;
+  let from = i;
+  let to = i;
+  let total = spanDays(spans[i]);
+  while (total < frame && (from > 0 || to < spans.length - 1)) {
+    if (to < spans.length - 1) {
+      to += 1;
+      total += spanDays(spans[to]);
+    } else {
+      from -= 1;
+      total += spanDays(spans[from]);
+    }
+  }
+  return { from, to };
+}
+
 export function canFold(block: OpenBlock, monthIndex: number): boolean {
   return block.from < block.to && (monthIndex === block.from || monthIndex === block.to);
 }

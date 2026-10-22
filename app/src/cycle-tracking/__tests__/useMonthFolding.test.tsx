@@ -177,3 +177,27 @@ describe('useMonthFolding', () => {
     expect(result.current.visible).toEqual({ minDay: 26, maxDay: 80 });
   });
 });
+
+describe('useMonthFolding with a focus day', () => {
+  it('opens the focus month and arms a scroll to that day', () => {
+    stubMatchMedia(false);
+    const { result } = renderHook(() => useMonthFolding({ ...args, focusDay: 30 }));
+    expect(result.current.block).toEqual({ from: 1, to: 1 });
+    expect(result.current.scrollIntent.current).toEqual({ day: 30 });
+  });
+
+  it('re-arms the focus scroll on a fold-mode change', () => {
+    stubMatchMedia(true);
+    const { result } = renderHook(() => useMonthFolding({ ...args, focusDay: 30 }));
+    result.current.scrollIntent.current = null;
+    act(() => changeListener!({ matches: false }));
+    expect(result.current.scrollIntent.current).toEqual({ day: 30 });
+  });
+
+  it('arms the focus scroll even when folding is off', () => {
+    stubMatchMedia(false);
+    const { result } = renderHook(() => useMonthFolding({ ...args, lastDay: 35, focusDay: 12 }));
+    expect(result.current.mode).toBe('off');
+    expect(result.current.scrollIntent.current).toEqual({ day: 12 });
+  });
+});

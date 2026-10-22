@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from 'wasp/client/operations';
 import { getCycleById, getUserSettings, getUserCycles } from 'wasp/client/operations';
 import { useParams, Link } from 'react-router-dom';
@@ -6,6 +6,8 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader } from '../components/ui/card';
 import { formatTemperature, formatDate, getCycleDayCount } from './utils';
 import SideNav from './SideNav';
+import { useReturnFocus } from './returnFocus';
+import { findSavedDayForDate } from './duplicateDay';
 
 export default function CycleDaysPage() {
   const { cycleId } = useParams();
@@ -13,6 +15,27 @@ export default function CycleDaysPage() {
   const { data: allCycles } = useQuery(getUserCycles);
   const { data: cycle, isLoading: cycleLoading } = useQuery(getCycleById, { cycleId: cycleId || '' }, { enabled: !!cycleId });
   const { data: settings, isLoading: settingsLoading } = useQuery(getUserSettings);
+
+  // Day just added or edited from this page (`?focus=`): scroll its row (or
+  // card, on mobile) into view and highlight it once. Waits for the refetched
+  // cycle when the cached one does not have the new day yet.
+  const focusDate = useReturnFocus(cycleId);
+  const [flashDayId, setFlashDayId] = useState<string | null>(null);
+  const flashedRef = useRef(false);
+  useEffect(() => {
+    if (flashedRef.current || !cycle || !focusDate) return;
+    const day = findSavedDayForDate(cycle.days, cycle.startDate, focusDate);
+    if (!day) return;
+    flashedRef.current = true;
+    const visible = Array.from(document.querySelectorAll<HTMLElement>(`[data-day-id="${day.id}"]`))
+      .find((el) => el.getClientRects().length > 0);
+    visible?.scrollIntoView({ block: 'center' });
+    setFlashDayId(day.id);
+  }, [cycle, focusDate]);
+  const flashProps = (dayId: string) => ({
+    'data-day-id': dayId,
+    ...(flashDayId === dayId && { onAnimationEnd: () => setFlashDayId(null) }),
+  });
 
   const prevCycle = useMemo(() => {
     if (!cycle || !allCycles) return null;
@@ -104,7 +127,7 @@ export default function CycleDaysPage() {
               {/* Mobile card layout */}
               <div className="md:hidden space-y-3">
                 {cycle.days.map((day) => (
-                  <div key={day.id} className="border rounded-lg p-3">
+                  <div key={day.id} className={`border rounded-lg p-3${flashDayId === day.id ? ' focus-flash' : ''}`} {...flashProps(day.id)}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-semibold">Day {day.dayNumber}</span>
                       <span className="text-sm text-muted-foreground">{formatDate(new Date(day.date))} ({day.dayOfWeek})</span>
@@ -186,7 +209,7 @@ export default function CycleDaysPage() {
                   </thead>
                   <tbody>
                     {cycle.days.map((day) => (
-                      <tr key={day.id} className="border-b hover:bg-muted/50">
+                      <tr key={day.id} className={`border-b hover:bg-muted/50${flashDayId === day.id ? ' focus-flash' : ''}`} {...flashProps(day.id)}>
                         <td className="py-3 px-4 font-medium">{day.dayNumber}</td>
                         <td className="py-3 px-4">{formatDate(new Date(day.date))}</td>
                         <td className="py-3 px-4">{day.dayOfWeek}</td>
