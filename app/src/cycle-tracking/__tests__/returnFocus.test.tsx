@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import { render, act } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { buildMonthSpans } from '../utils';
 import { focusedOpenBlock, STANDARD_FRAME_DAYS, PILLS_FRAME_DAYS } from '../monthFolding';
-import { buildReturnPath, dayNumberForDate } from '../returnFocus';
+import { buildReturnPath, dayNumberForDate, useReturnFocus } from '../returnFocus';
 
 // 2026-07-07 start, 105 days: Jul = days 1-25, Aug 26-56, Sep 57-86, Oct 87-105.
 const spans = buildMonthSpans(new Date('2026-07-07'), 1, 105);
@@ -46,5 +48,42 @@ describe('buildReturnPath', () => {
 
   it('carries no focus without a date (cancel)', () => {
     expect(buildReturnPath('c1', 'chart')).toBe('/cycles/c1/chart');
+  });
+});
+
+describe('useReturnFocus', () => {
+  function Probe() {
+    const { cycleId } = useParams();
+    probe.focus = useReturnFocus(cycleId);
+    probe.navigate = useNavigate();
+    probe.search = useLocation().search;
+    return null;
+  }
+  const probe: { focus: string | null; navigate: (to: string) => void; search: string } = {
+    focus: null,
+    navigate: () => {},
+    search: '',
+  };
+  const renderAt = (url: string) =>
+    render(
+      <MemoryRouter initialEntries={[url]}>
+        <Routes>
+          <Route path="/cycles/:cycleId/chart" element={<Probe />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+  it('keeps the focus date and strips it from the address', () => {
+    renderAt('/cycles/a/chart?focus=2026-08-01');
+    expect(probe.focus).toBe('2026-08-01');
+    expect(probe.search).toBe('');
+  });
+
+  it('drops the focus once another cycle is shown, so coming back is a normal visit', () => {
+    renderAt('/cycles/a/chart?focus=2026-08-01');
+    act(() => probe.navigate('/cycles/b/chart'));
+    expect(probe.focus).toBeNull();
+    act(() => probe.navigate('/cycles/a/chart'));
+    expect(probe.focus).toBeNull();
   });
 });

@@ -24,8 +24,7 @@ export function buildReturnPath(cycleId: string, returnTo: string | null, focusD
 
 /**
  * Reads `?focus=` once and strips it from the address (so a refresh does not
- * replay the highlight), keeping the date for as long as the page shows the
- * same cycle.
+ * replay the highlight), keeping the date until the page shows another cycle.
  */
 export function useReturnFocus(cycleId: string | undefined): string | null {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -33,6 +32,9 @@ export function useReturnFocus(cycleId: string | undefined): string | null {
   const [focus, setFocus] = useState<{ cycleId: string | undefined; date: string } | null>(
     param ? { cycleId, date: param } : null,
   );
+  // Router reuses the page across cycles (previous/next links): showing
+  // another cycle ends the focus, so returning later is a normal visit.
+  if (focus && focus.cycleId !== cycleId) setFocus(null);
   useEffect(() => {
     if (!param) return;
     setFocus({ cycleId, date: param });
