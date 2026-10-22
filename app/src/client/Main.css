@@ -192,3 +192,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Brief highlight on the day just added or edited (see returnFocus.ts). */
+@keyframes focus-flash {
+  from { background-color: rgb(186 230 253 / 0.75); }
+  to { background-color: transparent; }
+}
+.focus-flash {
+  animation: focus-flash 1.5s ease-out forwards;
+}

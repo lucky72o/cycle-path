@@ -6,6 +6,7 @@ import {
   toDisplayTemperature,
   type TemperatureUnit
 } from './utils';
+import { dayNumberForDate } from './returnFocus';
 
 export type DayFormValues = {
   bbt: string; // raw input, display unit
@@ -93,8 +94,7 @@ export function findSavedDayForDate<T extends { dayNumber: number }>(
   cycleStartDate: Date | string,
   isoDate: string
 ): T | null {
-  const dayNumber =
-    Math.floor((new Date(isoDate).getTime() - new Date(cycleStartDate).getTime()) / 86400000) + 1;
+  const dayNumber = dayNumberForDate(cycleStartDate, isoDate);
   if (!(dayNumber >= 1)) return null;
   return days.find((d) => d.dayNumber === dayNumber) ?? null;
 }

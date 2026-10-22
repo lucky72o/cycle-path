@@ -177,3 +177,37 @@ describe('useMonthFolding', () => {
     expect(result.current.visible).toEqual({ minDay: 26, maxDay: 80 });
   });
 });
+
+describe('useMonthFolding with a focus day', () => {
+  it('opens the focus month and arms a scroll to that day', () => {
+    stubMatchMedia(false);
+    const { result } = renderHook(() => useMonthFolding({ ...args, focusDay: 30 }));
+    expect(result.current.block).toEqual({ from: 1, to: 1 });
+    expect(result.current.scrollIntent.current).toEqual({ day: 30 });
+  });
+
+  it('re-arms the focus scroll on a fold-mode change', () => {
+    stubMatchMedia(true);
+    const { result } = renderHook(() => useMonthFolding({ ...args, focusDay: 30 }));
+    result.current.scrollIntent.current = null;
+    act(() => changeListener!({ matches: false }));
+    expect(result.current.scrollIntent.current).toEqual({ day: 30 });
+  });
+
+  it('re-arms the focus scroll when a refetch first brings the focus day into the cycle', () => {
+    stubMatchMedia(false);
+    // Pre-save cache: an ended cycle of 28 days; the saved day 29 (Aug 4) is not in it yet.
+    const props = { ...args, anchorLatest: false, lastDay: 28, focusDay: 29 };
+    const { result, rerender } = renderHook((p) => useMonthFolding(p), { initialProps: props });
+    result.current.scrollIntent.current = null; // consumed against the stale range
+    rerender({ ...props, lastDay: 29 }); // same months, so only the focus check changes
+    expect(result.current.scrollIntent.current).toEqual({ day: 29 });
+  });
+
+  it('arms the focus scroll even when folding is off', () => {
+    stubMatchMedia(false);
+    const { result } = renderHook(() => useMonthFolding({ ...args, lastDay: 35, focusDay: 12 }));
+    expect(result.current.mode).toBe('off');
+    expect(result.current.scrollIntent.current).toEqual({ day: 12 });
+  });
+});

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import ReactApexChart from 'react-apexcharts';
 import { toDisplayTemperature, formatTemperature, formatDate, formatDateLong, formatDateDDMMMYYYY, resolveCycleDayIsoDate, getDayOfWeekAbbreviationChip, getDayOfWeek, getCycleDayCount, getTempNodeLabel, computeContainerMinWidth, buildMonthSpans, isCycleDayInTail, getCFBarColor, getCFBarHeight, computeMissingBbtDaysOnLine, paletteFor, LEFT_PLOT_RESERVE_FALLBACK, RIGHT_PLOT_RESERVE } from './utils';
 import { useMonthFolding } from './useMonthFolding';
-import { RIBBON_WIDTH, standardCellWidth, foldedContainerWidth, monthPillMode, headerGeometry, keepsPin } from './monthFolding';
+import { RIBBON_WIDTH, standardCellWidth, foldedContainerWidth, monthPillMode, headerGeometry, keepsPin, isDayInRange } from './monthFolding';
 import { FoldRibbonLayer } from './components/FoldRibbonLayer';
 import { FoldToolbar } from './components/FoldToolbar';
 import { MonthPillStrip } from './components/MonthPillStrip';
@@ -33,6 +33,7 @@ import {
   ThermalShiftForegroundLayer,
 } from './interpretation/components/ThermalShiftAnnotations';
 import toast from 'react-hot-toast';
+import { dayNumberForDate, useReturnFocus } from './returnFocus';
 
 const DISTURBANCE_EMOJI: Record<string, string> = {
   POOR_SLEEP: '🌙',
@@ -201,11 +202,23 @@ export default function CycleChartPage() {
   // reserved slots either side of the plot (extra Apex grid padding); below
   // 1024 px ('pills' mode) folded months become pills in the floating
   // MonthPillStrip and no ribbon slots are reserved.
+  // Day just added or edited from this chart (`?focus=`): the chart opens on
+  // it and briefly highlights its column.
+  const focusDate = useReturnFocus(cycleId);
+  const focusDay = useMemo(() => {
+    if (!cycle || !focusDate) return null;
+    const n = dayNumberForDate(cycle.startDate, focusDate);
+    return n >= 1 ? n : null;
+  }, [cycle, focusDate]);
+  const [flashDay, setFlashDay] = useState<number | null>(null);
+  const flashedRef = useRef(false);
+
   const fold = useMonthFolding({
     cycleId: cycle?.id,
     cycleStartDate: cycle ? new Date(cycle.startDate) : null,
     lastDay: cycle ? (cycle.isActive ? Math.max(28, recordedMaxDay) : recordedMaxDay) : 0,
     anchorLatest: !!cycle?.isActive,
+    focusDay,
   });
   // Header geometry follows the fold mode: pills mode has a taller 30 px
   // gutter row; ribbons and off keep the 22 px gutter. Pills mode reserves no
@@ -962,7 +975,19 @@ export default function CycleChartPage() {
       const intent = fold.scrollIntent.current;
       if (!intent) return;
       const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
-      if (intent === 'start') {
+      if (typeof intent === 'object') {
+        // Return from saving a day: centre it, then highlight it once.
+        const numDays = chartData.maxDay - chartData.minDay + 1;
+        const cellWidth = plotAreaWidth / numDays;
+        const target = plotAreaOffset
+          + (intent.day - displayDayRange.minDay + 0.5) * cellWidth
+          - el.clientWidth / 2;
+        el.scrollLeft = Math.min(maxScroll, Math.max(0, target));
+        if (!flashedRef.current && isDayInRange(intent.day, displayDayRange)) {
+          flashedRef.current = true;
+          setFlashDay(intent.day);
+        }
+      } else if (intent === 'start') {
         el.scrollLeft = 0;
       } else if (intent === 'end-of-range') {
         // Opening a folded-after month: show the very end of the range.
@@ -1322,7 +1347,7 @@ export default function CycleChartPage() {
                 <span className="hidden sm:inline">View Days</span>
               </Button>
             </Link>
-            <Link to={`/cycles/${cycle.id}/add-day`}>
+            <Link to={`/cycles/${cycle.id}/add-day?returnTo=chart`}>
               <Button variant="outline" size="sm" aria-label="Add a Day">
                 <svg className="w-4 h-4 sm:mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <circle cx="12" cy="12" r="10"></circle>
@@ -1851,6 +1876,22 @@ export default function CycleChartPage() {
                   yAxisRange={yAxisRange}
                   minDay={chartData.minDay}
                   maxDay={chartData.maxDay}
+                />
+              )}
+
+              {/* Highlight on the day just added or edited; fades out once */}
+              {flashDay !== null && chartData && isDayInRange(flashDay, chartData) && (
+                <div
+                  className="absolute pointer-events-none focus-flash"
+                  data-testid="focus-flash"
+                  onAnimationEnd={() => setFlashDay(null)}
+                  style={{
+                    left: `${plotAreaOffset + (flashDay - chartData.minDay) * (plotAreaWidth / (chartData.maxDay - chartData.minDay + 1))}px`,
+                    width: `${plotAreaWidth / (chartData.maxDay - chartData.minDay + 1)}px`,
+                    top: 0,
+                    height: '100%',
+                    zIndex: 4
+                  }}
                 />
               )}
 
@@ -2870,7 +2911,7 @@ export default function CycleChartPage() {
           ) : (
             <div className="text-center py-12 text-muted-foreground">
               <p className="mb-4">No temperature data recorded yet.</p>
-              <Link to={`/cycles/${cycle.id}/add-day`}>
+              <Link to={`/cycles/${cycle.id}/add-day?returnTo=chart`}>
                 <Button>Add Your First Entry</Button>
               </Link>
             </div>
